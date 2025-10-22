@@ -758,6 +758,29 @@
             // Tentatives de sauvegarde avec strategies si quota dépassé
             function saveZones() {
                 try {
+                    // Ensure each floor plan has a fileName when an imageUrl exists so exports include the original or a sensible default
+                    try {
+                        (zones || []).forEach(z => {
+                            (z.floors || []).forEach(f => {
+                                try {
+                                    const plan = f && f.plan;
+                                    if (plan && plan.imageUrl && !plan.fileName) {
+                                        // Infer extension from data URL if possible
+                                        let ext = '.png';
+                                        const lower = String(plan.imageUrl).toLowerCase();
+                                        if (lower.startsWith('data:image/png')) ext = '.png';
+                                        else if (lower.startsWith('data:image/jpeg') || lower.startsWith('data:image/jpg')) ext = '.jpg';
+                                        else if (lower.startsWith('data:image/svg+xml')) ext = '.svg';
+                                        else if (lower.indexOf('png') !== -1) ext = '.png';
+
+                                        const zid = (z && z.id) ? String(z.id).replace(/[^a-z0-9_-]/gi,'') : 'zone';
+                                        const fid = (f && f.id) ? String(f.id).replace(/[^a-z0-9_-]/gi,'') : 'floor';
+                                        plan.fileName = `${zid}_${fid}${ext}`;
+                                    }
+                                } catch (e) { /* ignore per-floor errors */ }
+                            });
+                        });
+                    } catch (e) { /* ignore */ }
                     localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
@@ -1611,6 +1634,8 @@
                 img.onload = () => {
                     targetFloor.plan = targetFloor.plan || {};
                     targetFloor.plan.imageUrl = compressedDataUrl;
+                    // Preserve original filename so exports can reference it
+                    try { targetFloor.plan.fileName = file.name || ''; } catch (err) { targetFloor.plan.fileName = ''; }
                     targetFloor.plan.naturalWidth = img.width;
                     targetFloor.plan.naturalHeight = img.height;
                     // Save with quota handling
@@ -2049,6 +2074,7 @@
                 const img = new Image();
                 img.onload = () => {
                     newZone.floors[0].plan.imageUrl = e.target.result;
+                    try { newZone.floors[0].plan.fileName = planFile.name || ''; } catch (err) { newZone.floors[0].plan.fileName = ''; }
                     newZone.floors[0].plan.naturalWidth = img.width;
                     newZone.floors[0].plan.naturalHeight = img.height;
                     zones.push(newZone);
@@ -2125,6 +2151,8 @@
                         id: importedZone.defaultFloorId || 'RDC',
                         name: importedZone.defaultFloorName || 'Rez-de-chaussée',
                         plan: importedZone.plan || { imageUrl: '' },
+                        // keep any provided filename
+                        fileName: importedZone.plan?.fileName || (importedZone.plan && importedZone.plan.fileName) || '' ,
                         elements: importedZone.elements || { extincteurs: [], dm: [], sorties: [] }
                     }];
                     delete importedZone.plan;
