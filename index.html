@@ -2677,8 +2677,18 @@
                         adminElementsDiv.style.top = '0';
                         adminElementsDiv.style.width = '100%';
                         adminElementsDiv.style.height = '100%';
-                        adminElementsDiv.style.pointerEvents = 'none'; // allow clicks to pass to image for dragging logic
+                        // Allow admin elements to be interactive (drag, contextmenu). We'll place
+                        // the overlay above the image using z-index so clicks reach admin elements.
+                        adminElementsDiv.style.pointerEvents = 'auto';
+                        adminElementsDiv.style.zIndex = '2';
                     }
+                    try {
+                        // Ensure the admin image sits below the overlay
+                        if (adminImg) {
+                            adminImg.style.position = adminImg.style.position || 'relative';
+                            adminImg.style.zIndex = '1';
+                        }
+                    } catch (e) { /* ignore */ }
                 } catch (e) { /* ignore */ }
                 // Fonction pour repositionner avec observation
                 const setupPositioning = () => {
