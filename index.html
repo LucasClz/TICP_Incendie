@@ -548,39 +548,68 @@
                 await loadData();
                 setupEventListeners();
                 renderZoneList();
-                if (zones.find(z => z.id === 'AT14')) {
-                    selectZone('AT14');
-                }
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
             }
 
-            // Load data from localStorage
+            // Load data from localStorage (try to fetch AT14.json if no saved zones)
             async function loadData() {
                 const savedZones = localStorage.getItem('fireInspection_zones');
                 const savedInspections = localStorage.getItem('fireInspection_inspections');
-                
+
                 if (savedZones) {
-                    zones = JSON.parse(savedZones);
-                } else {
-                    // Default zones
                     try {
-                        const response = await fetch('AT14.json');
-                        const data = await response.json();
-                        zones = [data];
-                    } catch {
+                        zones = JSON.parse(savedZones);
+                    } catch (e) {
+                        console.error('Erreur parsing savedZones from localStorage, clearing value', e);
+                        localStorage.removeItem('fireInspection_zones');
+                    }
+                } else {
+                    // If no saved zones, try to fetch AT14.json from a few likely locations (relative to this HTML file)
+                    const candidatePaths = ['AT14.json', './AT14.json', './data/AT14.json'];
+                    let loaded = false;
+                    for (const p of candidatePaths) {
+                        try {
+                            // Attempt fetch - may fail on file:// protocol in some browsers; catch and continue
+                            const resp = await fetch(p);
+                            if (!resp.ok) continue;
+                            const json = await resp.json();
+
+                            // Normalize: accept array of zones, object with 'zones' array, or single zone object
+                            if (Array.isArray(json)) {
+                                zones = json;
+                            } else if (json && Array.isArray(json.zones)) {
+                                zones = json.zones;
+                            } else if (json && (json.id || json.name)) {
+                                zones = [json];
+                            } else {
+                                console.debug('Fetched JSON did not match expected shape:', p, json);
+                                continue;
+                            }
+
+                            console.info('Zones loaded from', p);
+                            saveZones();
+                            loaded = true;
+                            break;
+                        } catch (e) {
+                            console.debug('Failed to fetch', p, e);
+                        }
+                    }
+
+                    if (!loaded) {
+                        // Fall back to built-in default zones
                         zones = [{
                             id: 'AT14',
                             name: 'AT14',
                             plan: {
                                 imageUrl: 'data:image/svg+xml;base64,' + btoa(`
-                                    <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-                                        <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
-                                        <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
-                                        <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14</text>
-                                        <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
-                                    </svg>
-                                `),
+                                <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+                                    <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
+                                    <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14</text>
+                                    <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
+                                </svg>
+                            `),
                                 naturalWidth: 800,
                                 naturalHeight: 600
                             },
@@ -608,12 +637,17 @@
                                 }, {})
                             }
                         }];
+                        saveZones();
                     }
-                    saveZones();
                 }
-                
+
                 if (savedInspections) {
-                    inspections = JSON.parse(savedInspections);
+                    try {
+                        inspections = JSON.parse(savedInspections);
+                    } catch (e) {
+                        console.error('Erreur parsing savedInspections from localStorage', e);
+                        inspections = [];
+                    }
                 }
             }
 
