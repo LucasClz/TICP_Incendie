@@ -122,16 +122,6 @@
         .admin-element.extincteur { background: #ef4444; }
         .admin-element.dm { background: #f59e0b; }
         .admin-element.sortie { background: #10b981; }
-        /* Ensure admin elements overlay covers the image and receives pointer events */
-        #adminElements {
-            position: absolute;
-            left: 0;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            pointer-events: auto; /* allow clicks/drags on admin elements */
-            z-index: 20;
-        }
         
         .modal {
             position: fixed;
@@ -617,6 +607,22 @@
                             delete z.plan;
                             delete z.elements;
                         }
+                        // Convert old percentage positions and sizes to pixel-based
+                        if (z.floors) {
+                            z.floors.forEach(floor => {
+                                const naturalWidth = floor.plan?.naturalWidth || 800;
+                                const naturalHeight = floor.plan?.naturalHeight || 600;
+                                ['extincteurs', 'dm', 'sorties'].forEach(type => {
+                                    if (floor.elements[type]) {
+                                        floor.elements[type].forEach(el => {
+                                            if (el.x !== undefined && el.x <= 1) el.x *= naturalWidth;
+                                            if (el.y !== undefined && el.y <= 1) el.y *= naturalHeight;
+                                            if (el.size !== undefined && el.size <= 1) el.size = Math.max(5, el.size * naturalWidth);
+                                        });
+                                    }
+                                });
+                            });
+                        }
                         return z;
                     });
                     // persist migration result
@@ -684,16 +690,16 @@
                                 },
                                 elements: {
                                     extincteurs: [
-                                        { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
-                                        { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
+                                        { id: 'EXT-001', type: 'Poudre', x: 160, y: 180, size: 20 },
+                                        { id: 'EXT-002', type: 'CO2', x: 640, y: 180, size: 20 }
                                     ],
                                     dm: [
-                                        { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
-                                        { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
+                                        { id: 'DM-001', x: 80, y: 420, size: 18 },
+                                        { id: 'DM-002', x: 720, y: 420, size: 18 }
                                     ],
                                     sorties: [
-                                        { x: 0.5, y: 0.1, size: 0.035 },
-                                        { x: 0.5, y: 0.9, size: 0.035 }
+                                        { x: 400, y: 60, size: 23 },
+                                        { x: 400, y: 540, size: 23 }
                                     ]
                                 }
                             },
@@ -712,7 +718,7 @@
                                 },
                                 elements: {
                                     extincteurs: [
-                                        { id: 'EXT-101', type: 'Eau', x: 0.4, y: 0.5, size: 0.03 }
+                                        { id: 'EXT-101', type: 'Eau', x: 320, y: 300, size: 20 }
                                     ],
                                     dm: [],
                                     sorties: []
@@ -846,90 +852,63 @@
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
-    // Position elements using getBoundingClientRect for consistent coordinate space
-    function positionElement(el, xPercent, yPercent, isAdminMode = false) {
+    function positionElement(el, xPixel, yPixel, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
         const planImage = document.getElementById(planImageId);
-
+        
         if (!planImage) {
             el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            el.style.left = `${xPixel}px`;
+            el.style.top = `${yPixel}px`;
             return;
         }
-
+        
+        // Vérifier que l'image est chargée
         if (!planImage.complete || planImage.naturalHeight === 0) {
             el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            el.style.left = `${xPixel}px`;
+            el.style.top = `${yPixel}px`;
             return;
         }
-
+        
+        const naturalWidth = planImage.naturalWidth || 800;
+        const naturalHeight = planImage.naturalHeight || 600;
         const imageParent = planImage.parentElement;
         if (!imageParent) {
             el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            el.style.left = `${xPixel}px`;
+            el.style.top = `${yPixel}px`;
             return;
         }
-
-        // Use bounding rects (same reference used during mouse events)
+        
+        // Calcul des positions en pixels absolus
         const imageRect = planImage.getBoundingClientRect();
         const parentRect = imageParent.getBoundingClientRect();
-
+        
+        // Position de l'image dans le parent
         const relLeft = imageRect.left - parentRect.left;
         const relTop = imageRect.top - parentRect.top;
-
+        
+        // Position absolue de l'élément
+        const xPercent = xPixel / naturalWidth;
+        const yPercent = yPixel / naturalHeight;
         const leftPx = relLeft + (xPercent * imageRect.width);
         const topPx = relTop + (yPercent * imageRect.height);
 
         el.style.position = 'absolute';
-        el.style.left = `${Math.round(leftPx)}px`;
-        el.style.top = `${Math.round(topPx)}px`;
+        el.style.left = `${leftPx}px`;
+        el.style.top = `${topPx}px`;
 
-        // Normalize dataset.size: code historically sometimes stored percent (e.g. 3) instead of fraction (0.03)
-        let size = parseFloat(el.dataset.size);
-        if (!isNaN(size)) {
-            // If size looks like a percentage (>1), convert to fraction
-            if (size > 1) {
-                size = size / 100;
-                // write back normalized value to dataset so future calls are consistent
-                try { el.dataset.size = String(size); } catch (e) {}
-            }
-        }
-
-        let pxSize = null;
-        if (!isNaN(size)) {
-            pxSize = Math.max(6, Math.round(size * imageRect.width));
-            el.style.width = pxSize + 'px';
-            el.style.height = pxSize + 'px';
+        // If element has a size (in pixels), apply width/height scaled
+        const sizePx = parseFloat(el.dataset.size);
+        if (!isNaN(sizePx)) {
+            const scale = imageRect.width / naturalWidth;
+            const px = Math.max(6, Math.round(sizePx * scale));
+            el.style.width = px + 'px';
+            el.style.height = px + 'px';
+            // keep center alignment via transform
             el.style.transform = 'translate(-50%, -50%)';
         }
-
-        // Debug output when enabled
-        try {
-            if (window.DEBUG_POSITION) {
-                console.debug('[positionElement]', { planImageId, relLeft, relTop, imageWidth: imageRect.width, imageHeight: imageRect.height, xPercent, yPercent, leftPx, topPx, datasetSize: el.dataset.size, pxSize });
-            }
-
-            // Optional visual overlay for debugging sizes/positions
-            if (window.DEBUG_OVERLAY) {
-                ensureDebugOverlay();
-                const overlay = document.getElementById('positionDebugOverlay');
-                if (overlay) {
-                    const id = el.dataset.elementKey || (el.dataset.type ? `${el.dataset.type}-${el.dataset.index || '0'}` : 'el');
-                    const entryId = `dbg-${id}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-                    let entry = document.getElementById(entryId);
-                    if (!entry) {
-                        entry = document.createElement('div');
-                        entry.id = entryId;
-                        entry.className = 'dbg-entry';
-                        overlay.appendChild(entry);
-                    }
-                    entry.innerText = `${id}: x=${(xPercent*100).toFixed(1)}% y=${(yPercent*100).toFixed(1)}% size=${(isNaN(size)?'n/a':(size*100).toFixed(2)+'%')} → ${pxSize||'-'}px`;
-                }
-            }
-        } catch (e) {}
     }
 
     function repositionHotspots() {
@@ -956,33 +935,9 @@
     function scheduleReposition(delay = 200) {
         if (_repositionTimer) clearTimeout(_repositionTimer);
         _repositionTimer = setTimeout(() => {
-            // Run reposition inside rAF to ensure layout has settled after panel transitions
-            window.requestAnimationFrame(() => {
-                repositionHotspots();
-                _repositionTimer = null;
-            });
+            repositionHotspots();
+            _repositionTimer = null;
         }, delay);
-    }
-
-    // Debug overlay utilities
-    function ensureDebugOverlay() {
-        if (document.getElementById('positionDebugOverlay')) return;
-        const overlay = document.createElement('div');
-        overlay.id = 'positionDebugOverlay';
-        overlay.style.position = 'fixed';
-        overlay.style.right = '8px';
-        overlay.style.bottom = '8px';
-        overlay.style.background = 'rgba(0,0,0,0.6)';
-        overlay.style.color = 'white';
-        overlay.style.fontSize = '11px';
-        overlay.style.padding = '6px';
-        overlay.style.maxHeight = '40vh';
-        overlay.style.overflow = 'auto';
-        overlay.style.zIndex = 999999;
-        overlay.style.borderRadius = '6px';
-        overlay.style.minWidth = '180px';
-        overlay.className = 'position-debug-overlay';
-        document.body.appendChild(overlay);
     }
 
     function createHotspot(type, x, y, elementData) {
@@ -1370,11 +1325,7 @@
         hotspot.className = `hotspot ${type}`;
         hotspot.dataset.x = String(x);
         hotspot.dataset.y = String(y);
-        if (elementData && elementData.size !== undefined) {
-            let s = Number(elementData.size);
-            if (!isNaN(s) && s > 1) s = s / 100;
-            hotspot.dataset.size = String(s);
-        }
+        if (elementData && elementData.size !== undefined) hotspot.dataset.size = String(elementData.size);
         
         // Position initiale
         positionElement(hotspot, x, y, false);
@@ -2178,13 +2129,15 @@
         currentFloor.elements = currentFloor.elements || { extincteurs: [], dm: [], sorties: [] };
         currentFloor.elements[collectionKey] = currentFloor.elements[collectionKey] || [];
         const collection = currentFloor.elements[collectionKey];
-        const element = { x: 0.5, y: 0.5 };
-        // read default size input if present (percentage), otherwise fallback to 2%
+        const naturalWidth = currentFloor.plan?.naturalWidth || 800;
+        const naturalHeight = currentFloor.plan?.naturalHeight || 600;
+        const element = { x: 0.5 * naturalWidth, y: 0.5 * naturalHeight };
+        // read default size input if present (percentage), otherwise fallback to 20px
         const sizeInput = document.getElementById('defaultElemSize');
-        let defaultSize = 0.02;
+        let defaultSize = 20;
         if (sizeInput) {
             const parsed = parseFloat(sizeInput.value);
-            if (!isNaN(parsed)) defaultSize = Math.max(0.005, Math.min(0.5, parsed / 100));
+            if (!isNaN(parsed)) defaultSize = Math.max(5, Math.min(200, parsed));
         }
         element.size = defaultSize;
         
@@ -2222,6 +2175,9 @@
         const container = document.getElementById('elementsList');
         if (!container || !currentZone) return;
         
+        const naturalWidth = currentFloor?.plan?.naturalWidth || 800;
+        const naturalHeight = currentFloor?.plan?.naturalHeight || 600;
+        
         const sections = [
             { type: 'extincteur', label: 'Extincteurs', collectionKey: 'extincteurs' },
             { type: 'dm', label: 'Déclencheurs Manuels', collectionKey: 'dm' },
@@ -2235,7 +2191,7 @@
                     <div class="border border-gray-200 rounded px-2 py-1 text-xs flex justify-between items-center bg-gray-50">
                         <div class="flex-1">
                             <div class="font-medium">${el.id || `Sortie #${idx + 1}`}${el.type ? ` (${el.type})` : ''}</div>
-                            <div class="text-gray-500">X: ${Math.round(el.x * 100)}% Y: ${Math.round(el.y * 100)}% Taille: ${Math.round((el.size || 0.02) * 100)}%</div>
+                            <div class="text-gray-500">X: ${Math.round((el.x / naturalWidth) * 100)}% Y: ${Math.round((el.y / naturalHeight) * 100)}% Taille: ${el.size || 20}px</div>
                         </div>
                         <div class="flex gap-1">
                             <button type="button" class="px-2 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600" onclick="editElementDialog('${type}', ${idx})">Éditer</button>
@@ -2258,6 +2214,8 @@
         const collectionKey = ELEMENT_COLLECTION_MAP[type];
         if (!currentFloor) return;
         const element = currentFloor.elements[collectionKey][index];
+        const naturalWidth = currentFloor.plan?.naturalWidth || 800;
+        const naturalHeight = currentFloor.plan?.naturalHeight || 600;
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -2293,21 +2251,21 @@
                             <div class="flex gap-2">
                                 <div class="flex-1">
                                     <label class="text-sm font-medium">X (%)</label>
-                                    <input type="number" step="0.01" min="0" max="100" value="${(element.x * 100).toFixed(2)}" 
+                                    <input type="number" step="0.01" min="0" max="100" value="${((element.x / naturalWidth) * 100).toFixed(2)}" 
                                         onchange="updateElementPosition(${index}, 'x', this.value)" 
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                                 </div>
                                 <div class="flex-1">
                                     <label class="text-sm font-medium">Y (%)</label>
-                                    <input type="number" step="0.01" min="0" max="100" value="${(element.y * 100).toFixed(2)}" 
+                                    <input type="number" step="0.01" min="0" max="100" value="${((element.y / naturalHeight) * 100).toFixed(2)}" 
                                         onchange="updateElementPosition(${index}, 'y', this.value)" 
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-2">Taille (%)</label>
-                            <input id="editElemSize" type="number" step="0.1" min="0.5" max="50" value="${((element.size || 0.02) * 100).toFixed(2)}"
+                            <label class="block text-sm font-medium mb-2">Taille (px)</label>
+                            <input id="editElemSize" type="number" step="1" min="5" max="200" value="${element.size || 20}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md" />
                         </div>
                     </div>
@@ -2352,7 +2310,7 @@
         if (sizeInput) {
             const val = parseFloat(sizeInput.value);
             if (!isNaN(val)) {
-                element.size = Math.max(0.005, Math.min(0.5, val / 100));
+                element.size = Math.max(5, Math.min(200, val));
             }
         }
         
@@ -2490,9 +2448,11 @@
                     if (!planImage) return;
                     
                     const imageRect = planImage.getBoundingClientRect();
+                    const naturalWidth = planImage.naturalWidth || 800;
+                    const naturalHeight = planImage.naturalHeight || 600;
                     
-                    currentX = Math.max(0, Math.min(1, (e.clientX - imageRect.left) / imageRect.width));
-                    currentY = Math.max(0, Math.min(1, (e.clientY - imageRect.top) / imageRect.height));
+                    currentX = ((e.clientX - imageRect.left) / imageRect.width) * naturalWidth;
+                    currentY = ((e.clientY - imageRect.top) / imageRect.height) * naturalHeight;
                     
                     positionElement(adminElement, currentX, currentY, true);
                 };
@@ -2533,10 +2493,8 @@
                     editElementDialog(typeShort, index);
                 });
 
-                // initialize dataset.size (normalize to fraction if needed)
-                let ds = (element.size !== undefined) ? Number(element.size) : 0.02;
-                if (!isNaN(ds) && ds > 1) ds = ds / 100;
-                adminElement.dataset.size = String(ds);
+                // initialize dataset.size
+                adminElement.dataset.size = (element.size !== undefined) ? String(element.size) : '0.02';
                 container.appendChild(adminElement);
             });
         });
@@ -2607,8 +2565,8 @@
                             
                             <div class="flex flex-col gap-2">
                                 <div class="flex items-center gap-2">
-                                    <label class="text-sm">Taille par défaut (%):</label>
-                                    <input id="defaultElemSize" type="number" step="0.1" min="0.5" max="50" value="3"
+                                    <label class="text-sm">Taille par défaut (px):</label>
+                                    <input id="defaultElemSize" type="number" step="1" min="5" max="200" value="20"
                                         class="w-20 px-2 py-1 border border-gray-300 rounded text-sm" />
                                 </div>
                                 <button type="button" onclick="addElement('extincteur')" 
@@ -2893,6 +2851,8 @@
             function updateElementPosition(index, axis, value) {
                         // Update element position or size from the edit dialog inputs
                                 if (!currentFloor) return;
+                                const naturalWidth = currentFloor.plan?.naturalWidth || 800;
+                                const naturalHeight = currentFloor.plan?.naturalHeight || 600;
                                 // Try to find which collection the index refers to by searching the three collections
                                 const collections = ['extincteurs','dm','sorties'];
                                 let found = false;
@@ -2900,9 +2860,9 @@
                                     const arr = currentFloor.elements[col] || [];
                                     if (arr[index]) {
                                         const el = arr[index];
-                                        if (axis === 'x') el.x = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
-                                        if (axis === 'y') el.y = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
-                                        if (axis === 'size') el.size = Math.max(0.005, Math.min(0.5, parseFloat(value) / 100 || 0.02));
+                                        if (axis === 'x') el.x = Math.max(0, Math.min(naturalWidth, parseFloat(value) / 100 * naturalWidth));
+                                        if (axis === 'y') el.y = Math.max(0, Math.min(naturalHeight, parseFloat(value) / 100 * naturalHeight));
+                                        if (axis === 'size') el.size = Math.max(5, Math.min(200, parseFloat(value)));
                                         // persist and update UI
                                         saveZones();
                                         renderAdminElements();
