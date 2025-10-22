@@ -572,6 +572,12 @@
                 await loadData();
                 setupEventListeners();
                 renderZoneList();
+                // Ensure the main plan container is a positioned ancestor so absolute hotspots
+                // are always positioned relative to it (prevents offsets between admin and notation)
+                try {
+                    const pc = document.getElementById('planContainer');
+                    if (pc) pc.style.position = pc.style.position || 'relative';
+                } catch (e) { /* ignore */ }
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
             }
@@ -2661,6 +2667,19 @@
             const adminContainer = document.getElementById('adminPlanContainer');
             
             if (adminImg && adminContainer) {
+                // Ensure admin container is positioned and adminElements overlay fills it
+                try {
+                    adminContainer.style.position = adminContainer.style.position || 'relative';
+                    const adminElementsDiv = document.getElementById('adminElements');
+                    if (adminElementsDiv) {
+                        adminElementsDiv.style.position = 'absolute';
+                        adminElementsDiv.style.left = '0';
+                        adminElementsDiv.style.top = '0';
+                        adminElementsDiv.style.width = '100%';
+                        adminElementsDiv.style.height = '100%';
+                        adminElementsDiv.style.pointerEvents = 'none'; // allow clicks to pass to image for dragging logic
+                    }
+                } catch (e) { /* ignore */ }
                 // Fonction pour repositionner avec observation
                 const setupPositioning = () => {
                     renderAdminFloorSelector();
