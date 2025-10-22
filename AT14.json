@@ -1,94 +1,339 @@
-{
-  "id": "AT14",
-  "name": "AT14",
-  "plan": {
-    "imageUrl": "plan_AT14.png",
-    "naturalWidth": 1295,
-    "naturalHeight": 430
-  },
-  "elements": {
-    "extincteurs": [
-      {
-        "x": 0.5868175626113381,
-        "y": 0.44108977530305243,
-        "size": 0.02,
-        "id": "72",
-        "type": "Poudre"
-      },
-      {
-        "x": 0.49292675259352403,
-        "y": 0.5269302948741488,
-        "size": 0.02,
-        "id": "70",
-        "type": "Poudre"
-      }
-    ],
-    "dm": [],
-    "sorties": []
-  },
-  "enabledCriteria": {
-    "extincteur": [
-      "acces_degage",
-      "etat",
-      "fixation",
-      "goupille",
-      "entretien",
-      "cinq_s"
-    ],
-    "dm": [
-      "etat",
-      "accessibilite"
-    ],
-    "sortie": [
-      "acces_degage",
-      "signaletique",
-      "barre_antipanique"
-    ],
-    "zone": {
-      "ria": [
-        "acces",
+[
+  {
+    "id": "AT14",
+    "name": "AT14",
+    "plan": {
+      "imageUrl": "plan_AT14.png",
+      "naturalWidth": 1295,
+      "naturalHeight": 430
+    },
+    "elements": {
+      "extincteurs": [
+        {
+          "x": 0.5868175626113381,
+          "y": 0.44108977530305243,
+          "size": 0.02,
+          "id": "72",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.49292675259352403,
+          "y": 0.5269302948741488,
+          "size": 0.02,
+          "id": "70",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.5398721576024311,
+          "y": 0.38049646737051385,
+          "size": 0.02,
+          "id": "71",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.690768102273918,
+          "y": 0.8568272449835537,
+          "size": 0.02,
+          "id": "60",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.34370742952949807,
+          "y": 0.8349462768645534,
+          "size": 0.02,
+          "id": "62",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.3537671591742639,
+          "y": 0.36534814038737917,
+          "size": 0.02,
+          "id": "69",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.8165147228334905,
+          "y": 0.7642540842765917,
+          "size": 0.02,
+          "id": "459",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.49292675259352403,
+          "y": 0.8652429308308226,
+          "size": 0.02,
+          "id": "452",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.5717279681441895,
+          "y": 0.8517778026558421,
+          "size": 0.02,
+          "id": "61",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.8148381012260295,
+          "y": 0.5084157243714567,
+          "size": 0.02,
+          "id": "74",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.49292675259352403,
+          "y": 0.21723119112396552,
+          "size": 0.02,
+          "id": "76",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.5197526983128995,
+          "y": 0.22059751169189834,
+          "size": 0.02,
+          "id": "78 et 79",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.5365189143875092,
+          "y": 0.15495476143164819,
+          "size": 0.02,
+          "id": "77",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.690768102273918,
+          "y": 0.41247632014493724,
+          "size": 0.02,
+          "id": "73",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.2682594571937546,
+          "y": 0.8332631551047747,
+          "size": 0.02,
+          "id": "12",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.2229906737923085,
+          "y": 0.4276246471280719,
+          "size": 0.02,
+          "id": "68",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.21628418736246463,
+          "y": 0.7002945328244956,
+          "size": 0.02,
+          "id": "262",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.43256837472492926,
+          "y": 0.2845570631439944,
+          "size": 0.02,
+          "id": "81 et 82",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.1039505396625799,
+          "y": 0.6329685837560913,
+          "size": 0.02,
+          "id": "64",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.12742324216703343,
+          "y": 0.7440563149657454,
+          "size": 0.02,
+          "id": "63",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.22634391700723044,
+          "y": 0.8601934885031111,
+          "size": 0.02,
+          "id": "451",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.1525725662789479,
+          "y": 0.368714460955312,
+          "size": 0.02,
+          "id": "83 et 84",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.1643089175311747,
+          "y": 0.4646538651818315,
+          "size": 0.02,
+          "id": "66",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.0838310803730483,
+          "y": 0.5100988461312355,
+          "size": 0.02,
+          "id": "65",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.24981661951168396,
+          "y": 0.06911424186055184,
+          "size": 0.02,
+          "id": "67",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.8299276956931783,
+          "y": 0.6447506672196686,
+          "size": 0.02,
+          "id": "75",
+          "type": "Poudre"
+        },
+        {
+          "x": 0.45436445562192185,
+          "y": 0.2879233837119272,
+          "size": 0.02,
+          "id": "80",
+          "type": "Poudre"
+        }
+      ],
+      "dm": [
+        {
+          "x": 0.8366341821230221,
+          "y": 0.515148288458947,
+          "size": 0.02,
+          "id": "105/25"
+        },
+        {
+          "x": 0.5063397254532118,
+          "y": 0.4225752048003603,
+          "size": 0.02,
+          "id": "105/34"
+        },
+        {
+          "x": 0.30849837577281775,
+          "y": 0.3569324545401102,
+          "size": 0.02,
+          "id": "105/35"
+        },
+        {
+          "x": 0.2682594571937546,
+          "y": 0.07079736362033057,
+          "size": 0.02,
+          "id": "105/15"
+        },
+        {
+          "x": 0.10562716127004086,
+          "y": 0.5100988461312355,
+          "size": 0.02,
+          "id": "105/36"
+        },
+        {
+          "x": 0.8366341821230221,
+          "y": 0.7659372830847457,
+          "size": 0.02,
+          "id": "105/26"
+        }
+      ],
+      "sorties": [
+        {
+          "x": 0.3202347270250445,
+          "y": 0.27950762081628283,
+          "size": 0.02
+        },
+        {
+          "x": 0.4761605365189144,
+          "y": 0.2845570631439944,
+          "size": 0.02
+        },
+        {
+          "x": 0.5197526983128995,
+          "y": 0.28960650547170597,
+          "size": 0.02
+        },
+        {
+          "x": 0.8601068846274756,
+          "y": 0.7491057958176447,
+          "size": 0.02
+        },
+        {
+          "x": 0.8601068846274756,
+          "y": 0.5420786603814711,
+          "size": 0.02
+        },
+        {
+          "x": 0.9154353976736875,
+          "y": 0.41584260218868235,
+          "size": 0.02
+        }
+      ]
+    },
+    "enabledCriteria": {
+      "extincteur": [
+        "acces_degage",
         "etat",
-        "entretien_annuel"
+        "fixation",
+        "goupille",
+        "entretien",
+        "cinq_s"
       ],
-      "poteaux": [
-        "acces",
-        "etat"
-      ],
-      "desenfumage": [
-        "acces",
+      "dm": [
         "etat",
-        "entretien_annuel"
+        "accessibilite"
       ],
-      "circulation_issues": [
-        "acces",
+      "sortie": [
+        "acces_degage",
+        "signaletique",
         "barre_antipanique"
       ],
-      "eclairage": [
-        "veilleuse",
-        "sati_voyant",
-        "voyant_test_vert"
-      ],
-      "consignes_plans": [
-        "affichage",
-        "maj",
-        "lisible"
-      ],
-      "gf_sf": [
-        "brassards",
-        "liste_agents"
-      ],
-      "chargeurs": [
-        "plomb",
-        "lithium",
-        "affichage_prevention",
-        "extincteur_adapte"
-      ],
-      "agent_sait": [
-        "q1_appuyer_dm",
-        "q2_appeler_poste",
-        "q3_attaquer_si_possible",
-        "q4_evacuer"
-      ]
+      "zone": {
+        "ria": [
+          "acces",
+          "etat",
+          "entretien_annuel"
+        ],
+        "poteaux": [
+          "acces",
+          "etat"
+        ],
+        "desenfumage": [
+          "acces",
+          "etat",
+          "entretien_annuel"
+        ],
+        "circulation_issues": [
+          "acces",
+          "barre_antipanique"
+        ],
+        "eclairage": [
+          "veilleuse",
+          "sati_voyant",
+          "voyant_test_vert"
+        ],
+        "consignes_plans": [
+          "affichage",
+          "maj",
+          "lisible"
+        ],
+        "gf_sf": [
+          "brassards",
+          "liste_agents"
+        ],
+        "chargeurs": [
+          "plomb",
+          "lithium",
+          "affichage_prevention",
+          "extincteur_adapte"
+        ],
+        "agent_sait": [
+          "q1_appuyer_dm",
+          "q2_appeler_poste",
+          "q3_attaquer_si_possible",
+          "q4_evacuer"
+        ]
+      }
     }
   }
-}
+]
