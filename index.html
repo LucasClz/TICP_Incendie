@@ -248,19 +248,11 @@
                                 <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
                                 <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
                                 <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif:Vestiaire" onchange="renderZoneList()" class="mr-1">Administratif (Vestiaire)</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif:Réfectoire" onchange="renderZoneList()" class="mr-1">Administratif (Réfectoire)</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
                             </div>
                         </div>
 
-                        <div class="mt-3 text-sm">
-                            <label class="font-medium">Trier</label>
-                            <select id="zoneSort" onchange="renderZoneList()" class="ml-2 px-2 py-1 border border-gray-300 rounded">
-                                <option value="name-asc">Nom A→Z</option>
-                                <option value="name-desc">Nom Z→A</option>
-                                <option value="category">Catégorie</option>
-                            </select>
-                        </div>
+                        <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
                         <label class="flex items-center mt-2">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
                             <span class="text-sm">Afficher seulement les zones non conformes</span>
@@ -1106,17 +1098,15 @@
 
         if (categoryChecks.length > 0) {
             filteredZones = filteredZones.filter(z => {
-                // if zone has no category, treat as ''
                 const cat = z.category || '';
-                return categoryChecks.includes(cat);
+                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return categoryChecks.includes(normalized);
             });
         }
 
-        // Sorting
-        const sortVal = document.getElementById('zoneSort')?.value || 'name-asc';
-        if (sortVal === 'name-asc') filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-        if (sortVal === 'name-desc') filteredZones.sort((a,b) => (b.name||'').localeCompare(a.name||''));
-        if (sortVal === 'category') filteredZones.sort((a,b) => (a.category||'').localeCompare(b.category||''));
+        // Default sorting by name A→Z
+        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
         container.innerHTML = '<option value="">Sélectionnez une zone...</option>' +
             filteredZones.map(zone => `
@@ -1796,10 +1786,13 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        container.innerHTML = zones.map(zone => `
+        container.innerHTML = zones.map(zone => {
+            const cat = zone.category || '';
+            const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return `
             <div class="flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50">
                 <div class="flex-1">
-                    <div class="font-medium">${zone.name} ${zone.category ? `<span class=\"text-xs ml-2 px-1 py-0.5 bg-gray-100 rounded\">${zone.category}</span>` : ''}</div>
+                    <div class="font-medium">${zone.name} ${displayCat ? `<span class=\"text-xs ml-2 px-1 py-0.5 bg-gray-100 rounded\">${displayCat}</span>` : ''}</div>
                     <div class="text-sm text-gray-500">${zone.id}</div>
                 </div>
                 <button onclick="editZone('${zone.id}')" 
@@ -1807,7 +1800,7 @@
                     Éditer
                 </button>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     function createNewZone() {
@@ -2385,8 +2378,7 @@
                             <option value="MR" ${zone.category === 'MR' ? 'selected' : ''}>MR</option>
                             <option value="PRM" ${zone.category === 'PRM' ? 'selected' : ''}>PRM</option>
                             <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
-                            <option value="Administratif:Vestiaire" ${zone.category === 'Administratif:Vestiaire' ? 'selected' : ''}>Administratif (Vestiaire)</option>
-                            <option value="Administratif:Réfectoire" ${zone.category === 'Administratif:Réfectoire' ? 'selected' : ''}>Administratif (Réfectoire)</option>
+                            <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
                         </select>
                     </div>
                     <div class="flex gap-2 flex-shrink-0">
