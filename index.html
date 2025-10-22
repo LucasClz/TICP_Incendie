@@ -2467,6 +2467,27 @@
         });
     }
 
+    // Refresh admin preview image and reposition elements/hotspots
+    function refreshAdminPreview() {
+        try {
+            const adminImg = document.getElementById('adminPlanImage');
+            const adminElements = document.getElementById('adminElements');
+            if (adminImg) {
+                adminImg.src = currentFloor?.plan?.imageUrl || '';
+                // When image loads, ensure admin elements are rendered and positioned
+                adminImg.onload = () => {
+                    renderAdminElements();
+                    scheduleReposition(50);
+                };
+            }
+            if (adminElements && (!currentFloor || !currentFloor.elements)) {
+                adminElements.innerHTML = '';
+            }
+            // Also try to reposition immediately
+            scheduleReposition(50);
+        } catch (e) { /* ignore */ }
+    }
+
     function editZone(zoneId) {
         const zone = zones.find(z => z.id === zoneId);
         if (!zone) return;
@@ -2644,6 +2665,9 @@
                 } else {
                     adminImg.onload = setupPositioning;
                 }
+
+                // Ensure preview is synchronized when opening the editor
+                try { refreshAdminPreview(); } catch (e) { /* ignore */ }
                 
                 // Observer de scroll pour repositionner en temps réel
                 adminContainer.addEventListener('scroll', () => {
@@ -2689,6 +2713,22 @@
                 renderElementsList();
             }
         };
+
+        // Ensure the selector value reflects currentFloor and trigger a change to update the plan image
+        try {
+            if (currentFloor && currentFloor.id) {
+                sel.value = currentFloor.id;
+            } else if (floors[0]) {
+                sel.value = floors[0].id;
+                currentFloor = floors[0];
+            }
+            // Trigger onchange to sync image and elements immediately
+            sel.dispatchEvent(new Event('change'));
+        } catch (e) { /* ignore if DOM not ready */ }
+
+        // Also proactively refresh the admin preview (covers cases where onchange handlers
+        // may not reposition elements correctly immediately)
+        try { refreshAdminPreview(); } catch (e) { /* ignore */ }
     }
 
     function addFloor() {
@@ -2716,6 +2756,7 @@
             adminPlanImage.src = '';
             // ensure repositioning updates
             scheduleReposition(50);
+            try { refreshAdminPreview(); } catch (e) { /* ignore */ }
         }
     }
 
@@ -2821,6 +2862,14 @@
             }
         } catch (e) { /* ignore UI refresh errors */ }
 
+        // Also update the admin preview image so the UI reflects the change immediately
+        try {
+            const adminImg = document.getElementById('adminPlanImage');
+            if (adminImg) adminImg.src = currentFloor?.plan?.imageUrl || '';
+            // ensure admin elements are re-positioned after image change
+            scheduleReposition(50);
+        } catch (e) { /* ignore */ }
+
         alert(`Étage supprimé avec succès. ${toRemoveCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
     }
 
@@ -2896,6 +2945,15 @@
                 saveInspections();
                 renderAdminZoneList();
                 renderAdminContent();
+
+                // Clear admin preview so it doesn't show a stale image
+                try {
+                    const adminImg = document.getElementById('adminPlanImage');
+                    if (adminImg) adminImg.src = '';
+                    const adminElements = document.getElementById('adminElements');
+                    if (adminElements) adminElements.innerHTML = '';
+                    scheduleReposition(50);
+                } catch (e) { /* ignore */ }
 
                 alert(`Zone "${deletedZoneName}" supprimée avec succès. ${removedInspectionsCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
                 currentZone = null;
