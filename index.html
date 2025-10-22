@@ -12,8 +12,10 @@
         
         .hotspot {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            min-width: 12px;
+            min-height: 12px;
+            max-width: 80px;
+            max-height: 80px;
             /* carré avec coins légèrement arrondis */
             border-radius: 4px;
             border: 2px solid white;
@@ -25,7 +27,7 @@
         }
         
         .hotspot:hover {
-            transform: translate(-50%, -50%) scale(1.2);
+            transform: translate(-50%, -50%) scale(1.15);
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         
@@ -51,6 +53,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #f9fafb;
         }
         
         .plan-container.admin-mode {
@@ -65,6 +68,9 @@
             height: auto;
             width: auto;
             object-fit: contain;
+            /* Force stable dimensions */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }
         
         .criteria-grid {
@@ -91,8 +97,10 @@
         
         .admin-element {
             position: absolute;
-            width: 16px;
-            height: 16px;
+            min-width: 10px;
+            min-height: 10px;
+            max-width: 80px;
+            max-height: 80px;
             border: 2px solid #fff;
             border-radius: 4px; /* square-ish */
             cursor: move;
@@ -110,13 +118,13 @@
         .admin-element.resizing { transition: none; opacity: 0.95; }
         
         .admin-element:hover {
-            transform: translate(-50%, -50%) scale(1.2);
+            transform: translate(-50%, -50%) scale(1.15);
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         
         .admin-element:active {
             cursor: grabbing;
-            transform: translate(-50%, -50%) scale(1.1);
+            transform: translate(-50%, -50%) scale(1.05);
         }
         
         .admin-element.extincteur { background: #ef4444; }
@@ -309,7 +317,7 @@
             </div>
 
             <!-- Right Panel: Notation -->
-            <div class="w-96 bg-white border-l p-4" id="notationPanel">
+            <div class="w-96 bg-white border-l p-4 hidden" id="notationPanel">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-semibold">Notation</h2>
                     <button id="notationCloseBtn" class="text-sm text-gray-600 px-2 py-1 rounded hover:bg-gray-100">Fermer</button>
@@ -571,9 +579,12 @@
             async function init() {
                 await loadData();
                 setupEventListeners();
+                setupRepositionObserver(); // Configurer l'observateur de repositionnement
                 renderZoneList();
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
+                // Force un repositionnement initial après un court délai
+                setTimeout(() => scheduleReposition(200), 500);
             }
 
             // Load data from localStorage. When the app is served over HTTP(S) (for example
@@ -606,22 +617,6 @@
                             // keep legacy fields for backward inspection if needed, but remove to avoid confusion
                             delete z.plan;
                             delete z.elements;
-                        }
-                        // Convert old percentage positions and sizes to pixel-based
-                        if (z.floors) {
-                            z.floors.forEach(floor => {
-                                const naturalWidth = floor.plan?.naturalWidth || 800;
-                                const naturalHeight = floor.plan?.naturalHeight || 600;
-                                ['extincteurs', 'dm', 'sorties'].forEach(type => {
-                                    if (floor.elements[type]) {
-                                        floor.elements[type].forEach(el => {
-                                            if (el.x !== undefined && el.x <= 1) el.x *= naturalWidth;
-                                            if (el.y !== undefined && el.y <= 1) el.y *= naturalHeight;
-                                            if (el.size !== undefined && el.size <= 1) el.size = Math.max(5, el.size * naturalWidth);
-                                        });
-                                    }
-                                });
-                            });
                         }
                         return z;
                     });
@@ -690,16 +685,16 @@
                                 },
                                 elements: {
                                     extincteurs: [
-                                        { id: 'EXT-001', type: 'Poudre', x: 160, y: 180, size: 20 },
-                                        { id: 'EXT-002', type: 'CO2', x: 640, y: 180, size: 20 }
+                                        { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
+                                        { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
                                     ],
                                     dm: [
-                                        { id: 'DM-001', x: 80, y: 420, size: 18 },
-                                        { id: 'DM-002', x: 720, y: 420, size: 18 }
+                                        { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
+                                        { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
                                     ],
                                     sorties: [
-                                        { x: 400, y: 60, size: 23 },
-                                        { x: 400, y: 540, size: 23 }
+                                        { x: 0.5, y: 0.1, size: 0.035 },
+                                        { x: 0.5, y: 0.9, size: 0.035 }
                                     ]
                                 }
                             },
@@ -718,7 +713,7 @@
                                 },
                                 elements: {
                                     extincteurs: [
-                                        { id: 'EXT-101', type: 'Eau', x: 320, y: 300, size: 20 }
+                                        { id: 'EXT-101', type: 'Eau', x: 0.4, y: 0.5, size: 0.03 }
                                     ],
                                     dm: [],
                                     sorties: []
@@ -852,46 +847,50 @@
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
-    function positionElement(el, xPixel, yPixel, isAdminMode = false) {
+    function positionElement(el, xPercent, yPercent, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
         const planImage = document.getElementById(planImageId);
         
         if (!planImage) {
             el.style.position = 'absolute';
-            el.style.left = `${xPixel}px`;
-            el.style.top = `${yPixel}px`;
+            el.style.left = `${xPercent * 100}%`;
+            el.style.top = `${yPercent * 100}%`;
             return;
         }
         
-        // Vérifier que l'image est chargée
-        if (!planImage.complete || planImage.naturalHeight === 0) {
+        // Vérifier que l'image est chargée et a des dimensions
+        if (!planImage.complete || planImage.naturalHeight === 0 || !planImage.clientWidth) {
             el.style.position = 'absolute';
-            el.style.left = `${xPixel}px`;
-            el.style.top = `${yPixel}px`;
+            el.style.left = `${xPercent * 100}%`;
+            el.style.top = `${yPercent * 100}%`;
             return;
         }
         
-        const naturalWidth = planImage.naturalWidth || 800;
-        const naturalHeight = planImage.naturalHeight || 600;
         const imageParent = planImage.parentElement;
         if (!imageParent) {
             el.style.position = 'absolute';
-            el.style.left = `${xPixel}px`;
-            el.style.top = `${yPixel}px`;
+            el.style.left = `${xPercent * 100}%`;
+            el.style.top = `${yPercent * 100}%`;
             return;
         }
         
-        // Calcul des positions en pixels absolus
+        // CORRECTION: Utiliser les dimensions client réelles de l'image affichée
         const imageRect = planImage.getBoundingClientRect();
         const parentRect = imageParent.getBoundingClientRect();
+        
+        // Vérifier que l'image a une taille valide
+        if (imageRect.width === 0 || imageRect.height === 0) {
+            el.style.position = 'absolute';
+            el.style.left = `${xPercent * 100}%`;
+            el.style.top = `${yPercent * 100}%`;
+            return;
+        }
         
         // Position de l'image dans le parent
         const relLeft = imageRect.left - parentRect.left;
         const relTop = imageRect.top - parentRect.top;
         
-        // Position absolue de l'élément
-        const xPercent = xPixel / naturalWidth;
-        const yPercent = yPixel / naturalHeight;
+        // Position absolue de l'élément (TOUJOURS en pixels, jamais en %)
         const leftPx = relLeft + (xPercent * imageRect.width);
         const topPx = relTop + (yPercent * imageRect.height);
 
@@ -899,44 +898,61 @@
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // If element has a size (in pixels), apply width/height scaled
-        const sizePx = parseFloat(el.dataset.size);
-        if (!isNaN(sizePx)) {
-            const scale = imageRect.width / naturalWidth;
-            const px = Math.max(6, Math.round(sizePx * scale));
+        // Taille de l'élément relative à la largeur de l'image (en pixels fixes)
+        const size = parseFloat(el.dataset.size);
+        if (!isNaN(size) && size > 0) {
+            // size est une fraction de la largeur de l'image
+            // Appliquer des limites strictes : min 12px, max 80px
+            const calculatedPx = size * imageRect.width;
+            const px = Math.max(12, Math.min(80, Math.round(calculatedPx)));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-            // keep center alignment via transform
+            // Centrage via transform
+            el.style.transform = 'translate(-50%, -50%)';
+        } else {
+            // Taille par défaut si pas de size défini
+            const defaultPx = Math.max(16, Math.min(24, Math.round(imageRect.width * 0.02)));
+            el.style.width = defaultPx + 'px';
+            el.style.height = defaultPx + 'px';
             el.style.transform = 'translate(-50%, -50%)';
         }
     }
 
     function repositionHotspots() {
         // Reposition hotspots en mode normal
-        document.querySelectorAll('#planContainer .hotspot').forEach(h => {
-            const x = parseFloat(h.dataset.x);
-            const y = parseFloat(h.dataset.y);
-            if (!isNaN(x) && !isNaN(y)) {
-                positionElement(h, x, y, false);
-            }
-        });
+        const mainPlanImage = document.getElementById('planImage');
+        if (mainPlanImage && mainPlanImage.complete && mainPlanImage.clientWidth > 0) {
+            document.querySelectorAll('#planContainer .hotspot').forEach(h => {
+                const x = parseFloat(h.dataset.x);
+                const y = parseFloat(h.dataset.y);
+                if (!isNaN(x) && !isNaN(y)) {
+                    positionElement(h, x, y, false);
+                }
+            });
+        }
         
         // Reposition admin-elements en mode admin
-        document.querySelectorAll('.plan-container.admin-mode .admin-element').forEach(a => {
-            const x = parseFloat(a.dataset.x);
-            const y = parseFloat(a.dataset.y);
-            if (!isNaN(x) && !isNaN(y)) {
-                positionElement(a, x, y, true);
-            }
-        });
+        const adminPlanImage = document.getElementById('adminPlanImage');
+        if (adminPlanImage && adminPlanImage.complete && adminPlanImage.clientWidth > 0) {
+            document.querySelectorAll('.plan-container.admin-mode .admin-element, #adminElements .admin-element').forEach(a => {
+                const x = parseFloat(a.dataset.x);
+                const y = parseFloat(a.dataset.y);
+                if (!isNaN(x) && !isNaN(y)) {
+                    positionElement(a, x, y, true);
+                }
+            });
+        }
     }
 
     let _repositionTimer = null;
     function scheduleReposition(delay = 200) {
         if (_repositionTimer) clearTimeout(_repositionTimer);
         _repositionTimer = setTimeout(() => {
-            repositionHotspots();
-            _repositionTimer = null;
+            // Attendre que le layout soit stabilisé
+            requestAnimationFrame(() => {
+                repositionHotspots();
+                _repositionTimer = null;
+            });
         }, delay);
     }
 
@@ -946,7 +962,14 @@
         hotspot.dataset.x = String(x);
         hotspot.dataset.y = String(y);
         hotspot.dataset.elementKey = getElementKey(type, elementData);
-        if (elementData && elementData.size !== undefined) hotspot.dataset.size = String(elementData.size);
+        
+        // Toujours définir une taille, avec une valeur par défaut si non spécifiée
+        if (elementData && elementData.size !== undefined && elementData.size > 0) {
+            hotspot.dataset.size = String(elementData.size);
+        } else {
+            // Taille par défaut: 2.5% de la largeur de l'image
+            hotspot.dataset.size = '0.025';
+        }
         
         // Position initiale
         positionElement(hotspot, x, y, false);
@@ -968,20 +991,35 @@
     function closeNotationPanel() {
         currentElement = null;
         const panel = document.getElementById('notationPanel');
-        if (panel) panel.classList.add('hidden');
-        // Reposition après fermeture du panneau
-        scheduleReposition(150);
+        if (panel) {
+            panel.classList.add('hidden');
+            // Attendre que le DOM se stabilise avant de repositionner
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    scheduleReposition(100);
+                });
+            }, 50);
+        }
     }
 
-    window.addEventListener('resize', () => scheduleReposition(80));
-    window.addEventListener('orientationchange', () => scheduleReposition(80));
+    window.addEventListener('resize', () => scheduleReposition(150));
+    window.addEventListener('orientationchange', () => scheduleReposition(150));
 
-    const mainPlanImage = document.getElementById('planImage');
-    if (mainPlanImage) {
-        mainPlanImage.addEventListener('load', () => {
-            scheduleReposition(40);
-        });
-    }
+    // Observer pour surveiller les changements de DOM et repositionner
+    const setupRepositionObserver = () => {
+        const mainPlanImage = document.getElementById('planImage');
+        if (mainPlanImage) {
+            mainPlanImage.addEventListener('load', () => {
+                scheduleReposition(80);
+            });
+            
+            // Observer les changements de taille de l'image
+            const resizeObserver = new ResizeObserver(() => {
+                scheduleReposition(100);
+            });
+            resizeObserver.observe(mainPlanImage);
+        }
+    };
 
     function toggleLeftPanel() {
         const left = document.getElementById('leftPanel');
@@ -998,8 +1036,12 @@
         } else {
             if (label) label.classList.remove('hidden');
         }
-        // Reposition après changement de layout
-        scheduleReposition(300);
+        // Attendre la fin de la transition CSS (250ms) + marge
+        setTimeout(() => {
+            requestAnimationFrame(() => {
+                scheduleReposition(100);
+            });
+        }, 300);
     }
 
     function applyLeftPanelState() {
@@ -1279,12 +1321,19 @@
         // Remove existing hotspots
         planContainer.querySelectorAll('.hotspot').forEach(h => h.remove());
         
-    if (!currentZone || !planImage || !currentFloor) return;
+        if (!currentZone || !planImage || !currentFloor) return;
         
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
         
         // Wait for image to be fully loaded and positioned
         const addHotspotsWhenReady = () => {
+            // Vérifier que l'image a des dimensions valides
+            if (!planImage.complete || planImage.naturalHeight === 0 || planImage.clientWidth === 0) {
+                // Réessayer après un court délai
+                setTimeout(addHotspotsWhenReady, 50);
+                return;
+            }
+            
             // Add extincteur hotspots (from currentFloor)
             currentFloor.elements.extincteurs?.forEach(ext => {
                 if (!filterChecked || hasElementNonConformity('extincteur', ext)) {
@@ -1309,14 +1358,19 @@
                 }
             });
             
-            // Reposition après ajout de tous les hotspots
-            scheduleReposition(80);
+            // Reposition après ajout de tous les hotspots avec requestAnimationFrame
+            requestAnimationFrame(() => {
+                scheduleReposition(50);
+            });
         };
         
-        if (planImage.complete && planImage.naturalHeight !== 0) {
-            addHotspotsWhenReady();
+        if (planImage.complete && planImage.naturalHeight !== 0 && planImage.clientWidth > 0) {
+            // Attendre un frame pour que le layout soit stabilisé
+            requestAnimationFrame(addHotspotsWhenReady);
         } else {
-            planImage.onload = addHotspotsWhenReady();
+            planImage.onload = () => {
+                requestAnimationFrame(addHotspotsWhenReady);
+            };
         }
     }
 
@@ -1350,8 +1404,12 @@
         const panel = document.getElementById('notationPanel');
         if (panel) {
             panel.classList.remove('hidden');
-            // Reposition après changement de layout
-            setTimeout(() => scheduleReposition(100), 50);
+            // Attendre que le panneau soit affiché et le layout stabilisé
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    scheduleReposition(100);
+                });
+            }, 100);
         }
         renderNotationPanel();
     }
@@ -2129,15 +2187,13 @@
         currentFloor.elements = currentFloor.elements || { extincteurs: [], dm: [], sorties: [] };
         currentFloor.elements[collectionKey] = currentFloor.elements[collectionKey] || [];
         const collection = currentFloor.elements[collectionKey];
-        const naturalWidth = currentFloor.plan?.naturalWidth || 800;
-        const naturalHeight = currentFloor.plan?.naturalHeight || 600;
-        const element = { x: 0.5 * naturalWidth, y: 0.5 * naturalHeight };
-        // read default size input if present (percentage), otherwise fallback to 20px
+        const element = { x: 0.5, y: 0.5 };
+        // read default size input if present (percentage), otherwise fallback to 2%
         const sizeInput = document.getElementById('defaultElemSize');
-        let defaultSize = 20;
+        let defaultSize = 0.02;
         if (sizeInput) {
             const parsed = parseFloat(sizeInput.value);
-            if (!isNaN(parsed)) defaultSize = Math.max(5, Math.min(200, parsed));
+            if (!isNaN(parsed)) defaultSize = Math.max(0.005, Math.min(0.5, parsed / 100));
         }
         element.size = defaultSize;
         
@@ -2175,9 +2231,6 @@
         const container = document.getElementById('elementsList');
         if (!container || !currentZone) return;
         
-        const naturalWidth = currentFloor?.plan?.naturalWidth || 800;
-        const naturalHeight = currentFloor?.plan?.naturalHeight || 600;
-        
         const sections = [
             { type: 'extincteur', label: 'Extincteurs', collectionKey: 'extincteurs' },
             { type: 'dm', label: 'Déclencheurs Manuels', collectionKey: 'dm' },
@@ -2191,7 +2244,7 @@
                     <div class="border border-gray-200 rounded px-2 py-1 text-xs flex justify-between items-center bg-gray-50">
                         <div class="flex-1">
                             <div class="font-medium">${el.id || `Sortie #${idx + 1}`}${el.type ? ` (${el.type})` : ''}</div>
-                            <div class="text-gray-500">X: ${Math.round((el.x / naturalWidth) * 100)}% Y: ${Math.round((el.y / naturalHeight) * 100)}% Taille: ${el.size || 20}px</div>
+                            <div class="text-gray-500">X: ${Math.round(el.x * 100)}% Y: ${Math.round(el.y * 100)}% Taille: ${Math.round((el.size || 0.02) * 100)}%</div>
                         </div>
                         <div class="flex gap-1">
                             <button type="button" class="px-2 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600" onclick="editElementDialog('${type}', ${idx})">Éditer</button>
@@ -2214,8 +2267,6 @@
         const collectionKey = ELEMENT_COLLECTION_MAP[type];
         if (!currentFloor) return;
         const element = currentFloor.elements[collectionKey][index];
-        const naturalWidth = currentFloor.plan?.naturalWidth || 800;
-        const naturalHeight = currentFloor.plan?.naturalHeight || 600;
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -2251,21 +2302,21 @@
                             <div class="flex gap-2">
                                 <div class="flex-1">
                                     <label class="text-sm font-medium">X (%)</label>
-                                    <input type="number" step="0.01" min="0" max="100" value="${((element.x / naturalWidth) * 100).toFixed(2)}" 
+                                    <input type="number" step="0.01" min="0" max="100" value="${(element.x * 100).toFixed(2)}" 
                                         onchange="updateElementPosition(${index}, 'x', this.value)" 
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                                 </div>
                                 <div class="flex-1">
                                     <label class="text-sm font-medium">Y (%)</label>
-                                    <input type="number" step="0.01" min="0" max="100" value="${((element.y / naturalHeight) * 100).toFixed(2)}" 
+                                    <input type="number" step="0.01" min="0" max="100" value="${(element.y * 100).toFixed(2)}" 
                                         onchange="updateElementPosition(${index}, 'y', this.value)" 
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-2">Taille (px)</label>
-                            <input id="editElemSize" type="number" step="1" min="5" max="200" value="${element.size || 20}"
+                            <label class="block text-sm font-medium mb-2">Taille (%)</label>
+                            <input id="editElemSize" type="number" step="0.1" min="0.5" max="50" value="${((element.size || 0.02) * 100).toFixed(2)}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md" />
                         </div>
                     </div>
@@ -2310,7 +2361,7 @@
         if (sizeInput) {
             const val = parseFloat(sizeInput.value);
             if (!isNaN(val)) {
-                element.size = Math.max(5, Math.min(200, val));
+                element.size = Math.max(0.005, Math.min(0.5, val / 100));
             }
         }
         
@@ -2408,6 +2459,15 @@
         
         const planImage = document.getElementById('adminPlanImage');
         if (!planImage) return;
+        
+        // Vérifier que l'image a des dimensions valides avant de positionner
+        if (!planImage.complete || planImage.clientWidth === 0) {
+            // Attendre que l'image soit chargée
+            planImage.onload = () => {
+                requestAnimationFrame(() => renderAdminElements());
+            };
+            return;
+        }
         ['extincteurs', 'dm', 'sorties'].forEach(type => {
             const elements = (currentFloor.elements && currentFloor.elements[type]) || [];
             elements.forEach((element, index) => {
@@ -2448,11 +2508,9 @@
                     if (!planImage) return;
                     
                     const imageRect = planImage.getBoundingClientRect();
-                    const naturalWidth = planImage.naturalWidth || 800;
-                    const naturalHeight = planImage.naturalHeight || 600;
                     
-                    currentX = ((e.clientX - imageRect.left) / imageRect.width) * naturalWidth;
-                    currentY = ((e.clientY - imageRect.top) / imageRect.height) * naturalHeight;
+                    currentX = Math.max(0, Math.min(1, (e.clientX - imageRect.left) / imageRect.width));
+                    currentY = Math.max(0, Math.min(1, (e.clientY - imageRect.top) / imageRect.height));
                     
                     positionElement(adminElement, currentX, currentY, true);
                 };
@@ -2493,10 +2551,19 @@
                     editElementDialog(typeShort, index);
                 });
 
-                // initialize dataset.size
-                adminElement.dataset.size = (element.size !== undefined) ? String(element.size) : '0.02';
+                // initialize dataset.size avec valeur par défaut robuste
+                if (element.size !== undefined && element.size > 0) {
+                    adminElement.dataset.size = String(element.size);
+                } else {
+                    adminElement.dataset.size = '0.025'; // 2.5% par défaut
+                }
                 container.appendChild(adminElement);
             });
+        });
+        
+        // Force un repositionnement après ajout de tous les éléments
+        requestAnimationFrame(() => {
+            scheduleReposition(50);
         });
     }
 
@@ -2565,8 +2632,8 @@
                             
                             <div class="flex flex-col gap-2">
                                 <div class="flex items-center gap-2">
-                                    <label class="text-sm">Taille par défaut (px):</label>
-                                    <input id="defaultElemSize" type="number" step="1" min="5" max="200" value="20"
+                                    <label class="text-sm">Taille par défaut (%):</label>
+                                    <input id="defaultElemSize" type="number" step="0.1" min="0.5" max="50" value="3"
                                         class="w-20 px-2 py-1 border border-gray-300 rounded text-sm" />
                                 </div>
                                 <button type="button" onclick="addElement('extincteur')" 
@@ -2851,8 +2918,6 @@
             function updateElementPosition(index, axis, value) {
                         // Update element position or size from the edit dialog inputs
                                 if (!currentFloor) return;
-                                const naturalWidth = currentFloor.plan?.naturalWidth || 800;
-                                const naturalHeight = currentFloor.plan?.naturalHeight || 600;
                                 // Try to find which collection the index refers to by searching the three collections
                                 const collections = ['extincteurs','dm','sorties'];
                                 let found = false;
@@ -2860,9 +2925,9 @@
                                     const arr = currentFloor.elements[col] || [];
                                     if (arr[index]) {
                                         const el = arr[index];
-                                        if (axis === 'x') el.x = Math.max(0, Math.min(naturalWidth, parseFloat(value) / 100 * naturalWidth));
-                                        if (axis === 'y') el.y = Math.max(0, Math.min(naturalHeight, parseFloat(value) / 100 * naturalHeight));
-                                        if (axis === 'size') el.size = Math.max(5, Math.min(200, parseFloat(value)));
+                                        if (axis === 'x') el.x = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
+                                        if (axis === 'y') el.y = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
+                                        if (axis === 'size') el.size = Math.max(0.005, Math.min(0.5, parseFloat(value) / 100 || 0.02));
                                         // persist and update UI
                                         saveZones();
                                         renderAdminElements();
