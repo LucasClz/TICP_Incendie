@@ -288,10 +288,7 @@
             <!-- Center Panel: Plan -->
             <div class="flex-1 p-4 flex flex-col min-w-0">
                 <div class="flex justify-between items-center mb-4">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
-                        <select id="floorSelect" class="px-2 py-1 border border-gray-300 rounded-md text-sm hidden"></select>
-                    </div>
+                    <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
                     <button id="zoneChecklistBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 hidden">
                         Checklist Zone
                     </button>
@@ -365,7 +362,6 @@
             // Application State
             let currentCampaign = '2025Q4';
             let currentZone = null;
-            let currentFloor = null; // newly selected floor within currentZone
             let currentElement = null;
             let zones = [];
             let inspections = [];
@@ -452,12 +448,10 @@
                 }
 
                 // KPI par type d'éléments
-                // use current floor elements when available
-                const floorElements = currentFloor?.elements || { extincteurs: [], dm: [], sorties: [] };
                 const criteriaTypes = {
-                    'extincteur': floorElements.extincteurs || [],
-                    'dm': floorElements.dm || [],
-                    'sortie': floorElements.sorties || []
+                    'extincteur': currentZone.elements.extincteurs || [],
+                    'dm': currentZone.elements.dm || [],
+                    'sortie': currentZone.elements.sorties || []
                 };
 
                 Object.entries(criteriaTypes).forEach(([type, elements]) => {
@@ -592,27 +586,6 @@
                     }
                 }
 
-                // Data migration: convert legacy zone.plan + zone.elements into zone.floors
-                if (Array.isArray(zones) && zones.length > 0) {
-                    zones = zones.map(z => {
-                        if (!z.floors && (z.plan || z.elements)) {
-                            const floor = {
-                                id: z.defaultFloorId || 'RDC',
-                                name: z.defaultFloorName || 'Rez-de-chaussée',
-                                plan: z.plan || { imageUrl: '', naturalWidth: z.plan?.naturalWidth || 800, naturalHeight: z.plan?.naturalHeight || 600 },
-                                elements: z.elements || { extincteurs: [], dm: [], sorties: [] }
-                            };
-                            z.floors = [floor];
-                            // keep legacy fields for backward inspection if needed, but remove to avoid confusion
-                            delete z.plan;
-                            delete z.elements;
-                        }
-                        return z;
-                    });
-                    // persist migration result
-                    saveZones();
-                }
-
                 // If no saved zones, and we're served over HTTP(S), try to fetch TICP.json
                 if ((!zones || zones.length === 0) && window.location && /^https?:/.test(window.location.protocol)) {
                     const candidates = [
@@ -657,58 +630,32 @@
                     zones = [{
                         id: 'AT14',
                         name: 'AT14',
-                        floors: [
-                            {
-                                id: 'RDC',
-                                name: 'Rez-de-chaussée',
-                                plan: {
-                                    imageUrl: 'data:image/svg+xml;base64,' + btoa(`
-                                        <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-                                            <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
-                                            <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
-                                            <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14 (RDC)</text>
-                                        </svg>
-                                    `),
-                                    naturalWidth: 800,
-                                    naturalHeight: 600
-                                },
-                                elements: {
-                                    extincteurs: [
-                                        { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
-                                        { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
-                                    ],
-                                    dm: [
-                                        { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
-                                        { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
-                                    ],
-                                    sorties: [
-                                        { x: 0.5, y: 0.1, size: 0.035 },
-                                        { x: 0.5, y: 0.9, size: 0.035 }
-                                    ]
-                                }
-                            },
-                            {
-                                id: '1',
-                                name: '1er étage',
-                                plan: {
-                                    imageUrl: 'data:image/svg+xml;base64,' + btoa(`
-                                        <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-                                            <rect width="800" height="600" fill="#fff7ed" stroke="#fde68a" stroke-width="2"/>
-                                            <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#92400e">Plan d'exemple - AT14 (1er)</text>
-                                        </svg>
-                                    `),
-                                    naturalWidth: 800,
-                                    naturalHeight: 600
-                                },
-                                elements: {
-                                    extincteurs: [
-                                        { id: 'EXT-101', type: 'Eau', x: 0.4, y: 0.5, size: 0.03 }
-                                    ],
-                                    dm: [],
-                                    sorties: []
-                                }
-                            }
-                        ],
+                        plan: {
+                            imageUrl: 'data:image/svg+xml;base64,' + btoa(`
+                                <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+                                    <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
+                                    <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14</text>
+                                    <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
+                                </svg>
+                            `),
+                            naturalWidth: 800,
+                            naturalHeight: 600
+                        },
+                        elements: {
+                            extincteurs: [
+                                { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
+                                { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
+                            ],
+                            dm: [
+                                { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
+                                { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
+                            ],
+                            sorties: [
+                                { x: 0.5, y: 0.1, size: 0.035 },
+                                { x: 0.5, y: 0.9, size: 0.035 }
+                            ]
+                        },
                         enabledCriteria: {
                             extincteur: Object.keys(CRITERIA.extincteur),
                             dm: Object.keys(CRITERIA.dm),
@@ -1089,32 +1036,6 @@
         );
     }
 
-    // Render floor selector UI when a zone is selected
-    function renderFloorSelector() {
-        const sel = document.getElementById('floorSelect');
-        if (!sel || !currentZone) return;
-        const floors = currentZone.floors || [];
-        if (floors.length <= 1) {
-            sel.classList.add('hidden');
-            return;
-        }
-        sel.classList.remove('hidden');
-        sel.innerHTML = floors.map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
-        sel.onchange = (e) => {
-            const id = e.target.value;
-            const floor = (currentZone.floors || []).find(fi => fi.id === id);
-            if (floor) {
-                currentFloor = floor;
-                const planImage = document.getElementById('planImage');
-                if (planImage) {
-                    planImage.src = currentFloor.plan?.imageUrl || '';
-                    planImage.onload = () => addHotspots();
-                }
-                updateKPIs();
-            }
-        };
-    }
-
     function toggleAdminMode(enable) {
         isAdminMode = !!enable;
         const appEl = document.getElementById('app');
@@ -1142,9 +1063,8 @@
             renderZoneList();
             if (currentZone) {
                 const mainPlanImage = document.getElementById('planImage');
-                const planUrl = currentFloor?.plan?.imageUrl || '';
-                if (mainPlanImage && mainPlanImage.src !== planUrl) {
-                    mainPlanImage.src = planUrl;
+                if (mainPlanImage && mainPlanImage.src !== currentZone.plan.imageUrl) {
+                    mainPlanImage.src = currentZone.plan.imageUrl;
                     mainPlanImage.onload = () => addHotspots();
                 } else {
                     addHotspots();
@@ -1220,24 +1140,14 @@
         }
         document.getElementById('zoneChecklistBtn').classList.remove('hidden');
 
-        // Initialize currentFloor to first available floor
-        currentFloor = (currentZone.floors && currentZone.floors[0]) || null;
-
         // Show plan
         const planContainer = document.getElementById('planContainer');
         const planImage = document.getElementById('planImage');
         const noZoneMessage = document.getElementById('noZoneMessage');
 
-        if (currentFloor && currentFloor.plan && currentFloor.plan.imageUrl) {
-            planImage.src = currentFloor.plan.imageUrl;
-        } else {
-            planImage.src = '';
-        }
+        planImage.src = currentZone.plan.imageUrl;
         planContainer.classList.remove('hidden');
         noZoneMessage.classList.add('hidden');
-
-        // Populate floor selector
-        renderFloorSelector();
 
         // Add hotspots
         planImage.onload = () => {
@@ -1259,14 +1169,14 @@
         // Remove existing hotspots
         planContainer.querySelectorAll('.hotspot').forEach(h => h.remove());
         
-    if (!currentZone || !planImage || !currentFloor) return;
+        if (!currentZone || !planImage) return;
         
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
         
         // Wait for image to be fully loaded and positioned
         const addHotspotsWhenReady = () => {
-            // Add extincteur hotspots (from currentFloor)
-            currentFloor.elements.extincteurs?.forEach(ext => {
+            // Add extincteur hotspots
+            currentZone.elements.extincteurs?.forEach(ext => {
                 if (!filterChecked || hasElementNonConformity('extincteur', ext)) {
                     const hotspot = createHotspot('extincteur', ext.x, ext.y, ext);
                     planContainer.appendChild(hotspot);
@@ -1274,7 +1184,7 @@
             });
             
             // Add DM hotspots
-            currentFloor.elements.dm?.forEach(dm => {
+            currentZone.elements.dm?.forEach(dm => {
                 if (!filterChecked || hasElementNonConformity('dm', dm)) {
                     const hotspot = createHotspot('dm', dm.x, dm.y, dm);
                     planContainer.appendChild(hotspot);
@@ -1282,7 +1192,7 @@
             });
             
             // Add sortie hotspots
-            currentFloor.elements.sorties?.forEach((sortie, index) => {
+            currentZone.elements.sorties?.forEach((sortie, index) => {
                 if (!filterChecked || hasElementNonConformity('sortie', { ...sortie, index })) {
                     const hotspot = createHotspot('sortie', sortie.x, sortie.y, { ...sortie, index });
                     planContainer.appendChild(hotspot);
@@ -1439,7 +1349,6 @@
         return inspections.find(i => 
             i.campaign === currentCampaign && 
             i.zoneId === currentZone.id && 
-            i.floorId === (currentFloor?.id || null) &&
             i.elementKey === key
         );
     }
@@ -1451,7 +1360,6 @@
             timestamp: new Date().toISOString(),
             campaign: currentCampaign,
             zoneId: currentZone.id,
-            floorId: currentFloor?.id || null,
             elementKey: key,
             type: type,
             elementData: elementData,
@@ -1467,12 +1375,10 @@
 
     // Get element key
     function getElementKey(type, elementData) {
-        // include floor id in keys to disambiguate same element ids across floors
-        const floorPart = currentFloor?.id ? `${currentFloor.id}_` : '';
         if (type === 'sortie') {
-            return `${floorPart}${type}_${elementData.x}_${elementData.y}`;
+            return `${type}_${elementData.x}_${elementData.y}`;
         }
-        return `${floorPart}${type}_${elementData.id || elementData.index}`;
+        return `${type}_${elementData.id || elementData.index}`;
     }
 
     // Update criteria
@@ -1548,16 +1454,15 @@
     // Update zone plan (compress before storing, robust save)
     function updateZonePlan(event) {
         const file = event.target.files[0];
-        if (!file || !currentZone || !currentFloor) return;
+        if (!file || !currentZone) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
-                    currentFloor.plan = currentFloor.plan || {};
-                    currentFloor.plan.imageUrl = compressedDataUrl;
-                    currentFloor.plan.naturalWidth = img.width;
-                    currentFloor.plan.naturalHeight = img.height;
+                    currentZone.plan.imageUrl = compressedDataUrl;
+                    currentZone.plan.naturalWidth = img.width;
+                    currentZone.plan.naturalHeight = img.height;
                     // Save with quota handling
                     saveZones();
 
@@ -1961,14 +1866,8 @@
         const newZone = {
             id: zoneId,
             name: zoneName,
-            floors: [
-                {
-                    id: 'RDC',
-                    name: 'Rez-de-chaussée',
-                    plan: { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
-                    elements: { extincteurs: [], dm: [], sorties: [] }
-                }
-            ],
+            plan: { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
+            elements: { extincteurs: [], dm: [], sorties: [] },
             category: '',
             enabledCriteria: {
                 extincteur: Object.keys(CRITERIA.extincteur),
@@ -1986,9 +1885,9 @@
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    newZone.floors[0].plan.imageUrl = e.target.result;
-                    newZone.floors[0].plan.naturalWidth = img.width;
-                    newZone.floors[0].plan.naturalHeight = img.height;
+                    newZone.plan.imageUrl = e.target.result;
+                    newZone.plan.naturalWidth = img.width;
+                    newZone.plan.naturalHeight = img.height;
                     zones.push(newZone);
                     saveZones();
                     renderAdminZoneList();
@@ -1999,7 +1898,7 @@
             };
             reader.readAsDataURL(planFile);
         } else {
-            newZone.floors[0].plan.imageUrl = 'data:image/svg+xml;base64,' + btoa(`
+            newZone.plan.imageUrl = 'data:image/svg+xml;base64,' + btoa(`
                 <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
                     <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
                     <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
@@ -2057,18 +1956,6 @@
                     return;
                 }
                 
-                // Normalize imported zone to ensure floors exist
-                if (!importedZone.floors && (importedZone.plan || importedZone.elements)) {
-                    importedZone.floors = [{
-                        id: importedZone.defaultFloorId || 'RDC',
-                        name: importedZone.defaultFloorName || 'Rez-de-chaussée',
-                        plan: importedZone.plan || { imageUrl: '' },
-                        elements: importedZone.elements || { extincteurs: [], dm: [], sorties: [] }
-                    }];
-                    delete importedZone.plan;
-                    delete importedZone.elements;
-                }
-
                 zones.push(importedZone);
                 saveZones();
                 renderAdminZoneList();
@@ -2105,10 +1992,9 @@
         if (!currentZone) return;
         const collectionKey = ELEMENT_COLLECTION_MAP[type];
         if (!collectionKey) return;
-        if (!currentFloor) return;
-        currentFloor.elements = currentFloor.elements || { extincteurs: [], dm: [], sorties: [] };
-        currentFloor.elements[collectionKey] = currentFloor.elements[collectionKey] || [];
-        const collection = currentFloor.elements[collectionKey];
+        
+        currentZone.elements[collectionKey] = currentZone.elements[collectionKey] || [];
+        const collection = currentZone.elements[collectionKey];
         const element = { x: 0.5, y: 0.5 };
         // read default size input if present (percentage), otherwise fallback to 2%
         const sizeInput = document.getElementById('defaultElemSize');
@@ -2133,15 +2019,14 @@
     function removeElement(type, index) {
         if (!currentZone) return;
         const collectionKey = ELEMENT_COLLECTION_MAP[type];
-        if (!currentFloor) return;
-        const collection = currentFloor.elements?.[collectionKey];
+        const collection = currentZone.elements?.[collectionKey];
         if (!collection || !collection[index]) return;
         
         if (!confirm('Supprimer cet élément ?')) return;
         
-    const [removed] = collection.splice(index, 1);
-    const elementKey = getElementKey(type, removed);
-    inspections = inspections.filter(ins => !(ins.zoneId === currentZone.id && ins.floorId === (currentFloor?.id || null) && ins.elementKey === elementKey));
+        const [removed] = collection.splice(index, 1);
+        const elementKey = getElementKey(type, removed);
+        inspections = inspections.filter(ins => !(ins.zoneId === currentZone.id && ins.elementKey === elementKey));
         
         saveZones();
         saveInspections();
@@ -2160,7 +2045,7 @@
         ];
         
         container.innerHTML = sections.map(({ type, label, collectionKey }) => {
-            const collection = (currentFloor && currentFloor.elements && currentFloor.elements[collectionKey]) || [];
+            const collection = currentZone.elements[collectionKey] || [];
             const content = collection.length
                 ? collection.map((el, idx) => `
                     <div class="border border-gray-200 rounded px-2 py-1 text-xs flex justify-between items-center bg-gray-50">
@@ -2187,8 +2072,7 @@
 
     function editElementDialog(type, index) {
         const collectionKey = ELEMENT_COLLECTION_MAP[type];
-        if (!currentFloor) return;
-        const element = currentFloor.elements[collectionKey][index];
+        const element = currentZone.elements[collectionKey][index];
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -2269,8 +2153,7 @@
     function saveElementEdit(event, type, index) {
         event.preventDefault();
         const collectionKey = ELEMENT_COLLECTION_MAP[type];
-        if (!currentFloor) return;
-        const element = currentFloor.elements[collectionKey][index];
+        const element = currentZone.elements[collectionKey][index];
         
         if (type !== 'sortie') {
             element.id = document.getElementById('editElemId').value.trim();
@@ -2376,13 +2259,14 @@
 
     function renderAdminElements() {
         const container = document.getElementById('adminElements');
-        if (!container || !currentZone || !currentFloor) return;
+        if (!container || !currentZone) return;
         container.innerHTML = '';
         
         const planImage = document.getElementById('adminPlanImage');
         if (!planImage) return;
+        
         ['extincteurs', 'dm', 'sorties'].forEach(type => {
-            const elements = (currentFloor.elements && currentFloor.elements[type]) || [];
+            const elements = currentZone.elements[type] || [];
             elements.forEach((element, index) => {
                 const adminElement = document.createElement('div');
                 const typeShort = type === 'sorties' ? 'sortie' : type === 'extincteurs' ? 'extincteur' : 'dm';
@@ -2476,9 +2360,6 @@
         if (!zone) return;
 
         currentZone = zone;
-        // ensure at least one floor
-        currentZone.floors = currentZone.floors && currentZone.floors.length ? currentZone.floors : [{ id: 'RDC', name: 'Rez-de-chaussée', plan: { imageUrl: '' }, elements: { extincteurs: [], dm: [], sorties: [] } }];
-        currentFloor = currentZone.floors[0];
 
         const adminContent = document.getElementById('adminContent');
         adminContent.innerHTML = `
@@ -2514,15 +2395,9 @@
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 flex-1 overflow-hidden">
                     <div class="xl:col-span-2 flex flex-col overflow-hidden">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="font-semibold">Plan de la Zone</h3>
-                            <div class="flex items-center gap-2">
-                                <select id="adminFloorSelect" class="px-2 py-1 border border-gray-200 rounded text-sm"></select>
-                                <button type="button" onclick="(function(){ addFloor(); })()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
-                            </div>
-                        </div>
+                        <h3 class="font-semibold mb-3">Plan de la Zone</h3>
                         <div class="plan-container admin-mode mb-4 flex-1 overflow-auto" id="adminPlanContainer">
-                            <img src="${(currentFloor && currentFloor.plan && currentFloor.plan.imageUrl) ? currentFloor.plan.imageUrl : ''}" class="plan-image w-full h-auto" id="adminPlanImage">
+                            <img src="${zone.plan.imageUrl}" class="plan-image w-full h-auto" id="adminPlanImage">
                             <div id="adminElements"></div>
                         </div>
                         
@@ -2619,7 +2494,6 @@
             if (adminImg && adminContainer) {
                 // Fonction pour repositionner avec observation
                 const setupPositioning = () => {
-                    renderAdminFloorSelector();
                     renderAdminElements();
                     renderElementsList();
                     renderElementCriteriaConfig();
@@ -2661,47 +2535,6 @@
         }, 50);
     }
 
-    function renderAdminFloorSelector() {
-        const sel = document.getElementById('adminFloorSelect');
-        if (!sel || !currentZone) return;
-        sel.innerHTML = (currentZone.floors || []).map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
-        sel.onchange = (e) => {
-            const id = e.target.value;
-            const floor = (currentZone.floors || []).find(fi => fi.id === id);
-            if (floor) {
-                currentFloor = floor;
-                const adminImg = document.getElementById('adminPlanImage');
-                if (adminImg) adminImg.src = currentFloor.plan?.imageUrl || '';
-                renderAdminElements();
-                renderElementsList();
-            }
-        };
-    }
-
-    function addFloor() {
-        if (!currentZone) return;
-        const newId = `F${(currentZone.floors||[]).length+1}`;
-        const floor = { id: newId, name: `Etage ${ (currentZone.floors||[]).length + 1 }`, plan: { imageUrl: '' }, elements: { extincteurs: [], dm: [], sorties: [] } };
-        currentZone.floors = currentZone.floors || [];
-        currentZone.floors.push(floor);
-        currentFloor = floor;
-        saveZones();
-        renderAdminFloorSelector();
-        renderAdminElements();
-        renderElementsList();
-    }
-
-    function removeFloor(floorId) {
-        if (!currentZone) return;
-        if (!confirm('Supprimer cet étage et ses éléments ?')) return;
-        currentZone.floors = (currentZone.floors || []).filter(f => f.id !== floorId);
-        currentFloor = currentZone.floors[0] || null;
-        saveZones();
-        renderAdminFloorSelector();
-        renderAdminElements();
-        renderElementsList();
-    }
-
             function saveAndReturn() {
                 const newName = document.getElementById('editZoneName')?.value;
                 const newCategory = document.getElementById('editZoneCategory')?.value;
@@ -2735,8 +2568,12 @@
                 if (!currentZone) return;
                 
                 if (!confirm('Êtes-vous sûr de vouloir supprimer tous les éléments de cette zone ?')) return;
-                if (!currentFloor) return;
-                currentFloor.elements = { extincteurs: [], dm: [], sorties: [] };
+                
+                currentZone.elements = {
+                    extincteurs: [],
+                    dm: [],
+                    sorties: []
+                };
                 
                 saveZones();
                 renderAdminElements();
@@ -2777,25 +2614,25 @@
 
             function updateElementPosition(index, axis, value) {
                         // Update element position or size from the edit dialog inputs
-                                if (!currentFloor) return;
-                                // Try to find which collection the index refers to by searching the three collections
-                                const collections = ['extincteurs','dm','sorties'];
-                                let found = false;
-                                for (const col of collections) {
-                                    const arr = currentFloor.elements[col] || [];
-                                    if (arr[index]) {
-                                        const el = arr[index];
-                                        if (axis === 'x') el.x = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
-                                        if (axis === 'y') el.y = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
-                                        if (axis === 'size') el.size = Math.max(0.005, Math.min(0.5, parseFloat(value) / 100 || 0.02));
-                                        // persist and update UI
-                                        saveZones();
-                                        renderAdminElements();
-                                        renderElementsList();
-                                        found = true;
-                                        break;
-                                    }
-                                }
+                        if (!currentZone) return;
+                        // Try to find which collection the index refers to by searching the three collections
+                        const collections = ['extincteurs','dm','sorties'];
+                        let found = false;
+                        for (const col of collections) {
+                            const arr = currentZone.elements[col] || [];
+                            if (arr[index]) {
+                                const el = arr[index];
+                                if (axis === 'x') el.x = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
+                                if (axis === 'y') el.y = Math.max(0, Math.min(1, parseFloat(value) / 100 || 0));
+                                if (axis === 'size') el.size = Math.max(0.005, Math.min(0.5, parseFloat(value) / 100 || 0.02));
+                                // persist and update UI
+                                saveZones();
+                                renderAdminElements();
+                                renderElementsList();
+                                found = true;
+                                break;
+                            }
+                        }
                         if (!found) {
                             // index not found - ignore
                         }
