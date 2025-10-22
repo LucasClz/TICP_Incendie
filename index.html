@@ -122,6 +122,16 @@
         .admin-element.extincteur { background: #ef4444; }
         .admin-element.dm { background: #f59e0b; }
         .admin-element.sortie { background: #10b981; }
+        /* Ensure admin elements overlay covers the image and receives pointer events */
+        #adminElements {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: auto; /* allow clicks/drags on admin elements */
+            z-index: 20;
+        }
         
         .modal {
             position: fixed;
@@ -572,12 +582,6 @@
                 await loadData();
                 setupEventListeners();
                 renderZoneList();
-                // Ensure the main plan container is a positioned ancestor so absolute hotspots
-                // are always positioned relative to it (prevents offsets between admin and notation)
-                try {
-                    const pc = document.getElementById('planContainer');
-                    if (pc) pc.style.position = pc.style.position || 'relative';
-                } catch (e) { /* ignore */ }
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
             }
@@ -758,29 +762,6 @@
             // Tentatives de sauvegarde avec strategies si quota dépassé
             function saveZones() {
                 try {
-                    // Ensure each floor plan has a fileName when an imageUrl exists so exports include the original or a sensible default
-                    try {
-                        (zones || []).forEach(z => {
-                            (z.floors || []).forEach(f => {
-                                try {
-                                    const plan = f && f.plan;
-                                    if (plan && plan.imageUrl && !plan.fileName) {
-                                        // Infer extension from data URL if possible
-                                        let ext = '.png';
-                                        const lower = String(plan.imageUrl).toLowerCase();
-                                        if (lower.startsWith('data:image/png')) ext = '.png';
-                                        else if (lower.startsWith('data:image/jpeg') || lower.startsWith('data:image/jpg')) ext = '.jpg';
-                                        else if (lower.startsWith('data:image/svg+xml')) ext = '.svg';
-                                        else if (lower.indexOf('png') !== -1) ext = '.png';
-
-                                        const zid = (z && z.id) ? String(z.id).replace(/[^a-z0-9_-]/gi,'') : 'zone';
-                                        const fid = (f && f.id) ? String(f.id).replace(/[^a-z0-9_-]/gi,'') : 'floor';
-                                        plan.fileName = `${zid}_${fid}${ext}`;
-                                    }
-                                } catch (e) { /* ignore per-floor errors */ }
-                            });
-                        });
-                    } catch (e) { /* ignore */ }
                     localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
@@ -865,25 +846,28 @@
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
+    // Robust positionElement: prefer offset-based metrics (offsetLeft/Top of image within parent)
+    // and clientWidth/clientHeight for pixel sizes. Fallback to getBoundingClientRect if needed.
     function positionElement(el, xPercent, yPercent, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
         const planImage = document.getElementById(planImageId);
-        
+
+        // If no image available, use percent positions on the element's offsetParent
         if (!planImage) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
             return;
         }
-        
-        // Vérifier que l'image est chargée
+
+        // If image not loaded yet, fallback to percent positioning
         if (!planImage.complete || planImage.naturalHeight === 0) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
             return;
         }
-        
+
         const imageParent = planImage.parentElement;
         if (!imageParent) {
             el.style.position = 'absolute';
@@ -891,68 +875,61 @@
             el.style.top = `${yPercent * 100}%`;
             return;
         }
-        
-        // Calcul des positions en pixels absolus
-        const imageRect = planImage.getBoundingClientRect();
-        const parentRect = imageParent.getBoundingClientRect();
-        
-        // Position de l'image dans le parent
-        const relLeft = imageRect.left - parentRect.left;
-        const relTop = imageRect.top - parentRect.top;
-        
-        // Position absolue de l'élément
-        const leftPx = relLeft + (xPercent * imageRect.width);
-        const topPx = relTop + (yPercent * imageRect.height);
+
+        // Try offset-based measurements first (more stable when CSS transforms / layout applied)
+        let imgLeft = 0, imgTop = 0, imgWidth = planImage.clientWidth, imgHeight = planImage.clientHeight;
+        try {
+            // compute image position relative to its offsetParent
+            const offsetParent = planImage.offsetParent || imageParent;
+            let cumulativeLeft = planImage.offsetLeft;
+            let cumulativeTop = planImage.offsetTop;
+            let node = planImage;
+            while (node && node !== offsetParent) {
+                node = node.offsetParent;
+                if (node && node !== offsetParent) {
+                    cumulativeLeft += node.offsetLeft || 0;
+                    cumulativeTop += node.offsetTop || 0;
+                }
+            }
+            imgLeft = cumulativeLeft;
+            imgTop = cumulativeTop;
+            imgWidth = planImage.clientWidth || imgWidth;
+            imgHeight = planImage.clientHeight || imgHeight;
+        } catch (e) {
+            // fallback to bounding rects
+            const imageRect = planImage.getBoundingClientRect();
+            const parentRect = imageParent.getBoundingClientRect();
+            imgLeft = imageRect.left - parentRect.left;
+            imgTop = imageRect.top - parentRect.top;
+            imgWidth = imageRect.width;
+            imgHeight = imageRect.height;
+        }
+
+        // compute pixel positions inside parent coordinate space
+        const leftPx = imgLeft + (xPercent * imgWidth);
+        const topPx = imgTop + (yPercent * imgHeight);
 
         el.style.position = 'absolute';
-        el.style.left = `${leftPx}px`;
-        el.style.top = `${topPx}px`;
+        el.style.left = `${Math.round(leftPx)}px`;
+        el.style.top = `${Math.round(topPx)}px`;
 
         // If element has a size (relative to image width), apply width/height
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size)) {
-            // size is fraction of image width; compute pixel size
-            const px = Math.max(6, Math.round(size * imageRect.width));
+            const px = Math.max(6, Math.round(size * imgWidth));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-            // keep center alignment via transform
             el.style.transform = 'translate(-50%, -50%)';
         }
 
-        // Debugging support: enable by setting window.DEBUG_POSITION = true in the browser console
+        // Optional runtime debug output. Set window.DEBUG_POSITION = true in console to enable.
         try {
             if (window.DEBUG_POSITION) {
-                const info = {
-                    mode: isAdminMode ? 'admin' : 'main',
-                    planImageId,
-                    imageRect: { left: imageRect.left, top: imageRect.top, width: imageRect.width, height: imageRect.height },
-                    parentRect: { left: parentRect.left, top: parentRect.top, width: parentRect.width, height: parentRect.height },
-                    relLeft, relTop, leftPx, topPx, xPercent, yPercent
-                };
-                console.debug('positionElement debug', info, el);
-
-                // on-screen overlay for quick inspection
-                let dbg = document.getElementById('positionDebugOverlay');
-                if (!dbg) {
-                    dbg = document.createElement('div');
-                    dbg.id = 'positionDebugOverlay';
-                    dbg.style.position = 'fixed';
-                    dbg.style.right = '8px';
-                    dbg.style.bottom = '8px';
-                    dbg.style.background = 'rgba(0,0,0,0.75)';
-                    dbg.style.color = 'white';
-                    dbg.style.padding = '8px';
-                    dbg.style.fontSize = '12px';
-                    dbg.style.zIndex = '9999';
-                    dbg.style.maxWidth = '320px';
-                    dbg.style.maxHeight = '40vh';
-                    dbg.style.overflow = 'auto';
-                    dbg.style.borderRadius = '6px';
-                    document.body.appendChild(dbg);
-                }
-                dbg.innerText = JSON.stringify(info, null, 2);
+                console.debug('[positionElement]', { planImageId, imgLeft, imgTop, imgWidth, imgHeight, xPercent, yPercent, leftPx, topPx });
             }
-        } catch (e) { /* ignore debug errors */ }
+        } catch (e) {
+            // ignore
+        }
     }
 
     function repositionHotspots() {
@@ -964,7 +941,7 @@
                 positionElement(h, x, y, false);
             }
         });
-
+        
         // Reposition admin-elements en mode admin
         document.querySelectorAll('.plan-container.admin-mode .admin-element').forEach(a => {
             const x = parseFloat(a.dataset.x);
@@ -975,14 +952,38 @@
         });
     }
 
-    // Timer-based reposition helper (used widely in the app)
     let _repositionTimer = null;
     function scheduleReposition(delay = 200) {
         if (_repositionTimer) clearTimeout(_repositionTimer);
         _repositionTimer = setTimeout(() => {
-            try { repositionHotspots(); } catch (e) { /* ignore */ }
+            repositionHotspots();
             _repositionTimer = null;
         }, delay);
+    }
+
+    function createHotspot(type, x, y, elementData) {
+        const hotspot = document.createElement('div');
+        hotspot.className = `hotspot ${type}`;
+        hotspot.dataset.x = String(x);
+        hotspot.dataset.y = String(y);
+        hotspot.dataset.elementKey = getElementKey(type, elementData);
+        if (elementData && elementData.size !== undefined) hotspot.dataset.size = String(elementData.size);
+        
+        // Position initiale
+        positionElement(hotspot, x, y, false);
+
+        const inspection = getElementInspection(type, elementData);
+        if (inspection && isElementCompleted(inspection)) {
+            hotspot.classList.add('completed');
+        }
+
+        hotspot.addEventListener('click', () => {
+            selectElement(type, elementData);
+            // Forcer reposition après affichage du panneau
+            scheduleReposition(150);
+        });
+
+        return hotspot;
     }
 
     function closeNotationPanel() {
@@ -1133,55 +1134,26 @@
     function renderFloorSelector() {
         const sel = document.getElementById('floorSelect');
         if (!sel || !currentZone) return;
-        // Make the selector visible (was hidden in markup) so notation and main view can change floors
-        sel.classList.remove('hidden');
-
         const floors = currentZone.floors || [];
-        sel.innerHTML = floors.map(f => `<option value="${f.id}">${f.name || f.id}</option>`).join('');
-
-        // Ensure the select shows the currentFloor explicitly
-        if (currentFloor && currentFloor.id) {
-            sel.value = currentFloor.id;
-        } else if (floors.length > 0) {
-            sel.value = floors[0].id;
-            currentFloor = floors[0];
+        if (floors.length <= 1) {
+            sel.classList.add('hidden');
+            return;
         }
-
+        sel.classList.remove('hidden');
+        sel.innerHTML = floors.map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
         sel.onchange = (e) => {
-            const id = (e.target.value || '').toString().trim();
+            const id = e.target.value;
             const floor = (currentZone.floors || []).find(fi => fi.id === id);
             if (floor) {
                 currentFloor = floor;
-                // Update admin preview image if admin is open
-                const adminImg = document.getElementById('adminPlanImage');
-                if (adminImg) adminImg.src = currentFloor.plan?.imageUrl || '';
-
-                // Update main plan image and hotspots for the main view / notation
-                const mainPlanImage = document.getElementById('planImage');
-                if (mainPlanImage) {
-                    const planUrl = currentFloor.plan?.imageUrl || '';
-                    if (mainPlanImage.src !== planUrl) {
-                        mainPlanImage.src = planUrl;
-                        mainPlanImage.onload = () => {
-                            addHotspots();
-                            updateKPIs();
-                            scheduleReposition(80);
-                        };
-                    } else {
-                        // If same src, still refresh hotspots and KPIs
-                        addHotspots();
-                        updateKPIs();
-                        scheduleReposition(80);
-                    }
+                const planImage = document.getElementById('planImage');
+                if (planImage) {
+                    planImage.src = currentFloor.plan?.imageUrl || '';
+                    planImage.onload = () => addHotspots();
                 }
-
-                renderAdminElements();
-                renderElementsList();
+                updateKPIs();
             }
         };
-
-        // Trigger onchange to sync UI (in case we set sel.value programmatically)
-        sel.dispatchEvent(new Event('change'));
     }
 
     function toggleAdminMode(enable) {
@@ -1399,9 +1371,8 @@
         const panel = document.getElementById('notationPanel');
         if (panel) {
             panel.classList.remove('hidden');
-            // Reposition après changement de layout — schedule multiple times to be robust across image load/layout
+            // Reposition après changement de layout
             setTimeout(() => scheduleReposition(100), 50);
-            setTimeout(() => scheduleReposition(180), 200);
         }
         renderNotationPanel();
     }
@@ -1618,47 +1589,30 @@
     // Update zone plan (compress before storing, robust save)
     function updateZonePlan(event) {
         const file = event.target.files[0];
-        if (!file || !currentZone) return;
-        // Determine which floor the user expects to update: prefer the admin selector
-        const adminFloorSel = document.getElementById('adminFloorSelect');
-        let targetFloor = currentFloor;
-        if (adminFloorSel && adminFloorSel.value) {
-            const f = (currentZone.floors || []).find(x => x.id === adminFloorSel.value);
-            if (f) targetFloor = f;
-        }
-        if (!targetFloor) return;
+        if (!file || !currentZone || !currentFloor) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
-                    targetFloor.plan = targetFloor.plan || {};
-                    targetFloor.plan.imageUrl = compressedDataUrl;
-                    // Preserve original filename so exports can reference it
-                    try { targetFloor.plan.fileName = file.name || ''; } catch (err) { targetFloor.plan.fileName = ''; }
-                    targetFloor.plan.naturalWidth = img.width;
-                    targetFloor.plan.naturalHeight = img.height;
+                    currentFloor.plan = currentFloor.plan || {};
+                    currentFloor.plan.imageUrl = compressedDataUrl;
+                    currentFloor.plan.naturalWidth = img.width;
+                    currentFloor.plan.naturalHeight = img.height;
                     // Save with quota handling
                     saveZones();
 
                     // Update admin view
                     const adminPlanImage = document.getElementById('adminPlanImage');
                     if (adminPlanImage) {
-                        // only update admin image if it corresponds to the floor we just updated
-                        const adminSel = document.getElementById('adminFloorSelect');
-                        if (!adminSel || adminSel.value === targetFloor.id) {
-                            adminPlanImage.src = compressedDataUrl;
-                            adminPlanImage.onload = () => renderAdminElements();
-                        }
+                        adminPlanImage.src = compressedDataUrl;
+                        adminPlanImage.onload = () => renderAdminElements();
                     }
                     // Update main view
                     const mainPlanImage = document.getElementById('planImage');
                     if (mainPlanImage) {
-                        // Update main view only if the updated floor is the one currently shown
-                        if (currentFloor && currentFloor.id === targetFloor.id) {
-                            mainPlanImage.src = compressedDataUrl;
-                            mainPlanImage.onload = () => addHotspots();
-                        }
+                        mainPlanImage.src = compressedDataUrl;
+                        mainPlanImage.onload = () => addHotspots();
                     }
                     alert('Plan de la zone mis à jour avec succès (image compressée pour stockage).');
                 };
@@ -2074,7 +2028,6 @@
                 const img = new Image();
                 img.onload = () => {
                     newZone.floors[0].plan.imageUrl = e.target.result;
-                    try { newZone.floors[0].plan.fileName = planFile.name || ''; } catch (err) { newZone.floors[0].plan.fileName = ''; }
                     newZone.floors[0].plan.naturalWidth = img.width;
                     newZone.floors[0].plan.naturalHeight = img.height;
                     zones.push(newZone);
@@ -2151,8 +2104,6 @@
                         id: importedZone.defaultFloorId || 'RDC',
                         name: importedZone.defaultFloorName || 'Rez-de-chaussée',
                         plan: importedZone.plan || { imageUrl: '' },
-                        // keep any provided filename
-                        fileName: importedZone.plan?.fileName || (importedZone.plan && importedZone.plan.fileName) || '' ,
                         elements: importedZone.elements || { extincteurs: [], dm: [], sorties: [] }
                     }];
                     delete importedZone.plan;
@@ -2561,27 +2512,6 @@
         });
     }
 
-    // Refresh admin preview image and reposition elements/hotspots
-    function refreshAdminPreview() {
-        try {
-            const adminImg = document.getElementById('adminPlanImage');
-            const adminElements = document.getElementById('adminElements');
-            if (adminImg) {
-                adminImg.src = currentFloor?.plan?.imageUrl || '';
-                // When image loads, ensure admin elements are rendered and positioned
-                adminImg.onload = () => {
-                    renderAdminElements();
-                    scheduleReposition(50);
-                };
-            }
-            if (adminElements && (!currentFloor || !currentFloor.elements)) {
-                adminElements.innerHTML = '';
-            }
-            // Also try to reposition immediately
-            scheduleReposition(50);
-        } catch (e) { /* ignore */ }
-    }
-
     function editZone(zoneId) {
         const zone = zones.find(z => z.id === zoneId);
         if (!zone) return;
@@ -2630,7 +2560,6 @@
                             <div class="flex items-center gap-2">
                                     <select id="adminFloorSelect" class="px-2 py-1 border border-gray-200 rounded text-sm"></select>
                                     <button type="button" onclick="(function(){ addFloor(); })()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
-                                    <button type="button" onclick="(function(){ renameCurrentFloor(); })()" title="Renommer l'étage sélectionné" class="px-2 py-1 bg-yellow-400 text-white rounded text-xs hover:bg-yellow-500">Renommer</button>
                                     <button type="button" id="deleteFloorBtn" onclick="deleteCurrentFloor()" title="Supprimer l'étage sélectionné" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Suppr. Etage</button>
                                 </div>
                         </div>
@@ -2730,29 +2659,6 @@
             const adminContainer = document.getElementById('adminPlanContainer');
             
             if (adminImg && adminContainer) {
-                // Ensure admin container is positioned and adminElements overlay fills it
-                try {
-                    adminContainer.style.position = adminContainer.style.position || 'relative';
-                    const adminElementsDiv = document.getElementById('adminElements');
-                    if (adminElementsDiv) {
-                        adminElementsDiv.style.position = 'absolute';
-                        adminElementsDiv.style.left = '0';
-                        adminElementsDiv.style.top = '0';
-                        adminElementsDiv.style.width = '100%';
-                        adminElementsDiv.style.height = '100%';
-                        // Allow admin elements to be interactive (drag, contextmenu). We'll place
-                        // the overlay above the image using z-index so clicks reach admin elements.
-                        adminElementsDiv.style.pointerEvents = 'auto';
-                        adminElementsDiv.style.zIndex = '2';
-                    }
-                    try {
-                        // Ensure the admin image sits below the overlay
-                        if (adminImg) {
-                            adminImg.style.position = adminImg.style.position || 'relative';
-                            adminImg.style.zIndex = '1';
-                        }
-                    } catch (e) { /* ignore */ }
-                } catch (e) { /* ignore */ }
                 // Fonction pour repositionner avec observation
                 const setupPositioning = () => {
                     renderAdminFloorSelector();
@@ -2782,9 +2688,6 @@
                 } else {
                     adminImg.onload = setupPositioning;
                 }
-
-                // Ensure preview is synchronized when opening the editor
-                try { refreshAdminPreview(); } catch (e) { /* ignore */ }
                 
                 // Observer de scroll pour repositionner en temps réel
                 adminContainer.addEventListener('scroll', () => {
@@ -2803,22 +2706,7 @@
     function renderAdminFloorSelector() {
         const sel = document.getElementById('adminFloorSelect');
         if (!sel || !currentZone) return;
-        const floors = currentZone.floors || [];
-        sel.innerHTML = floors.map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
-        // Disable delete button when there is only one floor
-        const deleteBtn = document.getElementById('deleteFloorBtn');
-        if (deleteBtn) {
-            if (floors.length <= 1) {
-                deleteBtn.disabled = true;
-                deleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                deleteBtn.title = "Impossible de supprimer le dernier étage";
-            } else {
-                deleteBtn.disabled = false;
-                deleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                deleteBtn.title = "Supprimer l'étage sélectionné";
-            }
-        }
-
+        sel.innerHTML = (currentZone.floors || []).map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
         sel.onchange = (e) => {
             const id = e.target.value;
             const floor = (currentZone.floors || []).find(fi => fi.id === id);
@@ -2830,22 +2718,6 @@
                 renderElementsList();
             }
         };
-
-        // Ensure the selector value reflects currentFloor and trigger a change to update the plan image
-        try {
-            if (currentFloor && currentFloor.id) {
-                sel.value = currentFloor.id;
-            } else if (floors[0]) {
-                sel.value = floors[0].id;
-                currentFloor = floors[0];
-            }
-            // Trigger onchange to sync image and elements immediately
-            sel.dispatchEvent(new Event('change'));
-        } catch (e) { /* ignore if DOM not ready */ }
-
-        // Also proactively refresh the admin preview (covers cases where onchange handlers
-        // may not reposition elements correctly immediately)
-        try { refreshAdminPreview(); } catch (e) { /* ignore */ }
     }
 
     function addFloor() {
@@ -2859,22 +2731,6 @@
         renderAdminFloorSelector();
         renderAdminElements();
         renderElementsList();
-        // Ensure the admin selector selects the new floor immediately
-        const adminSel = document.getElementById('adminFloorSelect');
-        if (adminSel) {
-            try { adminSel.value = floor.id; } catch (e) { /* ignore */ }
-            adminSel.dispatchEvent(new Event('change'));
-        }
-
-        // Ensure the admin plan image doesn't still show the previous floor's image
-        const adminPlanImage = document.getElementById('adminPlanImage');
-        if (adminPlanImage) {
-            // remove src so the image area is blank until user uploads a new plan
-            adminPlanImage.src = '';
-            // ensure repositioning updates
-            scheduleReposition(50);
-            try { refreshAdminPreview(); } catch (e) { /* ignore */ }
-        }
     }
 
     function deleteCurrentFloor() {
@@ -2886,42 +2742,6 @@
             return;
         }
         removeFloor(floorId);
-    }
-
-    function renameCurrentFloor() {
-        // Prompt the user for a new name for the currently selected floor
-        const sel = document.getElementById('adminFloorSelect');
-        const floorId = sel ? sel.value : (currentFloor && currentFloor.id);
-        if (!floorId) {
-            alert("Aucun étage sélectionné à renommer.");
-            return;
-        }
-        const floor = (currentZone && currentZone.floors || []).find(f => f.id === floorId);
-        if (!floor) return;
-
-        const newName = prompt('Nom de l\'étage :', floor.name || floor.id);
-        if (newName === null) return; // cancelled
-        const trimmed = String(newName).trim();
-        if (!trimmed) {
-            alert('Le nom ne peut pas être vide.');
-            return;
-        }
-
-        floor.name = trimmed;
-        saveZones();
-
-        // Refresh UI to display new name
-        renderAdminFloorSelector();
-        renderAdminElements();
-        renderElementsList();
-
-        // Ensure the selector remains on the renamed floor
-        try {
-            if (sel) sel.value = floor.id;
-            if (sel) sel.dispatchEvent(new Event('change'));
-        } catch (e) { /* ignore */ }
-
-        alert(`Étage renommé en "${trimmed}"`);
     }
 
     function removeFloor(floorId) {
@@ -2940,20 +2760,7 @@
 
         // Remove inspections that reference this zone+floor
         inspections = inspections.filter(i => !(i.zoneId === currentZone.id && i.floorId === floorId));
-
-        // Remove only the plan image attached to the floor being deleted
-        let removedImages = 0;
-        try {
-            if (floor && floor.plan && floor.plan.imageUrl) {
-                floor.plan.imageUrl = '';
-                if (floor.plan._backupImage) delete floor.plan._backupImage;
-                removedImages = 1;
-            }
-        } catch (e) {
-            // ignore
-        }
-
-        // Now remove the floor from the zone
+        // Remove the floor
         currentZone.floors = floors.filter(f => f.id !== floorId);
         // Select a sensible fallback floor
         currentFloor = currentZone.floors[0] || null;
@@ -2967,27 +2774,17 @@
         renderAdminElements();
         renderElementsList();
 
-        // If the main app view is visible, refresh its plan and hotspots
+        // If main view is showing this zone, update the main plan and hotspots
         try {
-            const appEl = document.getElementById('app');
             const planImage = document.getElementById('planImage');
-            if (appEl && !appEl.classList.contains('hidden') && planImage) {
-                // update the main plan to reflect the currently-selected floor (if any)
+            if (planImage && currentZone && currentZone.id === (currentZone && currentZone.id)) {
                 planImage.src = currentFloor?.plan?.imageUrl || '';
                 planImage.onload = () => addHotspots();
                 updateKPIs();
             }
         } catch (e) { /* ignore UI refresh errors */ }
 
-        // Also update the admin preview image so the UI reflects the change immediately
-        try {
-            const adminImg = document.getElementById('adminPlanImage');
-            if (adminImg) adminImg.src = currentFloor?.plan?.imageUrl || '';
-            // ensure admin elements are re-positioned after image change
-            scheduleReposition(50);
-        } catch (e) { /* ignore */ }
-
-        alert(`Étage supprimé avec succès. ${toRemoveCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
+        alert(`Étape supprimée avec succès. ${toRemoveCount} inspection(s) supprimée(s).`);
     }
 
             function saveAndReturn() {
@@ -3034,45 +2831,21 @@
 
             function deleteZone() {
                 if (!currentZone) return;
+                
                 if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement la zone "${currentZone.name}" ?`)) return;
-
-                // Before removing the zone object, clear any plan images attached to its floors to free local storage
-                let removedImages = 0;
-                try {
-                    (currentZone.floors || []).forEach(f => {
-                        if (f && f.plan && f.plan.imageUrl) {
-                            f.plan.imageUrl = '';
-                            removedImages++;
-                        }
-                        if (f && f.plan && f.plan._backupImage) delete f.plan._backupImage;
-                    });
-                } catch (e) {
-                    // ignore
-                }
-
-                // Remove inspections linked to this zone
-                const removedInspectionsCount = inspections.filter(i => i.zoneId === currentZone.id).length;
-
-                // Remove the zone
-                const deletedZoneName = currentZone.name;
+                
+                // Supprimer la zone
                 zones = zones.filter(z => z.id !== currentZone.id);
-                inspections = inspections.filter(i => i.zoneId !== deletedZoneName && i.zoneId !== currentZone.id);
-
+                
+                // Supprimer toutes les inspections liées
+                inspections = inspections.filter(i => i.zoneId !== currentZone.id);
+                
                 saveZones();
                 saveInspections();
                 renderAdminZoneList();
                 renderAdminContent();
-
-                // Clear admin preview so it doesn't show a stale image
-                try {
-                    const adminImg = document.getElementById('adminPlanImage');
-                    if (adminImg) adminImg.src = '';
-                    const adminElements = document.getElementById('adminElements');
-                    if (adminElements) adminElements.innerHTML = '';
-                    scheduleReposition(50);
-                } catch (e) { /* ignore */ }
-
-                alert(`Zone "${deletedZoneName}" supprimée avec succès. ${removedInspectionsCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
+                
+                alert(`Zone "${currentZone.name}" supprimée avec succès.`);
                 currentZone = null;
             }
 
