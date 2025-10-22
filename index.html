@@ -2517,9 +2517,10 @@
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="font-semibold">Plan de la Zone</h3>
                             <div class="flex items-center gap-2">
-                                <select id="adminFloorSelect" class="px-2 py-1 border border-gray-200 rounded text-sm"></select>
-                                <button type="button" onclick="(function(){ addFloor(); })()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
-                            </div>
+                                    <select id="adminFloorSelect" class="px-2 py-1 border border-gray-200 rounded text-sm"></select>
+                                    <button type="button" onclick="(function(){ addFloor(); })()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
+                                    <button type="button" id="deleteFloorBtn" onclick="deleteCurrentFloor()" title="Supprimer l'étage sélectionné" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Suppr. Etage</button>
+                                </div>
                         </div>
                         <div class="plan-container admin-mode mb-4 flex-1 overflow-auto" id="adminPlanContainer">
                             <img src="${(currentFloor && currentFloor.plan && currentFloor.plan.imageUrl) ? currentFloor.plan.imageUrl : ''}" class="plan-image w-full h-auto" id="adminPlanImage">
@@ -2664,7 +2665,22 @@
     function renderAdminFloorSelector() {
         const sel = document.getElementById('adminFloorSelect');
         if (!sel || !currentZone) return;
-        sel.innerHTML = (currentZone.floors || []).map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
+        const floors = currentZone.floors || [];
+        sel.innerHTML = floors.map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
+        // Disable delete button when there is only one floor
+        const deleteBtn = document.getElementById('deleteFloorBtn');
+        if (deleteBtn) {
+            if (floors.length <= 1) {
+                deleteBtn.disabled = true;
+                deleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                deleteBtn.title = "Impossible de supprimer le dernier étage";
+            } else {
+                deleteBtn.disabled = false;
+                deleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                deleteBtn.title = "Supprimer l'étage sélectionné";
+            }
+        }
+
         sel.onchange = (e) => {
             const id = e.target.value;
             const floor = (currentZone.floors || []).find(fi => fi.id === id);
@@ -2691,15 +2707,59 @@
         renderElementsList();
     }
 
+    function deleteCurrentFloor() {
+        // helper called from the delete button in the admin UI
+        const sel = document.getElementById('adminFloorSelect');
+        const floorId = sel ? sel.value : (currentFloor && currentFloor.id);
+        if (!floorId) {
+            alert("Aucun étage sélectionné à supprimer.");
+            return;
+        }
+        removeFloor(floorId);
+    }
+
     function removeFloor(floorId) {
         if (!currentZone) return;
-        if (!confirm('Supprimer cet étage et ses éléments ?')) return;
-        currentZone.floors = (currentZone.floors || []).filter(f => f.id !== floorId);
+        const floors = currentZone.floors || [];
+        if (floors.length <= 1) {
+            alert("Impossible de supprimer le dernier étage. Si vous souhaitez supprimer la zone entière, utilisez 'Supprimer Zone'.");
+            return;
+        }
+
+        const floor = floors.find(f => f.id === floorId) || { name: floorId };
+        if (!confirm(`Supprimer l'étage "${floor.name || floorId}" et toutes ses inspections associées ?`)) return;
+
+        // Count inspections to be removed for reporting
+        const toRemoveCount = inspections.filter(i => i.zoneId === currentZone.id && i.floorId === floorId).length;
+
+        // Remove inspections that reference this zone+floor
+        inspections = inspections.filter(i => !(i.zoneId === currentZone.id && i.floorId === floorId));
+        // Remove the floor
+        currentZone.floors = floors.filter(f => f.id !== floorId);
+        // Select a sensible fallback floor
         currentFloor = currentZone.floors[0] || null;
+
+        // Persist changes
+        saveInspections();
         saveZones();
+
+        // Refresh admin UI
         renderAdminFloorSelector();
         renderAdminElements();
         renderElementsList();
+        // If the main app view is visible, refresh its plan and hotspots
+        try {
+            const appEl = document.getElementById('app');
+            const planImage = document.getElementById('planImage');
+            if (appEl && !appEl.classList.contains('hidden') && planImage) {
+                // update the main plan to reflect the currently-selected floor (if any)
+                planImage.src = currentFloor?.plan?.imageUrl || '';
+                planImage.onload = () => addHotspots();
+                updateKPIs();
+            }
+        } catch (e) { /* ignore UI refresh errors */ }
+
+        alert(`Étage supprimé avec succès. ${toRemoveCount} inspection(s) supprimée(s).`);
     }
 
             function saveAndReturn() {
