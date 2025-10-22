@@ -560,7 +560,7 @@
             }
 
             // Load data from localStorage. When the app is served over HTTP(S) (for example
-            // via GitHub Pages) try to load `AT14.json` from the repository by default so
+            // via GitHub Pages) try to load `TICP.json` from the repository by default so
             // every user sees the pre-created zones.
             async function loadData() {
                 const savedZones = localStorage.getItem('fireInspection_zones');
@@ -575,12 +575,12 @@
                     }
                 }
 
-                // If no saved zones, and we're served over HTTP(S), try to fetch AT14.json
+                // If no saved zones, and we're served over HTTP(S), try to fetch TICP.json
                 if ((!zones || zones.length === 0) && window.location && /^https?:/.test(window.location.protocol)) {
                     const candidates = [
-                        'AT14.json',
-                        './AT14.json',
-                        './data/AT14.json'
+                        'TICP.json',
+                        './TICP.json',
+                        './data/TICP.json'
                     ];
 
                     for (const path of candidates) {
