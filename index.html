@@ -560,52 +560,73 @@
                 if (savedZones) {
                     zones = JSON.parse(savedZones);
                 } else {
-                    // Default zones
-                    zones = [{
-                        id: 'AT14',
-                        name: 'AT14',
-                        plan: {
-                            imageUrl: 'data:image/svg+xml;base64,' + btoa(`
-                                <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
-                                    <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
-                                    <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14</text>
-                                    <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
-                                </svg>
-                            `),
-                            naturalWidth: 800,
-                            naturalHeight: 600
-                        },
-                        elements: {
-                            extincteurs: [
-                                { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
-                                { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
-                            ],
-                            dm: [
-                                { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
-                                { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
-                            ],
-                            sorties: [
-                                { x: 0.5, y: 0.1, size: 0.035 },
-                                { x: 0.5, y: 0.9, size: 0.035 }
-                            ]
-                        },
-                        enabledCriteria: {
-                            extincteur: Object.keys(CRITERIA.extincteur),
-                            dm: Object.keys(CRITERIA.dm),
-                            sortie: Object.keys(CRITERIA.sortie),
-                            zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
-                                acc[section] = Object.keys(ZONE_CRITERIA[section]);
-                                return acc;
-                            }, {})
-                        }
-                    }];
-                    saveZones();
+                    // Try to load default AT14.json
+                    loadDefaultZone();
                 }
                 
                 if (savedInspections) {
                     inspections = JSON.parse(savedInspections);
                 }
+            }
+
+            // Load default AT14 zone from AT14.json
+            function loadDefaultZone() {
+                fetch('AT14.json')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('AT14.json not found');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        zones = [data];
+                        saveZones();
+                        console.log('AT14.json loaded successfully');
+                    })
+                    .catch(error => {
+                        console.log('AT14.json not found, creating default zone');
+                        // Default zones
+                        zones = [{
+                            id: 'AT14',
+                            name: 'AT14',
+                            plan: {
+                                imageUrl: 'data:image/svg+xml;base64,' + btoa(`
+                                    <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+                                        <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+                                        <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
+                                        <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14</text>
+                                        <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
+                                    </svg>
+                                `),
+                                naturalWidth: 800,
+                                naturalHeight: 600
+                            },
+                            elements: {
+                                extincteurs: [
+                                    { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
+                                    { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
+                                ],
+                                dm: [
+                                    { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
+                                    { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
+                                ],
+                                sorties: [
+                                    { x: 0.5, y: 0.1, size: 0.035 },
+                                    { x: 0.5, y: 0.9, size: 0.035 }
+                                ]
+                            },
+                            enabledCriteria: {
+                                extincteur: Object.keys(CRITERIA.extincteur),
+                                dm: Object.keys(CRITERIA.dm),
+                                sortie: Object.keys(CRITERIA.sortie),
+                                zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
+                                    acc[section] = Object.keys(ZONE_CRITERIA[section]);
+                                    return acc;
+                                }, {})
+                            }
+                        }];
+                        saveZones();
+                    });
             }
 
             // Save data to localStorage (robuste face au quota)
