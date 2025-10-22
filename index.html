@@ -1661,7 +1661,14 @@
     function exportCurrentZone() {
         if (!currentZone) return;
         
-        const data = JSON.stringify(currentZone, null, 2);
+        // Create a copy to modify for export
+        const exportZone = JSON.parse(JSON.stringify(currentZone));
+        // Always set imageUrl to filename for portability
+        if (exportZone.plan) {
+            exportZone.plan.imageUrl = `plan_${exportZone.id}.png`;
+        }
+        
+        const data = JSON.stringify(exportZone, null, 2);
         downloadFile(data, `zone_${currentZone.id}.json`, 'application/json');
     }
 
@@ -1880,7 +1887,15 @@
     }
 
     function exportLibrary() {
-        const data = JSON.stringify(zones, null, 2);
+        // Create a copy of zones and modify imageUrls for export
+        const exportZones = zones.map(zone => {
+            const exportZone = JSON.parse(JSON.stringify(zone));
+            if (exportZone.plan) {
+                exportZone.plan.imageUrl = `plan_${exportZone.id}.png`;
+            }
+            return exportZone;
+        });
+        const data = JSON.stringify(exportZones, null, 2);
         downloadFile(data, `zones_library_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
     }
 
