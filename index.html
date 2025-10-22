@@ -2671,6 +2671,14 @@
         renderAdminFloorSelector();
         renderAdminElements();
         renderElementsList();
+        // Ensure the admin plan image doesn't still show the previous floor's image
+        const adminPlanImage = document.getElementById('adminPlanImage');
+        if (adminPlanImage) {
+            // remove src so the image area is blank until user uploads a new plan
+            adminPlanImage.src = '';
+            // ensure repositioning updates
+            scheduleReposition(50);
+        }
     }
 
     function deleteCurrentFloor() {
@@ -2772,21 +2780,36 @@
 
             function deleteZone() {
                 if (!currentZone) return;
-                
                 if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement la zone "${currentZone.name}" ?`)) return;
-                
-                // Supprimer la zone
+
+                // Before removing the zone object, clear any plan images attached to its floors to free local storage
+                let removedImages = 0;
+                try {
+                    (currentZone.floors || []).forEach(f => {
+                        if (f && f.plan && f.plan.imageUrl) {
+                            f.plan.imageUrl = '';
+                            removedImages++;
+                        }
+                        if (f && f.plan && f.plan._backupImage) delete f.plan._backupImage;
+                    });
+                } catch (e) {
+                    // ignore
+                }
+
+                // Remove inspections linked to this zone
+                const removedInspectionsCount = inspections.filter(i => i.zoneId === currentZone.id).length;
+
+                // Remove the zone
+                const deletedZoneName = currentZone.name;
                 zones = zones.filter(z => z.id !== currentZone.id);
-                
-                // Supprimer toutes les inspections liées
-                inspections = inspections.filter(i => i.zoneId !== currentZone.id);
-                
+                inspections = inspections.filter(i => i.zoneId !== deletedZoneName && i.zoneId !== currentZone.id);
+
                 saveZones();
                 saveInspections();
                 renderAdminZoneList();
                 renderAdminContent();
-                
-                alert(`Zone "${currentZone.name}" supprimée avec succès.`);
+
+                alert(`Zone "${deletedZoneName}" supprimée avec succès. ${removedInspectionsCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
                 currentZone = null;
             }
 
