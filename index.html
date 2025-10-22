@@ -703,6 +703,17 @@
                             const threshold = 200 * 1024; // ~200KB
                             let removedPlans = 0;
                             zones.forEach(z => {
+                                // Prefer removing images from new multi-plan structure
+                                if (Array.isArray(z.plans)) {
+                                    z.plans.forEach(p => {
+                                        if (p && p.imageUrl && p.imageUrl.length > threshold) {
+                                            p._backupImage = p.imageUrl;
+                                            p.imageUrl = '';
+                                            removedPlans++;
+                                        }
+                                    });
+                                }
+                                // Fallback: legacy single plan
                                 if (z.plan && z.plan.imageUrl && z.plan.imageUrl.length > threshold) {
                                     z.plan._backupImage = z.plan.imageUrl; // mémoire temporaire (non persistée)
                                     z.plan.imageUrl = '';
@@ -1050,10 +1061,11 @@
         } else {
             // leaving admin mode: refresh main view
             renderZoneList();
-            if (currentZone) {
+                if (currentZone) {
                 const mainPlanImage = document.getElementById('planImage');
-                if (mainPlanImage && mainPlanImage.src !== currentZone.plan.imageUrl) {
-                    mainPlanImage.src = currentZone.plan.imageUrl;
+                const activeMainPlan = getZonePlan(currentZone, currentZone.activePlanIndex || 0);
+                if (mainPlanImage && mainPlanImage.src !== (activeMainPlan.imageUrl || '')) {
+                    mainPlanImage.src = activeMainPlan.imageUrl || '';
                     mainPlanImage.onload = () => addHotspots();
                 } else {
                     addHotspots();
@@ -1119,7 +1131,9 @@
         const planImage = document.getElementById('planImage');
         const noZoneMessage = document.getElementById('noZoneMessage');
 
-        planImage.src = currentZone.plan.imageUrl;
+    // ensure compatibility with legacy single-plan shape
+    migrateZonePlans(currentZone);
+    planImage.src = (getZonePlan(currentZone, currentZone.activePlanIndex || 0) || {}).imageUrl || '';
         planContainer.classList.remove('hidden');
         noZoneMessage.classList.add('hidden');
 
@@ -1910,7 +1924,9 @@
         const newZone = {
             id: zoneId,
             name: zoneName,
-            plan: { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
+            // new multi-plan model: always create a plans array
+            plans: [{ imageUrl: '', naturalWidth: 800, naturalHeight: 600, name: 'Niveau 0' }],
+            activePlanIndex: 0,
             elements: { extincteurs: [], dm: [], sorties: [] },
             enabledCriteria: {
                 extincteur: Object.keys(CRITERIA.extincteur),
@@ -1928,9 +1944,11 @@
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    newZone.plan.imageUrl = e.target.result;
-                    newZone.plan.naturalWidth = img.width;
-                    newZone.plan.naturalHeight = img.height;
+                    // store uploaded image into first plan
+                    newZone.plans = newZone.plans || [{ imageUrl: '', naturalWidth: 800, naturalHeight: 600, name: 'Niveau 0' }];
+                    newZone.plans[0].imageUrl = e.target.result;
+                    newZone.plans[0].naturalWidth = img.width;
+                    newZone.plans[0].naturalHeight = img.height;
                     zones.push(newZone);
                     saveZones();
                     renderAdminZoneList();
@@ -1941,7 +1959,8 @@
             };
             reader.readAsDataURL(planFile);
         } else {
-            newZone.plan.imageUrl = 'data:image/svg+xml;base64,' + btoa(`
+            newZone.plans = newZone.plans || [{ imageUrl: '', naturalWidth: 800, naturalHeight: 600, name: 'Niveau 0' }];
+            newZone.plans[0].imageUrl = 'data:image/svg+xml;base64,' + btoa(`
                 <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
                     <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
                     <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
@@ -2413,13 +2432,14 @@
                         <input type="text" id="editZoneName" value="${zone.name}" 
                             class="text-2xl font-bold px-3 py-1 border border-gray-300 rounded-md flex-1"
                             onchange="updateZoneName(this.value)">
-                    </div>
-                    <div class="flex gap-2 flex-shrink-0">
-                        <button onclick="saveAndReturn()" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                            Enregistrer
-                        </button>
-                        <button onclick="renderAdminContent()" 
+            // Ensure zone plans structure and show plan
+            migrateZonePlans(currentZone);
+            const planContainer = document.getElementById('planContainer');
+            const planImage = document.getElementById('planImage');
+            const noZoneMessage = document.getElementById('noZoneMessage');
+
+            const activePlan = getZonePlan(currentZone, currentZone.activePlanIndex || 0);
+            planImage.src = activePlan.imageUrl || '';
                                 class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
                             Retour
                         </button>
