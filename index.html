@@ -552,7 +552,9 @@
                 applyLeftPanelState(); // apply saved collapsed state
             }
 
-            // Load data from localStorage (try to fetch AT14.json if no saved zones)
+            // Load data from localStorage. When the app is served over HTTP(S) (for example
+            // via GitHub Pages) try to load `AT14.json` from the repository by default so
+            // every user sees the pre-created zones.
             async function loadData() {
                 const savedZones = localStorage.getItem('fireInspection_zones');
                 const savedInspections = localStorage.getItem('fireInspection_inspections');
@@ -561,21 +563,29 @@
                     try {
                         zones = JSON.parse(savedZones);
                     } catch (e) {
-                        console.error('Erreur parsing savedZones from localStorage, clearing value', e);
-                        localStorage.removeItem('fireInspection_zones');
+                        console.error('Erreur parsing savedZones from localStorage, ignoring savedZones', e);
+                        zones = [];
                     }
-                } else {
-                    // If no saved zones, try to fetch AT14.json from a few likely locations (relative to this HTML file)
-                    const candidatePaths = ['AT14.json', './AT14.json', './data/AT14.json'];
-                    let loaded = false;
-                    for (const p of candidatePaths) {
+                }
+
+                // If no saved zones, and we're served over HTTP(S), try to fetch AT14.json
+                if ((!zones || zones.length === 0) && window.location && /^https?:/.test(window.location.protocol)) {
+                    const candidates = [
+                        'AT14.json',
+                        './AT14.json',
+                        './data/AT14.json'
+                    ];
+
+                    for (const path of candidates) {
                         try {
-                            // Attempt fetch - may fail on file:// protocol in some browsers; catch and continue
-                            const resp = await fetch(p);
-                            if (!resp.ok) continue;
+                            console.info('Attempting to fetch zones from', path);
+                            const resp = await fetch(path);
+                            if (!resp.ok) {
+                                console.debug('Fetch returned non-ok for', path, resp.status);
+                                continue;
+                            }
                             const json = await resp.json();
 
-                            // Normalize: accept array of zones, object with 'zones' array, or single zone object
                             if (Array.isArray(json)) {
                                 zones = json;
                             } else if (json && Array.isArray(json.zones)) {
@@ -583,26 +593,27 @@
                             } else if (json && (json.id || json.name)) {
                                 zones = [json];
                             } else {
-                                console.debug('Fetched JSON did not match expected shape:', p, json);
+                                console.debug('Fetched JSON from', path, 'did not match expected shape');
                                 continue;
                             }
 
-                            console.info('Zones loaded from', p);
+                            console.info('Zones loaded from', path);
+                            // persist to localStorage so users get the same view locally
                             saveZones();
-                            loaded = true;
                             break;
-                        } catch (e) {
-                            console.debug('Failed to fetch', p, e);
+                        } catch (err) {
+                            console.debug('Failed to fetch', path, err);
                         }
                     }
+                }
 
-                    if (!loaded) {
-                        // Fall back to built-in default zones
-                        zones = [{
-                            id: 'AT14',
-                            name: 'AT14',
-                            plan: {
-                                imageUrl: 'data:image/svg+xml;base64,' + btoa(`
+                // If still empty, fall back to the embedded default
+                if (!zones || zones.length === 0) {
+                    zones = [{
+                        id: 'AT14',
+                        name: 'AT14',
+                        plan: {
+                            imageUrl: 'data:image/svg+xml;base64,' + btoa(`
                                 <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
                                     <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
                                     <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
@@ -610,35 +621,34 @@
                                     <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
                                 </svg>
                             `),
-                                naturalWidth: 800,
-                                naturalHeight: 600
-                            },
-                            elements: {
-                                extincteurs: [
-                                    { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
-                                    { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
-                                ],
-                                dm: [
-                                    { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
-                                    { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
-                                ],
-                                sorties: [
-                                    { x: 0.5, y: 0.1, size: 0.035 },
-                                    { x: 0.5, y: 0.9, size: 0.035 }
-                                ]
-                            },
-                            enabledCriteria: {
-                                extincteur: Object.keys(CRITERIA.extincteur),
-                                dm: Object.keys(CRITERIA.dm),
-                                sortie: Object.keys(CRITERIA.sortie),
-                                zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
-                                    acc[section] = Object.keys(ZONE_CRITERIA[section]);
-                                    return acc;
-                                }, {})
-                            }
-                        }];
-                        saveZones();
-                    }
+                            naturalWidth: 800,
+                            naturalHeight: 600
+                        },
+                        elements: {
+                            extincteurs: [
+                                { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
+                                { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
+                            ],
+                            dm: [
+                                { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
+                                { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
+                            ],
+                            sorties: [
+                                { x: 0.5, y: 0.1, size: 0.035 },
+                                { x: 0.5, y: 0.9, size: 0.035 }
+                            ]
+                        },
+                        enabledCriteria: {
+                            extincteur: Object.keys(CRITERIA.extincteur),
+                            dm: Object.keys(CRITERIA.dm),
+                            sortie: Object.keys(CRITERIA.sortie),
+                            zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
+                                acc[section] = Object.keys(ZONE_CRITERIA[section]);
+                                return acc;
+                            }, {})
+                        }
+                    }];
+                    saveZones();
                 }
 
                 if (savedInspections) {
