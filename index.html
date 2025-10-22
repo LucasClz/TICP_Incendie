@@ -1069,6 +1069,9 @@
     function renderFloorSelector() {
         const sel = document.getElementById('floorSelect');
         if (!sel || !currentZone) return;
+        // Make the selector visible (was hidden in markup) so notation and main view can change floors
+        sel.classList.remove('hidden');
+
         const floors = currentZone.floors || [];
         sel.innerHTML = floors.map(f => `<option value="${f.id}">${f.name || f.id}</option>`).join('');
 
@@ -1085,8 +1088,29 @@
             const floor = (currentZone.floors || []).find(fi => fi.id === id);
             if (floor) {
                 currentFloor = floor;
+                // Update admin preview image if admin is open
                 const adminImg = document.getElementById('adminPlanImage');
                 if (adminImg) adminImg.src = currentFloor.plan?.imageUrl || '';
+
+                // Update main plan image and hotspots for the main view / notation
+                const mainPlanImage = document.getElementById('planImage');
+                if (mainPlanImage) {
+                    const planUrl = currentFloor.plan?.imageUrl || '';
+                    if (mainPlanImage.src !== planUrl) {
+                        mainPlanImage.src = planUrl;
+                        mainPlanImage.onload = () => {
+                            addHotspots();
+                            updateKPIs();
+                            scheduleReposition(80);
+                        };
+                    } else {
+                        // If same src, still refresh hotspots and KPIs
+                        addHotspots();
+                        updateKPIs();
+                        scheduleReposition(80);
+                    }
+                }
+
                 renderAdminElements();
                 renderElementsList();
             }
@@ -1311,8 +1335,9 @@
         const panel = document.getElementById('notationPanel');
         if (panel) {
             panel.classList.remove('hidden');
-            // Reposition après changement de layout
+            // Reposition après changement de layout — schedule multiple times to be robust across image load/layout
             setTimeout(() => scheduleReposition(100), 50);
+            setTimeout(() => scheduleReposition(180), 200);
         }
         renderNotationPanel();
     }
