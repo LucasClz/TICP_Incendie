@@ -703,17 +703,6 @@
                             const threshold = 200 * 1024; // ~200KB
                             let removedPlans = 0;
                             zones.forEach(z => {
-                                // Prefer removing images from new multi-plan structure
-                                if (Array.isArray(z.plans)) {
-                                    z.plans.forEach(p => {
-                                        if (p && p.imageUrl && p.imageUrl.length > threshold) {
-                                            p._backupImage = p.imageUrl;
-                                            p.imageUrl = '';
-                                            removedPlans++;
-                                        }
-                                    });
-                                }
-                                // Fallback: legacy single plan
                                 if (z.plan && z.plan.imageUrl && z.plan.imageUrl.length > threshold) {
                                     z.plan._backupImage = z.plan.imageUrl; // mémoire temporaire (non persistée)
                                     z.plan.imageUrl = '';
