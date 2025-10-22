@@ -895,6 +895,41 @@
             // keep center alignment via transform
             el.style.transform = 'translate(-50%, -50%)';
         }
+
+        // Debugging support: enable by setting window.DEBUG_POSITION = true in the browser console
+        try {
+            if (window.DEBUG_POSITION) {
+                const info = {
+                    mode: isAdminMode ? 'admin' : 'main',
+                    planImageId,
+                    imageRect: { left: imageRect.left, top: imageRect.top, width: imageRect.width, height: imageRect.height },
+                    parentRect: { left: parentRect.left, top: parentRect.top, width: parentRect.width, height: parentRect.height },
+                    relLeft, relTop, leftPx, topPx, xPercent, yPercent
+                };
+                console.debug('positionElement debug', info, el);
+
+                // on-screen overlay for quick inspection
+                let dbg = document.getElementById('positionDebugOverlay');
+                if (!dbg) {
+                    dbg = document.createElement('div');
+                    dbg.id = 'positionDebugOverlay';
+                    dbg.style.position = 'fixed';
+                    dbg.style.right = '8px';
+                    dbg.style.bottom = '8px';
+                    dbg.style.background = 'rgba(0,0,0,0.75)';
+                    dbg.style.color = 'white';
+                    dbg.style.padding = '8px';
+                    dbg.style.fontSize = '12px';
+                    dbg.style.zIndex = '9999';
+                    dbg.style.maxWidth = '320px';
+                    dbg.style.maxHeight = '40vh';
+                    dbg.style.overflow = 'auto';
+                    dbg.style.borderRadius = '6px';
+                    document.body.appendChild(dbg);
+                }
+                dbg.innerText = JSON.stringify(info, null, 2);
+            }
+        } catch (e) { /* ignore debug errors */ }
     }
 
     function repositionHotspots() {
