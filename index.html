@@ -2708,7 +2708,20 @@
 
         // Remove inspections that reference this zone+floor
         inspections = inspections.filter(i => !(i.zoneId === currentZone.id && i.floorId === floorId));
-        // Remove the floor
+
+        // Remove only the plan image attached to the floor being deleted
+        let removedImages = 0;
+        try {
+            if (floor && floor.plan && floor.plan.imageUrl) {
+                floor.plan.imageUrl = '';
+                if (floor.plan._backupImage) delete floor.plan._backupImage;
+                removedImages = 1;
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        // Now remove the floor from the zone
         currentZone.floors = floors.filter(f => f.id !== floorId);
         // Select a sensible fallback floor
         currentFloor = currentZone.floors[0] || null;
@@ -2721,6 +2734,7 @@
         renderAdminFloorSelector();
         renderAdminElements();
         renderElementsList();
+
         // If the main app view is visible, refresh its plan and hotspots
         try {
             const appEl = document.getElementById('app');
@@ -2733,7 +2747,7 @@
             }
         } catch (e) { /* ignore UI refresh errors */ }
 
-        alert(`Étage supprimé avec succès. ${toRemoveCount} inspection(s) supprimée(s).`);
+        alert(`Étage supprimé avec succès. ${toRemoveCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
     }
 
             function saveAndReturn() {
