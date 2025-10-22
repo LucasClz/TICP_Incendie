@@ -1060,25 +1060,30 @@
         const sel = document.getElementById('floorSelect');
         if (!sel || !currentZone) return;
         const floors = currentZone.floors || [];
-        if (floors.length <= 1) {
-            sel.classList.add('hidden');
-            return;
+        sel.innerHTML = floors.map(f => `<option value="${f.id}">${f.name || f.id}</option>`).join('');
+
+        // Ensure the select shows the currentFloor explicitly
+        if (currentFloor && currentFloor.id) {
+            sel.value = currentFloor.id;
+        } else if (floors.length > 0) {
+            sel.value = floors[0].id;
+            currentFloor = floors[0];
         }
-        sel.classList.remove('hidden');
-        sel.innerHTML = floors.map(f => `<option value="${f.id}" ${currentFloor && currentFloor.id === f.id ? 'selected' : ''}>${f.name || f.id}</option>`).join('');
+
         sel.onchange = (e) => {
-            const id = e.target.value;
+            const id = (e.target.value || '').toString().trim();
             const floor = (currentZone.floors || []).find(fi => fi.id === id);
             if (floor) {
                 currentFloor = floor;
-                const planImage = document.getElementById('planImage');
-                if (planImage) {
-                    planImage.src = currentFloor.plan?.imageUrl || '';
-                    planImage.onload = () => addHotspots();
-                }
-                updateKPIs();
+                const adminImg = document.getElementById('adminPlanImage');
+                if (adminImg) adminImg.src = currentFloor.plan?.imageUrl || '';
+                renderAdminElements();
+                renderElementsList();
             }
         };
+
+        // Trigger onchange to sync UI (in case we set sel.value programmatically)
+        sel.dispatchEvent(new Event('change'));
     }
 
     function toggleAdminMode(enable) {
@@ -2686,6 +2691,13 @@
         renderAdminFloorSelector();
         renderAdminElements();
         renderElementsList();
+        // Ensure the admin selector selects the new floor immediately
+        const adminSel = document.getElementById('adminFloorSelect');
+        if (adminSel) {
+            try { adminSel.value = floor.id; } catch (e) { /* ignore */ }
+            adminSel.dispatchEvent(new Event('change'));
+        }
+
         // Ensure the admin plan image doesn't still show the previous floor's image
         const adminPlanImage = document.getElementById('adminPlanImage');
         if (adminPlanImage) {
