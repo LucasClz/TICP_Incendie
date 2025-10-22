@@ -12,10 +12,8 @@
         
         .hotspot {
             position: absolute;
-            min-width: 12px;
-            min-height: 12px;
-            max-width: 80px;
-            max-height: 80px;
+            width: 20px;
+            height: 20px;
             /* carré avec coins légèrement arrondis */
             border-radius: 4px;
             border: 2px solid white;
@@ -27,7 +25,7 @@
         }
         
         .hotspot:hover {
-            transform: translate(-50%, -50%) scale(1.15);
+            transform: translate(-50%, -50%) scale(1.2);
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         
@@ -97,10 +95,8 @@
         
         .admin-element {
             position: absolute;
-            min-width: 10px;
-            min-height: 10px;
-            max-width: 80px;
-            max-height: 80px;
+            width: 16px;
+            height: 16px;
             border: 2px solid #fff;
             border-radius: 4px; /* square-ish */
             cursor: move;
@@ -118,13 +114,13 @@
         .admin-element.resizing { transition: none; opacity: 0.95; }
         
         .admin-element:hover {
-            transform: translate(-50%, -50%) scale(1.15);
+            transform: translate(-50%, -50%) scale(1.2);
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         
         .admin-element:active {
             cursor: grabbing;
-            transform: translate(-50%, -50%) scale(1.05);
+            transform: translate(-50%, -50%) scale(1.1);
         }
         
         .admin-element.extincteur { background: #ef4444; }
@@ -583,8 +579,6 @@
                 renderZoneList();
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
-                // Force un repositionnement initial après un court délai
-                setTimeout(() => scheduleReposition(200), 500);
             }
 
             // Load data from localStorage. When the app is served over HTTP(S) (for example
@@ -852,45 +846,29 @@
         const planImage = document.getElementById(planImageId);
         
         if (!planImage) {
-            el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
             return;
         }
         
-        // Vérifier que l'image est chargée et a des dimensions
-        if (!planImage.complete || planImage.naturalHeight === 0 || !planImage.clientWidth) {
-            el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
-            return;
-        }
-        
-        const imageParent = planImage.parentElement;
-        if (!imageParent) {
-            el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
-            return;
-        }
-        
-        // CORRECTION: Utiliser les dimensions client réelles de l'image affichée
+        // Calcul des dimensions et position
         const imageRect = planImage.getBoundingClientRect();
-        const parentRect = imageParent.getBoundingClientRect();
+        const imageParent = planImage.parentElement;
         
-        // Vérifier que l'image a une taille valide
-        if (imageRect.width === 0 || imageRect.height === 0) {
+        // Si l'image n'a pas encore de dimensions, utiliser le positionnement de base
+        if (imageRect.width === 0 || imageRect.height === 0 || !imageParent) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
+            el.style.transform = 'translate(-50%, -50%)';
             return;
         }
+        
+        const parentRect = imageParent.getBoundingClientRect();
         
         // Position de l'image dans le parent
         const relLeft = imageRect.left - parentRect.left;
         const relTop = imageRect.top - parentRect.top;
         
-        // Position absolue de l'élément (TOUJOURS en pixels, jamais en %)
+        // Position absolue de l'élément en pixels
         const leftPx = relLeft + (xPercent * imageRect.width);
         const topPx = relTop + (yPercent * imageRect.height);
 
@@ -898,61 +876,51 @@
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // Taille de l'élément relative à la largeur de l'image (en pixels fixes)
+        // Taille de l'élément relative à la largeur de l'image
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size) && size > 0) {
-            // size est une fraction de la largeur de l'image
-            // Appliquer des limites strictes : min 12px, max 80px
+            // Appliquer des limites raisonnables
             const calculatedPx = size * imageRect.width;
-            const px = Math.max(12, Math.min(80, Math.round(calculatedPx)));
+            const px = Math.max(10, Math.min(100, Math.round(calculatedPx)));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-            // Centrage via transform
-            el.style.transform = 'translate(-50%, -50%)';
         } else {
-            // Taille par défaut si pas de size défini
-            const defaultPx = Math.max(16, Math.min(24, Math.round(imageRect.width * 0.02)));
+            // Taille par défaut
+            const defaultPx = Math.max(16, Math.min(28, Math.round(imageRect.width * 0.025)));
             el.style.width = defaultPx + 'px';
             el.style.height = defaultPx + 'px';
-            el.style.transform = 'translate(-50%, -50%)';
         }
+        
+        // Centrage
+        el.style.transform = 'translate(-50%, -50%)';
     }
 
     function repositionHotspots() {
         // Reposition hotspots en mode normal
-        const mainPlanImage = document.getElementById('planImage');
-        if (mainPlanImage && mainPlanImage.complete && mainPlanImage.clientWidth > 0) {
-            document.querySelectorAll('#planContainer .hotspot').forEach(h => {
-                const x = parseFloat(h.dataset.x);
-                const y = parseFloat(h.dataset.y);
-                if (!isNaN(x) && !isNaN(y)) {
-                    positionElement(h, x, y, false);
-                }
-            });
-        }
+        document.querySelectorAll('#planContainer .hotspot').forEach(h => {
+            const x = parseFloat(h.dataset.x);
+            const y = parseFloat(h.dataset.y);
+            if (!isNaN(x) && !isNaN(y)) {
+                positionElement(h, x, y, false);
+            }
+        });
         
         // Reposition admin-elements en mode admin
-        const adminPlanImage = document.getElementById('adminPlanImage');
-        if (adminPlanImage && adminPlanImage.complete && adminPlanImage.clientWidth > 0) {
-            document.querySelectorAll('.plan-container.admin-mode .admin-element, #adminElements .admin-element').forEach(a => {
-                const x = parseFloat(a.dataset.x);
-                const y = parseFloat(a.dataset.y);
-                if (!isNaN(x) && !isNaN(y)) {
-                    positionElement(a, x, y, true);
-                }
-            });
-        }
+        document.querySelectorAll('.plan-container.admin-mode .admin-element, #adminElements .admin-element').forEach(a => {
+            const x = parseFloat(a.dataset.x);
+            const y = parseFloat(a.dataset.y);
+            if (!isNaN(x) && !isNaN(y)) {
+                positionElement(a, x, y, true);
+            }
+        });
     }
 
     let _repositionTimer = null;
-    function scheduleReposition(delay = 200) {
+    function scheduleReposition(delay = 100) {
         if (_repositionTimer) clearTimeout(_repositionTimer);
         _repositionTimer = setTimeout(() => {
-            // Attendre que le layout soit stabilisé
-            requestAnimationFrame(() => {
-                repositionHotspots();
-                _repositionTimer = null;
-            });
+            repositionHotspots();
+            _repositionTimer = null;
         }, delay);
     }
 
@@ -1010,14 +978,18 @@
         const mainPlanImage = document.getElementById('planImage');
         if (mainPlanImage) {
             mainPlanImage.addEventListener('load', () => {
-                scheduleReposition(80);
+                setTimeout(() => repositionHotspots(), 50);
             });
             
             // Observer les changements de taille de l'image
-            const resizeObserver = new ResizeObserver(() => {
-                scheduleReposition(100);
-            });
-            resizeObserver.observe(mainPlanImage);
+            try {
+                const resizeObserver = new ResizeObserver(() => {
+                    scheduleReposition(100);
+                });
+                resizeObserver.observe(mainPlanImage);
+            } catch (e) {
+                // ResizeObserver non supporté
+            }
         }
     };
 
@@ -1327,13 +1299,6 @@
         
         // Wait for image to be fully loaded and positioned
         const addHotspotsWhenReady = () => {
-            // Vérifier que l'image a des dimensions valides
-            if (!planImage.complete || planImage.naturalHeight === 0 || planImage.clientWidth === 0) {
-                // Réessayer après un court délai
-                setTimeout(addHotspotsWhenReady, 50);
-                return;
-            }
-            
             // Add extincteur hotspots (from currentFloor)
             currentFloor.elements.extincteurs?.forEach(ext => {
                 if (!filterChecked || hasElementNonConformity('extincteur', ext)) {
@@ -1358,19 +1323,14 @@
                 }
             });
             
-            // Reposition après ajout de tous les hotspots avec requestAnimationFrame
-            requestAnimationFrame(() => {
-                scheduleReposition(50);
-            });
+            // Reposition après ajout de tous les hotspots
+            setTimeout(() => repositionHotspots(), 50);
         };
         
-        if (planImage.complete && planImage.naturalHeight !== 0 && planImage.clientWidth > 0) {
-            // Attendre un frame pour que le layout soit stabilisé
-            requestAnimationFrame(addHotspotsWhenReady);
+        if (planImage.complete && planImage.naturalHeight !== 0) {
+            setTimeout(addHotspotsWhenReady, 10);
         } else {
-            planImage.onload = () => {
-                requestAnimationFrame(addHotspotsWhenReady);
-            };
+            planImage.onload = addHotspotsWhenReady;
         }
     }
 
@@ -2459,15 +2419,6 @@
         
         const planImage = document.getElementById('adminPlanImage');
         if (!planImage) return;
-        
-        // Vérifier que l'image a des dimensions valides avant de positionner
-        if (!planImage.complete || planImage.clientWidth === 0) {
-            // Attendre que l'image soit chargée
-            planImage.onload = () => {
-                requestAnimationFrame(() => renderAdminElements());
-            };
-            return;
-        }
         ['extincteurs', 'dm', 'sorties'].forEach(type => {
             const elements = (currentFloor.elements && currentFloor.elements[type]) || [];
             elements.forEach((element, index) => {
@@ -2562,9 +2513,7 @@
         });
         
         // Force un repositionnement après ajout de tous les éléments
-        requestAnimationFrame(() => {
-            scheduleReposition(50);
-        });
+        setTimeout(() => repositionHotspots(), 50);
     }
 
     function editZone(zoneId) {
