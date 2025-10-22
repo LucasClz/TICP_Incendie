@@ -1514,30 +1514,45 @@
     // Update zone plan (compress before storing, robust save)
     function updateZonePlan(event) {
         const file = event.target.files[0];
-        if (!file || !currentZone || !currentFloor) return;
+        if (!file || !currentZone) return;
+        // Determine which floor the user expects to update: prefer the admin selector
+        const adminFloorSel = document.getElementById('adminFloorSelect');
+        let targetFloor = currentFloor;
+        if (adminFloorSel && adminFloorSel.value) {
+            const f = (currentZone.floors || []).find(x => x.id === adminFloorSel.value);
+            if (f) targetFloor = f;
+        }
+        if (!targetFloor) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
-                    currentFloor.plan = currentFloor.plan || {};
-                    currentFloor.plan.imageUrl = compressedDataUrl;
-                    currentFloor.plan.naturalWidth = img.width;
-                    currentFloor.plan.naturalHeight = img.height;
+                    targetFloor.plan = targetFloor.plan || {};
+                    targetFloor.plan.imageUrl = compressedDataUrl;
+                    targetFloor.plan.naturalWidth = img.width;
+                    targetFloor.plan.naturalHeight = img.height;
                     // Save with quota handling
                     saveZones();
 
                     // Update admin view
                     const adminPlanImage = document.getElementById('adminPlanImage');
                     if (adminPlanImage) {
-                        adminPlanImage.src = compressedDataUrl;
-                        adminPlanImage.onload = () => renderAdminElements();
+                        // only update admin image if it corresponds to the floor we just updated
+                        const adminSel = document.getElementById('adminFloorSelect');
+                        if (!adminSel || adminSel.value === targetFloor.id) {
+                            adminPlanImage.src = compressedDataUrl;
+                            adminPlanImage.onload = () => renderAdminElements();
+                        }
                     }
                     // Update main view
                     const mainPlanImage = document.getElementById('planImage');
                     if (mainPlanImage) {
-                        mainPlanImage.src = compressedDataUrl;
-                        mainPlanImage.onload = () => addHotspots();
+                        // Update main view only if the updated floor is the one currently shown
+                        if (currentFloor && currentFloor.id === targetFloor.id) {
+                            mainPlanImage.src = compressedDataUrl;
+                            mainPlanImage.onload = () => addHotspots();
+                        }
                     }
                     alert('Plan de la zone mis à jour avec succès (image compressée pour stockage).');
                 };
