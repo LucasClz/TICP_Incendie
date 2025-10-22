@@ -899,64 +899,16 @@
             if (!isNaN(x) && !isNaN(y)) {
                 positionElement(h, x, y, false);
             }
-        const floor = floors.find(f => f.id === floorId) || { name: floorId };
-        if (!confirm(`Supprimer l'étage "${floor.name || floorId}" et toutes ses inspections associées ?`)) return;
-
-        // Count inspections to be removed for reporting
-        const toRemoveCount = inspections.filter(i => i.zoneId === currentZone.id && i.floorId === floorId).length;
-
-        // Remove inspections that reference this zone+floor
-        inspections = inspections.filter(i => !(i.zoneId === currentZone.id && i.floorId === floorId));
-
-        // Remove the floor plan image (libérer la mémoire locale si présent)
-        let removedImages = 0;
-        try {
-            if (floor && floor.plan && floor.plan.imageUrl) {
-                // clear stored image
-                floor.plan.imageUrl = '';
-                if (floor.plan._backupImage) delete floor.plan._backupImage;
-                removedImages = 1;
-            }
-        } catch (e) {
-            // ignore
-        }
-
-        // Remove the floor from the zone
-        currentZone.floors = floors.filter(f => f.id !== floorId);
-        // Select a sensible fallback floor
-        currentFloor = currentZone.floors[0] || null;
-
-        // Persist changes
-        saveInspections();
-        saveZones();
-
-        // Refresh admin UI
-        renderAdminFloorSelector();
-        renderAdminElements();
-        renderElementsList();
-
-        // If the main app view is visible, refresh its plan and hotspots
-        try {
-            const appEl = document.getElementById('app');
-            const planImage = document.getElementById('planImage');
-            if (appEl && !appEl.classList.contains('hidden') && planImage) {
-                // update the main plan to reflect the currently-selected floor (if any)
-                planImage.src = currentFloor?.plan?.imageUrl || '';
-                planImage.onload = () => addHotspots();
-                updateKPIs();
-            }
-        } catch (e) { /* ignore UI refresh errors */ }
-
-        alert(`Étage supprimé avec succès. ${toRemoveCount} inspection(s) supprimée(s). ${removedImages} image(s) de plan supprimée(s).`);
-        }
-
-        hotspot.addEventListener('click', () => {
-            selectElement(type, elementData);
-            // Forcer reposition après affichage du panneau
-            scheduleReposition(150);
         });
 
-        return hotspot;
+        // Reposition admin-elements en mode admin
+        document.querySelectorAll('.plan-container.admin-mode .admin-element').forEach(a => {
+            const x = parseFloat(a.dataset.x);
+            const y = parseFloat(a.dataset.y);
+            if (!isNaN(x) && !isNaN(y)) {
+                positionElement(a, x, y, true);
+            }
+        });
     }
 
     function closeNotationPanel() {
