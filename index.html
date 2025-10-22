@@ -500,7 +500,14 @@
                 const campaignSelect = document.getElementById('campaignSelect');
                 if (campaignSelect) campaignSelect.addEventListener('change', e => {
                     currentCampaign = e.target.value;
+                    // Update KPIs and visual state for the selected campaign
                     updateKPIs();
+                    // Recreate hotspots so their 'completed' (green) state reflects the new campaign's inspections
+                    try { addHotspots(); } catch (err) { console.debug('addHotspots error on campaign change', err); }
+                    // Update admin elements completion state if admin UI is visible
+                    try { renderAdminElements(); } catch (err) { console.debug('renderAdminElements error on campaign change', err); }
+                    // Update non-conformities view if open
+                    try { updateNonConformitiesView(); } catch (err) { /* ignore if modal not open */ }
                 });
 
                 // Zone select
