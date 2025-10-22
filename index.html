@@ -911,6 +911,16 @@
         });
     }
 
+    // Timer-based reposition helper (used widely in the app)
+    let _repositionTimer = null;
+    function scheduleReposition(delay = 200) {
+        if (_repositionTimer) clearTimeout(_repositionTimer);
+        _repositionTimer = setTimeout(() => {
+            try { repositionHotspots(); } catch (e) { /* ignore */ }
+            _repositionTimer = null;
+        }, delay);
+    }
+
     function closeNotationPanel() {
         currentElement = null;
         const panel = document.getElementById('notationPanel');
@@ -2505,6 +2515,7 @@
                             <div class="flex items-center gap-2">
                                     <select id="adminFloorSelect" class="px-2 py-1 border border-gray-200 rounded text-sm"></select>
                                     <button type="button" onclick="(function(){ addFloor(); })()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
+                                    <button type="button" onclick="(function(){ renameCurrentFloor(); })()" title="Renommer l'étage sélectionné" class="px-2 py-1 bg-yellow-400 text-white rounded text-xs hover:bg-yellow-500">Renommer</button>
                                     <button type="button" id="deleteFloorBtn" onclick="deleteCurrentFloor()" title="Supprimer l'étage sélectionné" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Suppr. Etage</button>
                                 </div>
                         </div>
@@ -2717,6 +2728,42 @@
             return;
         }
         removeFloor(floorId);
+    }
+
+    function renameCurrentFloor() {
+        // Prompt the user for a new name for the currently selected floor
+        const sel = document.getElementById('adminFloorSelect');
+        const floorId = sel ? sel.value : (currentFloor && currentFloor.id);
+        if (!floorId) {
+            alert("Aucun étage sélectionné à renommer.");
+            return;
+        }
+        const floor = (currentZone && currentZone.floors || []).find(f => f.id === floorId);
+        if (!floor) return;
+
+        const newName = prompt('Nom de l\'étage :', floor.name || floor.id);
+        if (newName === null) return; // cancelled
+        const trimmed = String(newName).trim();
+        if (!trimmed) {
+            alert('Le nom ne peut pas être vide.');
+            return;
+        }
+
+        floor.name = trimmed;
+        saveZones();
+
+        // Refresh UI to display new name
+        renderAdminFloorSelector();
+        renderAdminElements();
+        renderElementsList();
+
+        // Ensure the selector remains on the renamed floor
+        try {
+            if (sel) sel.value = floor.id;
+            if (sel) sel.dispatchEvent(new Event('change'));
+        } catch (e) { /* ignore */ }
+
+        alert(`Étage renommé en "${trimmed}"`);
     }
 
     function removeFloor(floorId) {
