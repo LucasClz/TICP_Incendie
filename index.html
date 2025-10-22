@@ -544,148 +544,77 @@
             }
 
             // Initialize application
-            function init() {
-                loadData();
+            async function init() {
+                await loadData();
                 setupEventListeners();
                 renderZoneList();
+                if (zones.find(z => z.id === 'AT14')) {
+                    selectZone('AT14');
+                }
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
             }
 
             // Load data from localStorage
-            function loadData() {
+            async function loadData() {
                 const savedZones = localStorage.getItem('fireInspection_zones');
                 const savedInspections = localStorage.getItem('fireInspection_inspections');
                 
                 if (savedZones) {
                     zones = JSON.parse(savedZones);
                 } else {
-                    // Try to load default AT14.json
-                    loadDefaultZone();
+                    // Default zones
+                    try {
+                        const response = await fetch('AT14.json');
+                        const data = await response.json();
+                        zones = [data];
+                    } catch {
+                        zones = [{
+                            id: 'AT14',
+                            name: 'AT14',
+                            plan: {
+                                imageUrl: 'data:image/svg+xml;base64,' + btoa(`
+                                    <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+                                        <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+                                        <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
+                                        <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14</text>
+                                        <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Cliquez sur les points colorés pour inspecter</text>
+                                    </svg>
+                                `),
+                                naturalWidth: 800,
+                                naturalHeight: 600
+                            },
+                            elements: {
+                                extincteurs: [
+                                    { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
+                                    { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
+                                ],
+                                dm: [
+                                    { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
+                                    { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
+                                ],
+                                sorties: [
+                                    { x: 0.5, y: 0.1, size: 0.035 },
+                                    { x: 0.5, y: 0.9, size: 0.035 }
+                                ]
+                            },
+                            enabledCriteria: {
+                                extincteur: Object.keys(CRITERIA.extincteur),
+                                dm: Object.keys(CRITERIA.dm),
+                                sortie: Object.keys(CRITERIA.sortie),
+                                zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
+                                    acc[section] = Object.keys(ZONE_CRITERIA[section]);
+                                    return acc;
+                                }, {})
+                            }
+                        }];
+                    }
+                    saveZones();
                 }
                 
                 if (savedInspections) {
                     inspections = JSON.parse(savedInspections);
                 }
-            }
-
-            // Load default AT14 zone (try external file first, fallback to embedded data)
-            function loadDefaultZone() {
-                // Try to load external AT14.json first
-                fetch('AT14.json')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('AT14.json not found');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        zones = [data];
-                        saveZones();
-                        console.log('AT14.json loaded from external file');
-                    })
-                    .catch(error => {
-                        console.log('AT14.json not found, using embedded data');
-                        // Fallback to embedded AT14 zone data
-                        const defaultAT14Data = {
-                            "id": "AT14",
-                            "name": "AT14",
-                            "plan": {
-                                "imageUrl": "plan_AT14.png",
-                                "naturalWidth": 1295,
-                                "naturalHeight": 430
-                            },
-                            "elements": {
-                                "extincteurs": [
-                                    {
-                                        "x": 0.5868175626113381,
-                                        "y": 0.44108977530305243,
-                                        "size": 0.02,
-                                        "id": "72",
-                                        "type": "Poudre"
-                                    },
-                                    {
-                                        "x": 0.49292675259352403,
-                                        "y": 0.5269302948741488,
-                                        "size": 0.02,
-                                        "id": "70",
-                                        "type": "Poudre"
-                                    }
-                                ],
-                                "dm": [],
-                                "sorties": []
-                            },
-                            "enabledCriteria": {
-                                "extincteur": [
-                                    "acces_degage",
-                                    "etat",
-                                    "fixation",
-                                    "goupille",
-                                    "entretien",
-                                    "cinq_s"
-                                ],
-                                "dm": [
-                                    "etat",
-                                    "accessibilite"
-                                ],
-                                "sortie": [
-                                    "acces_degage",
-                                    "signaletique",
-                                    "barre_antipanique"
-                                ],
-                                "zone": {
-                                    "ria": [
-                                        "acces",
-                                        "etat",
-                                        "entretien_annuel"
-                                    ],
-                                    "poteaux": [
-                                        "acces",
-                                        "etat"
-                                    ],
-                                    "desenfumage": [
-                                        "acces",
-                                        "etat",
-                                        "entretien_annuel"
-                                    ],
-                                    "circulation_issues": [
-                                        "acces",
-                                        "barre_antipanique"
-                                    ],
-                                    "eclairage": [
-                                        "veilleuse",
-                                        "sati_voyant",
-                                        "voyant_test_vert"
-                                    ],
-                                    "consignes_plans": [
-                                        "affichage",
-                                        "maj",
-                                        "lisible"
-                                    ],
-                                    "gf_sf": [
-                                        "brassards",
-                                        "liste_agents"
-                                    ],
-                                    "chargeurs": [
-                                        "plomb",
-                                        "lithium",
-                                        "affichage_prevention",
-                                        "extincteur_adapte"
-                                    ],
-                                    "agent_sait": [
-                                        "q1_appuyer_dm",
-                                        "q2_appeler_poste",
-                                        "q3_attaquer_si_possible",
-                                        "q4_evacuer"
-                                    ]
-                                }
-                            }
-                        };
-
-                        zones = [defaultAT14Data];
-                        saveZones();
-                        console.log('AT14 zone loaded from embedded data');
-                    });
             }
 
             // Save data to localStorage (robuste face au quota)
@@ -1741,14 +1670,7 @@
     function exportCurrentZone() {
         if (!currentZone) return;
         
-        // Create a copy to modify for export
-        const exportZone = JSON.parse(JSON.stringify(currentZone));
-        // Always set imageUrl to filename for portability
-        if (exportZone.plan) {
-            exportZone.plan.imageUrl = `plan_${exportZone.id}.png`;
-        }
-        
-        const data = JSON.stringify(exportZone, null, 2);
+        const data = JSON.stringify(currentZone, null, 2);
         downloadFile(data, `zone_${currentZone.id}.json`, 'application/json');
     }
 
@@ -1967,15 +1889,7 @@
     }
 
     function exportLibrary() {
-        // Create a copy of zones and modify imageUrls for export
-        const exportZones = zones.map(zone => {
-            const exportZone = JSON.parse(JSON.stringify(zone));
-            if (exportZone.plan) {
-                exportZone.plan.imageUrl = `plan_${exportZone.id}.png`;
-            }
-            return exportZone;
-        });
-        const data = JSON.stringify(exportZones, null, 2);
+        const data = JSON.stringify(zones, null, 2);
         downloadFile(data, `zones_library_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
     }
 
