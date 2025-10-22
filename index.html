@@ -569,107 +569,123 @@
                 }
             }
 
-            // Load default AT14 zone (embedded data for GitHub Pages compatibility)
+            // Load default AT14 zone (try external file first, fallback to embedded data)
             function loadDefaultZone() {
-                // Embedded AT14 zone data
-                const defaultAT14Data = {
-                    "id": "AT14",
-                    "name": "AT14",
-                    "plan": {
-                        "imageUrl": "plan_AT14.png",
-                        "naturalWidth": 1295,
-                        "naturalHeight": 430
-                    },
-                    "elements": {
-                        "extincteurs": [
-                            {
-                                "x": 0.5868175626113381,
-                                "y": 0.44108977530305243,
-                                "size": 0.02,
-                                "id": "72",
-                                "type": "Poudre"
-                            },
-                            {
-                                "x": 0.49292675259352403,
-                                "y": 0.5269302948741488,
-                                "size": 0.02,
-                                "id": "70",
-                                "type": "Poudre"
-                            }
-                        ],
-                        "dm": [],
-                        "sorties": []
-                    },
-                    "enabledCriteria": {
-                        "extincteur": [
-                            "acces_degage",
-                            "etat",
-                            "fixation",
-                            "goupille",
-                            "entretien",
-                            "cinq_s"
-                        ],
-                        "dm": [
-                            "etat",
-                            "accessibilite"
-                        ],
-                        "sortie": [
-                            "acces_degage",
-                            "signaletique",
-                            "barre_antipanique"
-                        ],
-                        "zone": {
-                            "ria": [
-                                "acces",
-                                "etat",
-                                "entretien_annuel"
-                            ],
-                            "poteaux": [
-                                "acces",
-                                "etat"
-                            ],
-                            "desenfumage": [
-                                "acces",
-                                "etat",
-                                "entretien_annuel"
-                            ],
-                            "circulation_issues": [
-                                "acces",
-                                "barre_antipanique"
-                            ],
-                            "eclairage": [
-                                "veilleuse",
-                                "sati_voyant",
-                                "voyant_test_vert"
-                            ],
-                            "consignes_plans": [
-                                "affichage",
-                                "maj",
-                                "lisible"
-                            ],
-                            "gf_sf": [
-                                "brassards",
-                                "liste_agents"
-                            ],
-                            "chargeurs": [
-                                "plomb",
-                                "lithium",
-                                "affichage_prevention",
-                                "extincteur_adapte"
-                            ],
-                            "agent_sait": [
-                                "q1_appuyer_dm",
-                                "q2_appeler_poste",
-                                "q3_attaquer_si_possible",
-                                "q4_evacuer"
-                            ]
+                // Try to load external AT14.json first
+                fetch('AT14.json')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('AT14.json not found');
                         }
-                    }
-                };
+                        return response.json();
+                    })
+                    .then(data => {
+                        zones = [data];
+                        saveZones();
+                        console.log('AT14.json loaded from external file');
+                    })
+                    .catch(error => {
+                        console.log('AT14.json not found, using embedded data');
+                        // Fallback to embedded AT14 zone data
+                        const defaultAT14Data = {
+                            "id": "AT14",
+                            "name": "AT14",
+                            "plan": {
+                                "imageUrl": "plan_AT14.png",
+                                "naturalWidth": 1295,
+                                "naturalHeight": 430
+                            },
+                            "elements": {
+                                "extincteurs": [
+                                    {
+                                        "x": 0.5868175626113381,
+                                        "y": 0.44108977530305243,
+                                        "size": 0.02,
+                                        "id": "72",
+                                        "type": "Poudre"
+                                    },
+                                    {
+                                        "x": 0.49292675259352403,
+                                        "y": 0.5269302948741488,
+                                        "size": 0.02,
+                                        "id": "70",
+                                        "type": "Poudre"
+                                    }
+                                ],
+                                "dm": [],
+                                "sorties": []
+                            },
+                            "enabledCriteria": {
+                                "extincteur": [
+                                    "acces_degage",
+                                    "etat",
+                                    "fixation",
+                                    "goupille",
+                                    "entretien",
+                                    "cinq_s"
+                                ],
+                                "dm": [
+                                    "etat",
+                                    "accessibilite"
+                                ],
+                                "sortie": [
+                                    "acces_degage",
+                                    "signaletique",
+                                    "barre_antipanique"
+                                ],
+                                "zone": {
+                                    "ria": [
+                                        "acces",
+                                        "etat",
+                                        "entretien_annuel"
+                                    ],
+                                    "poteaux": [
+                                        "acces",
+                                        "etat"
+                                    ],
+                                    "desenfumage": [
+                                        "acces",
+                                        "etat",
+                                        "entretien_annuel"
+                                    ],
+                                    "circulation_issues": [
+                                        "acces",
+                                        "barre_antipanique"
+                                    ],
+                                    "eclairage": [
+                                        "veilleuse",
+                                        "sati_voyant",
+                                        "voyant_test_vert"
+                                    ],
+                                    "consignes_plans": [
+                                        "affichage",
+                                        "maj",
+                                        "lisible"
+                                    ],
+                                    "gf_sf": [
+                                        "brassards",
+                                        "liste_agents"
+                                    ],
+                                    "chargeurs": [
+                                        "plomb",
+                                        "lithium",
+                                        "affichage_prevention",
+                                        "extincteur_adapte"
+                                    ],
+                                    "agent_sait": [
+                                        "q1_appuyer_dm",
+                                        "q2_appeler_poste",
+                                        "q3_attaquer_si_possible",
+                                        "q4_evacuer"
+                                    ]
+                                }
+                            }
+                        };
 
-                zones = [defaultAT14Data];
-                saveZones();
-                console.log('AT14 zone loaded from embedded data');
+                        zones = [defaultAT14Data];
+                        saveZones();
+                        console.log('AT14 zone loaded from embedded data');
+                    });
             }
 
             // Save data to localStorage (robuste face au quota)
