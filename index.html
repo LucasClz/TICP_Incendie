@@ -242,17 +242,6 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-3 text-sm">
-                            <div class="font-medium mb-1">Filtrer par catégorie</div>
-                            <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
-                            </div>
-                        </div>
-
-                        <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
                         <label class="flex items-center mt-2">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
                             <span class="text-sm">Afficher seulement les zones non conformes</span>
@@ -288,10 +277,7 @@
             <!-- Center Panel: Plan -->
             <div class="flex-1 p-4 flex flex-col min-w-0">
                 <div class="flex justify-between items-center mb-4">
-                    <div class="flex items-center gap-4">
-                        <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
-                        <div id="planSelectorContainer" class="text-sm"></div>
-                    </div>
+                    <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
                     <button id="zoneChecklistBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 hidden">
                         Checklist Zone
                     </button>
@@ -717,17 +703,7 @@
                             const threshold = 200 * 1024; // ~200KB
                             let removedPlans = 0;
                             zones.forEach(z => {
-                                // Prefer new multi-plan structure
-                                if (z.plans && Array.isArray(z.plans)) {
-                                    z.plans.forEach(p => {
-                                        if (p && p.imageUrl && p.imageUrl.length > threshold) {
-                                            p._backupImage = p.imageUrl; // mémoire temporaire (non persistée)
-                                            p.imageUrl = '';
-                                            removedPlans++;
-                                        }
-                                    });
-                                } else if (z.plan && z.plan.imageUrl && z.plan.imageUrl.length > threshold) {
-                                    // legacy fallback
+                                if (z.plan && z.plan.imageUrl && z.plan.imageUrl.length > threshold) {
                                     z.plan._backupImage = z.plan.imageUrl; // mémoire temporaire (non persistée)
                                     z.plan.imageUrl = '';
                                     removedPlans++;
@@ -878,34 +854,6 @@
             repositionHotspots();
             _repositionTimer = null;
         }, delay);
-    }
-
-    // --- Plan / niveaux (étages) helpers ---
-    function migrateZonePlans(zone) {
-        // Backward-compat: if zone.plan exists, convert to zone.plans
-        if (!zone) return;
-        if (!zone.plans && zone.plan) {
-            zone.plans = [{
-                imageUrl: zone.plan.imageUrl || '',
-                naturalWidth: zone.plan.naturalWidth || 800,
-                naturalHeight: zone.plan.naturalHeight || 600,
-                name: zone.plan.name || 'Niveau 0'
-            }];
-            delete zone.plan;
-        }
-        zone.plans = zone.plans || [];
-        if (zone.activePlanIndex === undefined) zone.activePlanIndex = 0;
-    }
-
-    function getZonePlan(zone, idx) {
-        if (!zone) return { imageUrl: '' };
-        migrateZonePlans(zone);
-        const i = (typeof idx === 'number') ? idx : (zone.activePlanIndex || 0);
-        return zone.plans[i] || { imageUrl: '' };
-    }
-
-    function getCurrentZonePlan() {
-        return getZonePlan(currentZone);
     }
 
     function createHotspot(type, x, y, elementData) {
@@ -1068,30 +1016,6 @@
         updateKPIs();
     }
 
-    function renderPlanSelector() {
-        const container = document.getElementById('planSelectorContainer');
-        if (!container || !currentZone) return;
-        migrateZonePlans(currentZone);
-        if (!currentZone.plans || currentZone.plans.length <= 1) {
-            container.innerHTML = '';
-            return;
-        }
-
-        const opts = currentZone.plans.map((p, idx) => `<option value="${idx}" ${idx === (currentZone.activePlanIndex||0) ? 'selected' : ''}>${p.name || 'Niveau ' + idx}</option>`).join('');
-        container.innerHTML = `<label class="text-sm">Étage:</label> <select id="planSelector" class="ml-2 px-2 py-1 border border-gray-300 rounded">${opts}</select>`;
-        const sel = document.getElementById('planSelector');
-        if (sel) sel.onchange = (e) => {
-            const idx = parseInt(e.target.value, 10) || 0;
-            currentZone.activePlanIndex = idx;
-            const planImage = document.getElementById('planImage');
-            const plan = getZonePlan(currentZone, idx);
-            if (planImage) {
-                planImage.src = plan.imageUrl;
-                planImage.onload = () => addHotspots();
-            }
-        };
-    }
-
     function isElementCompleted(inspection) {
         const criteria = CRITERIA[inspection.type] || {};
         const enabledCriteria = currentZone?.enabledCriteria?.[inspection.type] || Object.keys(criteria);
@@ -1128,9 +1052,8 @@
             renderZoneList();
             if (currentZone) {
                 const mainPlanImage = document.getElementById('planImage');
-                const activeMainPlan = getZonePlan(currentZone, currentZone.activePlanIndex || 0);
-                if (mainPlanImage && mainPlanImage.src !== activeMainPlan.imageUrl) {
-                    mainPlanImage.src = activeMainPlan.imageUrl;
+                if (mainPlanImage && mainPlanImage.src !== currentZone.plan.imageUrl) {
+                    mainPlanImage.src = currentZone.plan.imageUrl;
                     mainPlanImage.onload = () => addHotspots();
                 } else {
                     addHotspots();
@@ -1151,33 +1074,18 @@
 
     function renderZoneList() {
         const container = document.getElementById('zoneSelect');
+
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
-
-        // Category filters
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-
-        let filteredZones = zones.slice();
-
+        let filteredZones = zones;
         if (filterChecked) {
-            filteredZones = filteredZones.filter(hasNonConformities);
+            filteredZones = zones.filter(hasNonConformities);
         }
-
-        if (categoryChecks.length > 0) {
-            filteredZones = filteredZones.filter(z => {
-                const cat = z.category || '';
-                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return categoryChecks.includes(normalized);
-            });
-        }
-
-        // Default sorting by name A→Z
-        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
         container.innerHTML = '<option value="">Sélectionnez une zone...</option>' +
             filteredZones.map(zone => `
+
                 <option value="${zone.id}" ${currentZone?.id === zone.id ? 'selected' : ''}>
-                    ${zone.name} (${zone.id})${zone.category ? ' — ' + zone.category : ''}
+                    ${zone.name} (${zone.id})
                 </option>
             `).join('');
         // Update left panel compact label when collapsed
@@ -1206,21 +1114,14 @@
         }
         document.getElementById('zoneChecklistBtn').classList.remove('hidden');
 
-        // Ensure zone plans structure
-        migrateZonePlans(currentZone);
-
         // Show plan
         const planContainer = document.getElementById('planContainer');
         const planImage = document.getElementById('planImage');
         const noZoneMessage = document.getElementById('noZoneMessage');
 
-    const activePlan = getZonePlan(currentZone, currentZone.activePlanIndex || 0);
-    planImage.src = activePlan.imageUrl;
+        planImage.src = currentZone.plan.imageUrl;
         planContainer.classList.remove('hidden');
         noZoneMessage.classList.add('hidden');
-
-        // Render level selector (if multiple plans)
-        renderPlanSelector();
 
         // Add hotspots
         planImage.onload = () => {
@@ -1243,21 +1144,13 @@
         planContainer.querySelectorAll('.hotspot').forEach(h => h.remove());
         
         if (!currentZone || !planImage) return;
-        migrateZonePlans(currentZone);
-
-        // Determine elements for the active plan
-        const elements = (function() {
-            const plan = getZonePlan(currentZone, currentZone.activePlanIndex || 0);
-            if (plan && plan.elements) return plan.elements;
-            return currentZone.elements || { extincteurs: [], dm: [], sorties: [] };
-        })();
         
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
         
         // Wait for image to be fully loaded and positioned
         const addHotspotsWhenReady = () => {
             // Add extincteur hotspots
-            (elements.extincteurs || []).forEach(ext => {
+            currentZone.elements.extincteurs?.forEach(ext => {
                 if (!filterChecked || hasElementNonConformity('extincteur', ext)) {
                     const hotspot = createHotspot('extincteur', ext.x, ext.y, ext);
                     planContainer.appendChild(hotspot);
@@ -1265,7 +1158,7 @@
             });
             
             // Add DM hotspots
-            (elements.dm || []).forEach(dm => {
+            currentZone.elements.dm?.forEach(dm => {
                 if (!filterChecked || hasElementNonConformity('dm', dm)) {
                     const hotspot = createHotspot('dm', dm.x, dm.y, dm);
                     planContainer.appendChild(hotspot);
@@ -1273,7 +1166,7 @@
             });
             
             // Add sortie hotspots
-            (elements.sorties || []).forEach((sortie, index) => {
+            currentZone.elements.sorties?.forEach((sortie, index) => {
                 if (!filterChecked || hasElementNonConformity('sortie', { ...sortie, index })) {
                     const hotspot = createHotspot('sortie', sortie.x, sortie.y, { ...sortie, index });
                     planContainer.appendChild(hotspot);
@@ -1541,12 +1434,9 @@
             compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
-                    migrateZonePlans(currentZone);
-                    const idx = currentZone.activePlanIndex || 0;
-                    currentZone.plans[idx] = currentZone.plans[idx] || {};
-                    currentZone.plans[idx].imageUrl = compressedDataUrl;
-                    currentZone.plans[idx].naturalWidth = img.width;
-                    currentZone.plans[idx].naturalHeight = img.height;
+                    currentZone.plan.imageUrl = compressedDataUrl;
+                    currentZone.plan.naturalWidth = img.width;
+                    currentZone.plan.naturalHeight = img.height;
                     // Save with quota handling
                     saveZones();
 
@@ -1559,12 +1449,8 @@
                     // Update main view
                     const mainPlanImage = document.getElementById('planImage');
                     if (mainPlanImage) {
-                        // only update main if the uploaded plan is the active plan
-                        const idx2 = currentZone.activePlanIndex || 0;
-                        if (idx2 === (currentZone.activePlanIndex || 0)) {
-                            mainPlanImage.src = compressedDataUrl;
-                            mainPlanImage.onload = () => addHotspots();
-                        }
+                        mainPlanImage.src = compressedDataUrl;
+                        mainPlanImage.onload = () => addHotspots();
                     }
                     alert('Plan de la zone mis à jour avec succès (image compressée pour stockage).');
                 };
@@ -1874,13 +1760,10 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        container.innerHTML = zones.map(zone => {
-            const cat = zone.category || '';
-            const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return `
+        container.innerHTML = zones.map(zone => `
             <div class="flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50">
                 <div class="flex-1">
-                    <div class="font-medium">${zone.name} ${displayCat ? `<span class=\"text-xs ml-2 px-1 py-0.5 bg-gray-100 rounded\">${displayCat}</span>` : ''}</div>
+                    <div class="font-medium">${zone.name}</div>
                     <div class="text-sm text-gray-500">${zone.id}</div>
                 </div>
                 <button onclick="editZone('${zone.id}')" 
@@ -1888,7 +1771,7 @@
                     Éditer
                 </button>
             </div>
-        `}).join('');
+        `).join('');
     }
 
     function createNewZone() {
@@ -1954,9 +1837,8 @@
         const newZone = {
             id: zoneId,
             name: zoneName,
-            plans: [],
+            plan: { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
             elements: { extincteurs: [], dm: [], sorties: [] },
-            category: '',
             enabledCriteria: {
                 extincteur: Object.keys(CRITERIA.extincteur),
                 dm: Object.keys(CRITERIA.dm),
@@ -1973,7 +1855,9 @@
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    newZone.plans = [{ imageUrl: e.target.result, naturalWidth: img.width, naturalHeight: img.height, name: 'Niveau 0' }];
+                    newZone.plan.imageUrl = e.target.result;
+                    newZone.plan.naturalWidth = img.width;
+                    newZone.plan.naturalHeight = img.height;
                     zones.push(newZone);
                     saveZones();
                     renderAdminZoneList();
@@ -1984,14 +1868,14 @@
             };
             reader.readAsDataURL(planFile);
         } else {
-            newZone.plans = [{ imageUrl: 'data:image/svg+xml;base64,' + btoa(`
+            newZone.plan.imageUrl = 'data:image/svg+xml;base64,' + btoa(`
                 <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
                     <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
                     <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
                     <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">${zoneName}</text>
                     <text x="400" y="330" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Ajoutez des éléments en mode édition</text>
                 </svg>
-            `), naturalWidth: 800, naturalHeight: 600, name: 'Niveau 0' }];
+            `);
             zones.push(newZone);
             saveZones();
             renderAdminZoneList();
@@ -2457,16 +2341,6 @@
                             class="text-2xl font-bold px-3 py-1 border border-gray-300 rounded-md flex-1"
                             onchange="updateZoneName(this.value)">
                     </div>
-                    <div class="ml-4">
-                        <label class="block text-sm font-medium">Catégorie</label>
-                        <select id="editZoneCategory" class="px-2 py-1 border border-gray-300 rounded">
-                            <option value="">-- Aucune --</option>
-                            <option value="MR" ${zone.category === 'MR' ? 'selected' : ''}>MR</option>
-                            <option value="PRM" ${zone.category === 'PRM' ? 'selected' : ''}>PRM</option>
-                            <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
-                            <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
-                        </select>
-                    </div>
                     <div class="flex gap-2 flex-shrink-0">
                         <button onclick="saveAndReturn()" 
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
@@ -2483,7 +2357,7 @@
                     <div class="xl:col-span-2 flex flex-col overflow-hidden">
                         <h3 class="font-semibold mb-3">Plan de la Zone</h3>
                         <div class="plan-container admin-mode mb-4 flex-1 overflow-auto" id="adminPlanContainer">
-                            <img src="${(getZonePlan(zone) || {}).imageUrl || ''}" class="plan-image w-full h-auto" id="adminPlanImage">
+                            <img src="${zone.plan.imageUrl}" class="plan-image w-full h-auto" id="adminPlanImage">
                             <div id="adminElements"></div>
                         </div>
                         
@@ -2569,13 +2443,6 @@
                 </div>
             </div>
         `;
-        // Set admin plan image from the active plan (multi-plan support)
-        try {
-            const adminPlanImgEl = document.getElementById('adminPlanImage');
-            if (adminPlanImgEl) adminPlanImgEl.src = getZonePlan(zone, zone.activePlanIndex || 0).imageUrl;
-        } catch (e) {
-            // ignore
-        }
 
         // Variable pour stocker l'intervalle de reposition
         let adminEditRepositionInterval = null;
@@ -2630,10 +2497,8 @@
 
             function saveAndReturn() {
                 const newName = document.getElementById('editZoneName')?.value;
-                const newCategory = document.getElementById('editZoneCategory')?.value;
                 if (newName && currentZone) {
                     updateZoneName(newName);
-                    if (newCategory !== undefined) currentZone.category = newCategory || '';
                     saveZones();
                 }
                 renderAdminContent();
