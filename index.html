@@ -1434,9 +1434,13 @@
             compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
-                    currentZone.plan.imageUrl = compressedDataUrl;
-                    currentZone.plan.naturalWidth = img.width;
-                    currentZone.plan.naturalHeight = img.height;
+                    // Ensure multi-plan structure
+                    migrateZonePlans(currentZone);
+                    const idx = currentZone.activePlanIndex || 0;
+                    currentZone.plans[idx] = currentZone.plans[idx] || {};
+                    currentZone.plans[idx].imageUrl = compressedDataUrl;
+                    currentZone.plans[idx].naturalWidth = img.width;
+                    currentZone.plans[idx].naturalHeight = img.height;
                     // Save with quota handling
                     saveZones();
 
@@ -1449,8 +1453,12 @@
                     // Update main view
                     const mainPlanImage = document.getElementById('planImage');
                     if (mainPlanImage) {
-                        mainPlanImage.src = compressedDataUrl;
-                        mainPlanImage.onload = () => addHotspots();
+                        // only update if this is the active plan
+                        const activeIdx = currentZone.activePlanIndex || 0;
+                        if (activeIdx === (currentZone.activePlanIndex || 0)) {
+                            mainPlanImage.src = compressedDataUrl;
+                            mainPlanImage.onload = () => addHotspots();
+                        }
                     }
                     alert('Plan de la zone mis à jour avec succès (image compressée pour stockage).');
                 };
@@ -1459,6 +1467,71 @@
             });
         };
         reader.readAsDataURL(file);
+    }
+
+    // --- Admin: plan management helpers ---
+    function refreshAdminPlanSelector() {
+        const sel = document.getElementById('adminPlanSelector');
+        if (!sel || !currentZone) return;
+        migrateZonePlans(currentZone);
+        sel.innerHTML = currentZone.plans.map((p, i) => `<option value="${i}" ${i === (currentZone.activePlanIndex||0) ? 'selected' : ''}>${p.name || 'Niveau ' + i}</option>`).join('');
+        sel.onchange = (e) => {
+            const idx = parseInt(e.target.value, 10) || 0;
+            currentZone.activePlanIndex = idx;
+            saveZones();
+            // Update admin & main images
+            const adminImg = document.getElementById('adminPlanImage');
+            if (adminImg) adminImg.src = getZonePlan(currentZone, idx).imageUrl || '';
+            const mainImg = document.getElementById('planImage');
+            if (mainImg) mainImg.src = getZonePlan(currentZone, idx).imageUrl || '';
+            // Re-render elements for this plan
+            renderAdminElements();
+            addHotspots();
+        };
+    }
+
+    function addPlanToZone() {
+        if (!currentZone) return;
+        migrateZonePlans(currentZone);
+        const newPlan = { imageUrl: '', naturalWidth: 800, naturalHeight: 600, name: `Niveau ${currentZone.plans.length}` };
+        currentZone.plans.push(newPlan);
+        currentZone.activePlanIndex = currentZone.plans.length - 1;
+        saveZones();
+        refreshAdminPlanSelector();
+        // Focus file input to allow immediate upload
+        const fileInput = document.querySelector('#adminContent input[type=file]');
+        if (fileInput) fileInput.click();
+    }
+
+    function renameCurrentPlanPrompt() {
+        if (!currentZone) return;
+        migrateZonePlans(currentZone);
+        const idx = currentZone.activePlanIndex || 0;
+        const currentName = (currentZone.plans[idx] && currentZone.plans[idx].name) || `Niveau ${idx}`;
+        const newName = prompt('Nouveau nom pour cet étage:', currentName);
+        if (newName === null) return;
+        currentZone.plans[idx].name = newName.trim() || currentName;
+        saveZones();
+        refreshAdminPlanSelector();
+    }
+
+    function removeCurrentPlan() {
+        if (!currentZone) return;
+        migrateZonePlans(currentZone);
+        if (currentZone.plans.length <= 1) {
+            alert('Impossible de supprimer le dernier étage.');
+            return;
+        }
+        if (!confirm('Supprimer cet étage et ses éléments ? Cette action est irréversible.')) return;
+        const idx = currentZone.activePlanIndex || 0;
+        currentZone.plans.splice(idx, 1);
+        currentZone.activePlanIndex = Math.max(0, idx - 1);
+        saveZones();
+        refreshAdminPlanSelector();
+        renderAdminElements();
+        const mainImg = document.getElementById('planImage');
+        if (mainImg) mainImg.src = getZonePlan(currentZone).imageUrl || '';
+        addHotspots();
     }
 
     // Get zone inspection
@@ -2357,8 +2430,19 @@
                     <div class="xl:col-span-2 flex flex-col overflow-hidden">
                         <h3 class="font-semibold mb-3">Plan de la Zone</h3>
                         <div class="plan-container admin-mode mb-4 flex-1 overflow-auto" id="adminPlanContainer">
-                            <img src="${zone.plan.imageUrl}" class="plan-image w-full h-auto" id="adminPlanImage">
+                            <img src="${(getZonePlan(zone) || {}).imageUrl || ''}" class="plan-image w-full h-auto" id="adminPlanImage">
                             <div id="adminElements"></div>
+                        </div>
+
+                        <div class="flex items-center gap-2 mt-2">
+                            <label class="text-sm">Étage:</label>
+                            <select id="adminPlanSelector" class="px-2 py-1 border border-gray-300 rounded"></select>
+                            <button type="button" onclick="addPlanToZone()" 
+                                    class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">+ Ajouter</button>
+                            <button type="button" onclick="renameCurrentPlanPrompt()" 
+                                    class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">✎ Renommer</button>
+                            <button type="button" onclick="removeCurrentPlan()" 
+                                    class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">🗑️ Supprimer</button>
                         </div>
                         
                         <div class="space-y-4">
@@ -2480,6 +2564,11 @@
                 } else {
                     adminImg.onload = setupPositioning;
                 }
+
+                // Populate admin plan selector and wire file input
+                refreshAdminPlanSelector();
+                const fileInput = document.querySelector('#adminContent input[type=file]');
+                if (fileInput) fileInput.onchange = updateZonePlan;
                 
                 // Observer de scroll pour repositionner en temps réel
                 adminContainer.addEventListener('scroll', () => {
