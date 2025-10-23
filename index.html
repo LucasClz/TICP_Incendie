@@ -863,30 +863,40 @@
             return;
         }
         
-        // Calcul des positions en pixels absolus
-        const imageRect = planImage.getBoundingClientRect();
-        const parentRect = imageParent.getBoundingClientRect();
+        // Utiliser les dimensions naturelles de l'image et sa taille affichée pour calculer l'échelle
+        const naturalWidth = planImage.naturalWidth || 1;
+        const naturalHeight = planImage.naturalHeight || 1;
+        const displayedWidth = planImage.offsetWidth;
+        const displayedHeight = planImage.offsetHeight;
         
-        // Position de l'image dans le parent
-        const relLeft = imageRect.left - parentRect.left;
-        const relTop = imageRect.top - parentRect.top;
+        // Calculer le ratio d'affichage (object-fit: contain preserve l'aspect ratio)
+        const scaleX = displayedWidth / naturalWidth;
+        const scaleY = displayedHeight / naturalHeight;
+        const scale = Math.min(scaleX, scaleY);
         
-        // Position absolue de l'élément
-        const leftPx = relLeft + (xPercent * imageRect.width);
-        const topPx = relTop + (yPercent * imageRect.height);
+        // Dimensions réelles de l'image affichée (en tenant compte du ratio)
+        const actualWidth = naturalWidth * scale;
+        const actualHeight = naturalHeight * scale;
+        
+        // Offset de centrage si l'image est centrée dans son conteneur
+        const offsetX = (displayedWidth - actualWidth) / 2;
+        const offsetY = (displayedHeight - actualHeight) / 2;
+        
+        // Position absolue en pixels relative au conteneur de l'image
+        const leftPx = offsetX + (xPercent * actualWidth);
+        const topPx = offsetY + (yPercent * actualHeight);
 
         el.style.position = 'absolute';
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // If element has a size (relative to image width), apply width/height
+        // Taille de l'élément : fraction de la largeur affichée de l'image
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size)) {
-            // size is fraction of image width; compute pixel size
-            const px = Math.max(6, Math.round(size * imageRect.width));
+            const px = Math.max(6, Math.round(size * actualWidth));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-            // keep center alignment via transform
+            // Centrage via transform
             el.style.transform = 'translate(-50%, -50%)';
         }
     }
@@ -961,6 +971,21 @@
         mainPlanImage.addEventListener('load', () => {
             scheduleReposition(40);
         });
+        
+        // Observer les changements de taille de l'image (resize, layout changes)
+        const imgObserver = new ResizeObserver(() => {
+            scheduleReposition(50);
+        });
+        imgObserver.observe(mainPlanImage);
+    }
+    
+    // Observer le conteneur du plan pour détecter les changements de layout (volet fermé/ouvert)
+    const planContainer = document.getElementById('planContainer');
+    if (planContainer) {
+        const containerObserver = new ResizeObserver(() => {
+            scheduleReposition(100);
+        });
+        containerObserver.observe(planContainer);
     }
 
     function toggleLeftPanel() {
@@ -978,7 +1003,8 @@
         } else {
             if (label) label.classList.remove('hidden');
         }
-        // Reposition après changement de layout
+        // Forcer repositionnement immédiat puis après l'animation CSS (250ms)
+        repositionHotspots();
         scheduleReposition(300);
     }
 
@@ -2740,20 +2766,8 @@
                     renderElementCriteriaConfig();
                     renderZoneCriteriaConfig();
                     
-                    // Reposition continu toutes les 500ms pendant l'édition
-                    if (adminEditRepositionInterval) clearInterval(adminEditRepositionInterval);
-                    adminEditRepositionInterval = setInterval(() => {
-                        const container = document.getElementById('adminElements');
-                        if (container && container.parentElement) {
-                            repositionHotspots();
-                        } else {
-                            // Si le conteneur n'existe plus, arrêter l'intervalle
-                            if (adminEditRepositionInterval) {
-                                clearInterval(adminEditRepositionInterval);
-                                adminEditRepositionInterval = null;
-                            }
-                        }
-                    }, 500);
+                    // Reposition immédiat après setup
+                    scheduleReposition(100);
                 };
                 
                 if (adminImg.complete && adminImg.naturalHeight !== 0) {
@@ -2768,10 +2782,16 @@
                 }, { passive: true });
                 
                 // Observer de resize du conteneur
-                const resizeObserver = new ResizeObserver(() => {
+                const containerObserver = new ResizeObserver(() => {
                     scheduleReposition(100);
                 });
-                resizeObserver.observe(adminContainer);
+                containerObserver.observe(adminContainer);
+                
+                // Observer de resize de l'image elle-même
+                const imgObserver = new ResizeObserver(() => {
+                    scheduleReposition(80);
+                });
+                imgObserver.observe(adminImg);
             }
         }, 50);
     }
