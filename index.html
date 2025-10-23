@@ -338,13 +338,13 @@
             <div class="w-80 bg-white border-r p-4">
                 <div class="space-y-4">
                     <button id="createZoneBtn" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                        Créer une Zone
+                        ➕ Créer une Zone
                     </button>
                     <button id="importZoneBtn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Importer Zone
+                        📥 Importer Zone/Librairie
                     </button>
                     <button id="exportLibraryBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-                        Exporter Librairie
+                        📤 Exporter Librairie
                     </button>
                 </div>
 
@@ -2158,12 +2158,20 @@
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Importer une Zone</h2>
+                    <h2 class="text-2xl font-bold">Importer une Zone ou une Librairie</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
                 <div class="space-y-4">
-                    <p class="text-sm text-gray-600">Sélectionnez un fichier JSON de zone à importer</p>
+                    <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm">
+                        <p class="font-medium text-blue-900 mb-1">Formats supportés :</p>
+                        <ul class="text-blue-700 list-disc ml-5 space-y-1">
+                            <li>Une zone unique (fichier JSON d'une zone)</li>
+                            <li>Une librairie complète (fichier TICP_zones_library_*.json)</li>
+                            <li>Un tableau de zones</li>
+                        </ul>
+                    </div>
+                    <p class="text-sm text-gray-600">Sélectionnez un fichier JSON à importer</p>
                     <input type="file" accept=".json" onchange="importZoneFile(event)" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
@@ -2186,52 +2194,94 @@
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const importedZone = JSON.parse(e.target.result);
-                if (!importedZone.id || !importedZone.name) {
-                    throw new Error('Zone invalide : ID ou nom manquant');
+                const importedData = JSON.parse(e.target.result);
+                let zonesToImport = [];
+                
+                // Support multiple import formats
+                if (Array.isArray(importedData)) {
+                    // Direct array of zones
+                    zonesToImport = importedData;
+                } else if (importedData.zones && Array.isArray(importedData.zones)) {
+                    // Library format with zones property
+                    zonesToImport = importedData.zones;
+                } else if (importedData.id && importedData.name) {
+                    // Single zone object
+                    zonesToImport = [importedData];
+                } else {
+                    throw new Error('Format de fichier non reconnu');
                 }
                 
-                if (zones.find(z => z.id === importedZone.id)) {
-                    alert('Une zone avec cet ID existe déjà !');
+                if (zonesToImport.length === 0) {
+                    alert('Aucune zone trouvée dans le fichier');
                     return;
                 }
                 
-                // Normalize imported zone to ensure floors exist
-                if (!importedZone.floors || !Array.isArray(importedZone.floors) || importedZone.floors.length === 0) {
-                    // Create default floor from legacy plan/elements or empty
-                    const defaultFloor = {
-                        id: 'RDC',
-                        name: 'Rez-de-chaussée',
-                        plan: importedZone.plan || { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
-                        elements: importedZone.elements || { extincteurs: [], dm: [], sorties: [] }
-                    };
-                    importedZone.floors = [defaultFloor];
-                    // Clean up legacy properties
-                    delete importedZone.plan;
-                    delete importedZone.elements;
+                // Process each zone
+                let imported = 0;
+                let skipped = 0;
+                const conflicts = [];
+                
+                zonesToImport.forEach(importedZone => {
+                    if (!importedZone.id || !importedZone.name) {
+                        skipped++;
+                        return;
+                    }
+                    
+                    // Check for existing zone with same ID
+                    if (zones.find(z => z.id === importedZone.id)) {
+                        conflicts.push(importedZone.id);
+                        skipped++;
+                        return;
+                    }
+                    
+                    // Normalize imported zone to ensure floors exist
+                    if (!importedZone.floors && (importedZone.plan || importedZone.elements)) {
+                        importedZone.floors = [{
+                            id: importedZone.defaultFloorId || 'RDC',
+                            name: importedZone.defaultFloorName || 'Rez-de-chaussée',
+                            plan: importedZone.plan || { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
+                            elements: importedZone.elements || { extincteurs: [], dm: [], sorties: [] }
+                        }];
+                        delete importedZone.plan;
+                        delete importedZone.elements;
+                    }
+                    
+                    // Ensure enabledCriteria exist
+                    if (!importedZone.enabledCriteria) {
+                        importedZone.enabledCriteria = {
+                            extincteur: Object.keys(CRITERIA.extincteur),
+                            dm: Object.keys(CRITERIA.dm),
+                            sortie: Object.keys(CRITERIA.sortie),
+                            zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
+                                acc[section] = Object.keys(ZONE_CRITERIA[section]);
+                                return acc;
+                            }, {})
+                        };
+                    }
+                    
+                    zones.push(importedZone);
+                    imported++;
+                });
+                
+                if (imported > 0) {
+                    saveZones();
+                    renderAdminZoneList();
+                    renderZoneList();
+                    event.target.closest('.modal').remove();
                 }
                 
-                // Ensure enabledCriteria exists with defaults
-                if (!importedZone.enabledCriteria) {
-                    importedZone.enabledCriteria = {
-                        extincteur: Object.keys(CRITERIA.extincteur),
-                        dm: Object.keys(CRITERIA.dm),
-                        sortie: Object.keys(CRITERIA.sortie),
-                        zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
-                            acc[section] = Object.keys(ZONE_CRITERIA[section]);
-                            return acc;
-                        }, {})
-                    };
+                // Show detailed result
+                let message = `Import terminé :\n✓ ${imported} zone(s) importée(s)`;
+                if (skipped > 0) {
+                    message += `\n⚠ ${skipped} zone(s) ignorée(s)`;
                 }
-
-                zones.push(importedZone);
-                saveZones();
-                renderAdminZoneList();
-                renderZoneList();
-                event.target.closest('.modal').remove();
-                alert('Zone importée avec succès !');
+                if (conflicts.length > 0) {
+                    message += `\n\nConflits (ID déjà existants) :\n- ${conflicts.join('\n- ')}`;
+                }
+                alert(message);
+                
             } catch (error) {
-                console.error('Erreur d\'importation:', error);
+                console.error('Import error:', error);
                 alert('Erreur lors de l\'importation : ' + error.message);
             }
         };
@@ -2239,8 +2289,16 @@
     }
 
     function exportLibrary() {
-        const data = JSON.stringify(zones, null, 2);
-        downloadFile(data, `zones_library_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+        // Export library in a format compatible with import
+        const exportData = {
+            version: "1.0",
+            exportDate: new Date().toISOString(),
+            zones: zones
+        };
+        const data = JSON.stringify(exportData, null, 2);
+        const filename = `TICP_zones_library_${new Date().toISOString().split('T')[0]}.json`;
+        downloadFile(data, filename, 'application/json');
+        alert(`Librairie exportée avec succès : ${zones.length} zone(s)\nFichier : ${filename}`);
     }
 
     const ELEMENT_COLLECTION_MAP = { extincteur: 'extincteurs', dm: 'dm', sortie: 'sorties' };
