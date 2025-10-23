@@ -2246,6 +2246,44 @@
                         delete importedZone.elements;
                     }
                     
+                    // Ensure all floors have proper structure and normalized elements
+                    if (importedZone.floors) {
+                        importedZone.floors.forEach(floor => {
+                            // Ensure plan structure
+                            if (!floor.plan) {
+                                floor.plan = { imageUrl: '', naturalWidth: 800, naturalHeight: 600 };
+                            }
+                            if (!floor.plan.naturalWidth) floor.plan.naturalWidth = 800;
+                            if (!floor.plan.naturalHeight) floor.plan.naturalHeight = 600;
+                            
+                            // Ensure elements structure
+                            if (!floor.elements) {
+                                floor.elements = { extincteurs: [], dm: [], sorties: [] };
+                            }
+                            
+                            // Normalize elements: ensure x, y are fractions (0-1) and size exists
+                            ['extincteurs', 'dm', 'sorties'].forEach(key => {
+                                const arr = floor.elements[key] || [];
+                                arr.forEach(el => {
+                                    if (!el) return;
+                                    
+                                    // Ensure x and y are valid fractions (0-1)
+                                    if (typeof el.x !== 'number' || el.x < 0 || el.x > 1) {
+                                        el.x = 0.5;
+                                    }
+                                    if (typeof el.y !== 'number' || el.y < 0 || el.y > 1) {
+                                        el.y = 0.5;
+                                    }
+                                    
+                                    // Ensure size exists and is a valid fraction
+                                    if (typeof el.size !== 'number' || el.size <= 0 || el.size > 1) {
+                                        el.size = 0.02;
+                                    }
+                                });
+                            });
+                        });
+                    }
+                    
                     // Ensure enabledCriteria exist
                     if (!importedZone.enabledCriteria) {
                         importedZone.enabledCriteria = {
