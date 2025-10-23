@@ -2187,7 +2187,9 @@
         reader.onload = (e) => {
             try {
                 const importedZone = JSON.parse(e.target.result);
-                if (!importedZone.id || !importedZone.name) throw new Error('Zone invalide');
+                if (!importedZone.id || !importedZone.name) {
+                    throw new Error('Zone invalide : ID ou nom manquant');
+                }
                 
                 if (zones.find(z => z.id === importedZone.id)) {
                     alert('Une zone avec cet ID existe déjà !');
@@ -2195,15 +2197,31 @@
                 }
                 
                 // Normalize imported zone to ensure floors exist
-                if (!importedZone.floors && (importedZone.plan || importedZone.elements)) {
-                    importedZone.floors = [{
-                        id: importedZone.defaultFloorId || 'RDC',
-                        name: importedZone.defaultFloorName || 'Rez-de-chaussée',
-                        plan: importedZone.plan || { imageUrl: '' },
+                if (!importedZone.floors || !Array.isArray(importedZone.floors) || importedZone.floors.length === 0) {
+                    // Create default floor from legacy plan/elements or empty
+                    const defaultFloor = {
+                        id: 'RDC',
+                        name: 'Rez-de-chaussée',
+                        plan: importedZone.plan || { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
                         elements: importedZone.elements || { extincteurs: [], dm: [], sorties: [] }
-                    }];
+                    };
+                    importedZone.floors = [defaultFloor];
+                    // Clean up legacy properties
                     delete importedZone.plan;
                     delete importedZone.elements;
+                }
+                
+                // Ensure enabledCriteria exists with defaults
+                if (!importedZone.enabledCriteria) {
+                    importedZone.enabledCriteria = {
+                        extincteur: Object.keys(CRITERIA.extincteur),
+                        dm: Object.keys(CRITERIA.dm),
+                        sortie: Object.keys(CRITERIA.sortie),
+                        zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
+                            acc[section] = Object.keys(ZONE_CRITERIA[section]);
+                            return acc;
+                        }, {})
+                    };
                 }
 
                 zones.push(importedZone);
@@ -2213,6 +2231,7 @@
                 event.target.closest('.modal').remove();
                 alert('Zone importée avec succès !');
             } catch (error) {
+                console.error('Erreur d\'importation:', error);
                 alert('Erreur lors de l\'importation : ' + error.message);
             }
         };
