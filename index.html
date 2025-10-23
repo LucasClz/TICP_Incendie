@@ -839,14 +839,14 @@
     function positionElement(el, xPercent, yPercent, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
         const planImage = document.getElementById(planImageId);
-
+        
         if (!planImage) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
             return;
         }
-
+        
         // Vérifier que l'image est chargée
         if (!planImage.complete || planImage.naturalHeight === 0) {
             el.style.position = 'absolute';
@@ -854,7 +854,7 @@
             el.style.top = `${yPercent * 100}%`;
             return;
         }
-
+        
         const imageParent = planImage.parentElement;
         if (!imageParent) {
             el.style.position = 'absolute';
@@ -862,15 +862,15 @@
             el.style.top = `${yPercent * 100}%`;
             return;
         }
-
+        
         // Calcul des positions en pixels absolus
         const imageRect = planImage.getBoundingClientRect();
         const parentRect = imageParent.getBoundingClientRect();
-
+        
         // Position de l'image dans le parent
         const relLeft = imageRect.left - parentRect.left;
         const relTop = imageRect.top - parentRect.top;
-
+        
         // Position absolue de l'élément
         const leftPx = relLeft + (xPercent * imageRect.width);
         const topPx = relTop + (yPercent * imageRect.height);
@@ -879,36 +879,13 @@
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // Règle globale : si l'image affichée est plus petite que 1295px de large,
-        // on ne modifie jamais la taille des éléments (ni agrandir, ni rétrécir).
-        const GLOBAL_MIN_WIDTH = 1295;
-        const displayWidth = imageRect.width || 0;
-
-        // Determine per-zone allow flag (default true unless explicitly false)
-        const zoneAllows = (typeof currentZone?.allowElementResize === 'undefined') ? true : !!currentZone.allowElementResize;
-
-        // Decide if we should apply resizing based on global and per-zone flags
-        const allowResize = displayWidth >= GLOBAL_MIN_WIDTH && zoneAllows;
-
-        // If element has a size (relative to image width), apply width/height only when allowed
+        // If element has a size (relative to image width), apply width/height
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size)) {
-            if (allowResize) {
-                // size is fraction of image width; compute pixel size
-                const px = Math.max(6, Math.round(size * imageRect.width));
-                el.style.width = px + 'px';
-                el.style.height = px + 'px';
-                el.dataset.lastPx = String(px);
-            } else {
-                // Do not change width/height when resizing is not allowed.
-                // Ensure we keep a record of last applied px if any.
-                if (!el.dataset.lastPx) {
-                    // try to capture existing computed size
-                    const existing = parseInt(el.style.width, 10) || el.offsetWidth || 0;
-                    el.dataset.lastPx = String(existing || 0);
-                }
-            }
-
+            // size is fraction of image width; compute pixel size
+            const px = Math.max(6, Math.round(size * imageRect.width));
+            el.style.width = px + 'px';
+            el.style.height = px + 'px';
             // keep center alignment via transform
             el.style.transform = 'translate(-50%, -50%)';
         }
@@ -950,9 +927,7 @@
         hotspot.dataset.y = String(y);
         hotspot.dataset.elementKey = getElementKey(type, elementData);
         if (elementData && elementData.size !== undefined) hotspot.dataset.size = String(elementData.size);
-        // initialize lastPx so positionElement can decide later
-        hotspot.dataset.lastPx = hotspot.dataset.lastPx || '0';
-
+        
         // Position initiale
         positionElement(hotspot, x, y, false);
 
@@ -2491,8 +2466,6 @@
 
                 // initialize dataset.size
                 adminElement.dataset.size = (element.size !== undefined) ? String(element.size) : '0.02';
-                // initialize lastPx so future calls to positionElement can rely on it
-                adminElement.dataset.lastPx = adminElement.dataset.lastPx || '0';
                 container.appendChild(adminElement);
             });
         });
@@ -2526,15 +2499,6 @@
                             <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
                             <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
                         </select>
-                    </div>
-                    <div class="ml-4">
-                        <label class="block text-sm font-medium">Redimensionner éléments</label>
-                        <div class="text-sm text-gray-600">
-                            <label class="inline-flex items-center"><input type="checkbox" id="zoneAllowResize" ${
-                                (typeof zone.allowElementResize === 'undefined' ? ((currentFloor && currentFloor.plan && currentFloor.plan.naturalWidth >= 1295) ? 'checked' : '') : (zone.allowElementResize ? 'checked' : ''))
-                            } class="mr-2">Autoriser le redimensionnement automatique</label>
-                            <div class="text-xs text-gray-500">Par défaut activé si l'image du plan a une largeur ≥ 1295px</div>
-                        </div>
                     </div>
                     <div class="flex gap-2 flex-shrink-0">
                         <button onclick="saveAndReturn()" 
@@ -2741,10 +2705,6 @@
             function saveAndReturn() {
                 const newName = document.getElementById('editZoneName')?.value;
                 const newCategory = document.getElementById('editZoneCategory')?.value;
-                const allowResizeCheckbox = document.getElementById('zoneAllowResize');
-                if (allowResizeCheckbox && currentZone) {
-                    currentZone.allowElementResize = !!allowResizeCheckbox.checked;
-                }
                 if (newName && currentZone) {
                     updateZoneName(newName);
                     if (newCategory !== undefined) currentZone.category = newCategory || '';
