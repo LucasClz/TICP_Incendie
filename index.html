@@ -14,8 +14,8 @@
             position: absolute;
             min-width: 12px;
             min-height: 12px;
-            max-width: 80px;
-            max-height: 80px;
+            max-width: 50px;
+            max-height: 50px;
             /* carré avec coins légèrement arrondis */
             border-radius: 4px;
             border: 2px solid white;
@@ -99,8 +99,8 @@
             position: absolute;
             min-width: 10px;
             min-height: 10px;
-            max-width: 80px;
-            max-height: 80px;
+            max-width: 50px;
+            max-height: 50px;
             border: 2px solid #fff;
             border-radius: 4px; /* square-ish */
             cursor: move;
@@ -882,19 +882,27 @@
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // Taille de l'élément relative à la largeur de l'image
+        // CORRECTION: Calculer la taille en fonction de la largeur NATURELLE de l'image, 
+        // pas de sa largeur affichée qui varie selon le conteneur
+        const naturalWidth = planImage.naturalWidth || 800;
+        const displayWidth = imageRect.width;
+        const scale = displayWidth / naturalWidth;
+        
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size) && size > 0) {
-            // Appliquer des limites raisonnables
-            const calculatedPx = size * imageRect.width;
-            const px = Math.max(10, Math.min(100, Math.round(calculatedPx)));
+            // Calculer la taille en pixels basée sur la largeur naturelle, puis appliquer le scale
+            const naturalSizePx = size * naturalWidth;
+            const displaySizePx = naturalSizePx * scale;
+            const px = Math.max(10, Math.min(50, Math.round(displaySizePx)));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
         } else {
-            // Taille par défaut
-            const defaultPx = Math.max(16, Math.min(28, Math.round(imageRect.width * 0.025)));
-            el.style.width = defaultPx + 'px';
-            el.style.height = defaultPx + 'px';
+            // Taille par défaut: 2.5% de la largeur naturelle
+            const defaultNaturalPx = naturalWidth * 0.025;
+            const defaultDisplayPx = defaultNaturalPx * scale;
+            const px = Math.max(14, Math.min(28, Math.round(defaultDisplayPx)));
+            el.style.width = px + 'px';
+            el.style.height = px + 'px';
         }
         
         // Centrage
