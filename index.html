@@ -49,35 +49,20 @@
             border: 2px solid #e5e7eb;
             border-radius: 8px;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: stretch;
+            justify-content: stretch;
         }
         
         .plan-container.admin-mode {
             max-height: 75vh;
             min-height: 600px;
             overflow: auto;
+            align-items: center;
+            justify-content: center;
         }
         
         .plan-wrapper {
             position: relative;
-            display: inline-block;
-            line-height: 0;
-            max-width: 100%;
-            max-height: 100%;
-        }
-        
-        .plan-image {
-            display: block;
-            width: auto;
-            height: auto;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        
-        /* Forcer l'image à prendre le maximum d'espace disponible */
-        .plan-container:not(.admin-mode) .plan-wrapper {
             width: 100%;
             height: 100%;
             display: flex;
@@ -85,10 +70,26 @@
             justify-content: center;
         }
         
-        .plan-container:not(.admin-mode) .plan-image {
+        .plan-image {
+            display: block;
             width: 100%;
             height: 100%;
             object-fit: contain;
+            object-position: center;
+        }
+        
+        .plan-container.admin-mode .plan-wrapper {
+            width: auto;
+            height: auto;
+            display: inline-block;
+            line-height: 0;
+        }
+        
+        .plan-container.admin-mode .plan-image {
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
         }
         
         .hotspot, .admin-element {
@@ -866,6 +867,36 @@
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
+    
+    // Fonction helper pour calculer les dimensions réelles de l'image avec object-fit: contain
+    function getImageDisplayedDimensions(img) {
+        const naturalWidth = img.naturalWidth || 1;
+        const naturalHeight = img.naturalHeight || 1;
+        const containerWidth = img.offsetWidth;
+        const containerHeight = img.offsetHeight;
+        
+        const naturalRatio = naturalWidth / naturalHeight;
+        const containerRatio = containerWidth / containerHeight;
+        
+        let displayedWidth, displayedHeight, offsetX, offsetY;
+        
+        if (naturalRatio > containerRatio) {
+            // L'image est limitée par la largeur
+            displayedWidth = containerWidth;
+            displayedHeight = containerWidth / naturalRatio;
+            offsetX = 0;
+            offsetY = (containerHeight - displayedHeight) / 2;
+        } else {
+            // L'image est limitée par la hauteur
+            displayedHeight = containerHeight;
+            displayedWidth = containerHeight * naturalRatio;
+            offsetX = (containerWidth - displayedWidth) / 2;
+            offsetY = 0;
+        }
+        
+        return { displayedWidth, displayedHeight, offsetX, offsetY };
+    }
+    
     function positionElement(el, xPercent, yPercent, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
         const wrapperId = isAdminMode ? 'adminPlanWrapper' : 'planWrapper';
@@ -888,38 +919,51 @@
             return;
         }
         
-        // Obtenir les dimensions réelles de l'image affichée et du wrapper
-        const imgRect = planImage.getBoundingClientRect();
-        const wrapperRect = wrapper.getBoundingClientRect();
-        
-        const imgWidth = imgRect.width;
-        const imgHeight = imgRect.height;
-        
-        if (!imgWidth || !imgHeight) {
+        // Mode admin : positionnement simple car l'image est en taille naturelle
+        if (isAdminMode) {
+            const imgWidth = planImage.offsetWidth;
+            const imgHeight = planImage.offsetHeight;
+            
+            if (!imgWidth || !imgHeight) {
+                el.style.position = 'absolute';
+                el.style.left = `${xPercent * 100}%`;
+                el.style.top = `${yPercent * 100}%`;
+                return;
+            }
+            
+            const leftPx = xPercent * imgWidth;
+            const topPx = yPercent * imgHeight;
+            
             el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            el.style.left = `${leftPx}px`;
+            el.style.top = `${topPx}px`;
+            el.style.transform = 'translate(-50%, -50%)';
+            
+            const size = parseFloat(el.dataset.size);
+            if (!isNaN(size)) {
+                const px = Math.max(6, Math.round(size * imgWidth));
+                el.style.width = px + 'px';
+                el.style.height = px + 'px';
+            }
             return;
         }
         
-        // Calculer l'offset si l'image est centrée dans le wrapper (object-fit: contain)
-        const offsetX = imgRect.left - wrapperRect.left;
-        const offsetY = imgRect.top - wrapperRect.top;
+        // Mode notation : calculer les dimensions réelles avec object-fit: contain
+        const dims = getImageDisplayedDimensions(planImage);
         
-        // Calculer la position en pixels relatifs à l'image
-        const leftPx = offsetX + (xPercent * imgWidth);
-        const topPx = offsetY + (yPercent * imgHeight);
+        // Position relative au wrapper (qui prend 100% du conteneur)
+        const leftPx = dims.offsetX + (xPercent * dims.displayedWidth);
+        const topPx = dims.offsetY + (yPercent * dims.displayedHeight);
         
-        // Position absolue en pixels
         el.style.position = 'absolute';
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
         el.style.transform = 'translate(-50%, -50%)';
-
+        
         // Taille de l'élément : fraction de la largeur affichée de l'image
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size)) {
-            const px = Math.max(6, Math.round(size * imgWidth));
+            const px = Math.max(6, Math.round(size * dims.displayedWidth));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
         }
