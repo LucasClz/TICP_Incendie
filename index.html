@@ -847,8 +847,68 @@
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
-    // Mémoriser la largeur de référence de l'image pour éviter les redimensionnements inutiles
-    let _lastImageWidth = { main: 0, admin: 0 };
+    // Mémoriser les dimensions réelles (zone colorée) de l'image
+    let _lastEffectiveImageSize = { main: { width: 0, height: 0 }, admin: { width: 0, height: 0 } };
+    
+    // Fonction pour calculer la zone de contenu réel (pixels non-blancs) d'une image
+    function getEffectiveImageSize(planImage) {
+        if (!planImage || !planImage.complete || !planImage.naturalWidth) {
+            return null;
+        }
+        
+        try {
+            // Créer un canvas temporaire pour analyser les pixels
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = planImage.naturalWidth;
+            canvas.height = planImage.naturalHeight;
+            
+            // Dessiner l'image
+            ctx.drawImage(planImage, 0, 0);
+            
+            // Obtenir les données de pixels
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            
+            let minX = canvas.width, maxX = 0;
+            let minY = canvas.height, maxY = 0;
+            
+            // Parcourir tous les pixels pour trouver la zone non-blanche
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    const r = pixels[idx];
+                    const g = pixels[idx + 1];
+                    const b = pixels[idx + 2];
+                    const a = pixels[idx + 3];
+                    
+                    // Considérer comme non-blanc si pas entièrement blanc (avec tolérance)
+                    const isNotWhite = (r < 250 || g < 250 || b < 250) && a > 10;
+                    
+                    if (isNotWhite) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+            
+            // Si aucun pixel coloré trouvé, retourner les dimensions complètes
+            if (maxX === 0 && maxY === 0) {
+                return { width: canvas.width, height: canvas.height };
+            }
+            
+            return {
+                width: maxX - minX + 1,
+                height: maxY - minY + 1
+            };
+        } catch (e) {
+            // En cas d'erreur (CORS, etc.), retourner les dimensions naturelles
+            console.warn('Impossible d\'analyser l\'image:', e);
+            return { width: planImage.naturalWidth, height: planImage.naturalHeight };
+        }
+    }
     
     function positionElement(el, xPercent, yPercent, isAdminMode = false, forceResize = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
@@ -885,17 +945,35 @@
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // Déterminer si on doit recalculer la taille
-        const widthKey = isAdminMode ? 'admin' : 'main';
-        const currentWidth = Math.round(imageRect.width);
-        const shouldResize = forceResize || 
-                            !el.dataset.fixedSize || 
-                            Math.abs(currentWidth - _lastImageWidth[widthKey]) > 10; // Tolérance de 10px
+        // Déterminer si on doit recalculer la taille en analysant la zone de contenu réel
+        const sizeKey = isAdminMode ? 'admin' : 'main';
+        const effectiveSize = getEffectiveImageSize(planImage);
         
-        if (shouldResize) {
-            _lastImageWidth[widthKey] = currentWidth;
+        let shouldResize = forceResize || !el.dataset.fixedSize;
+        
+        // Si on a pu calculer la zone effective, vérifier si elle a changé significativement
+        if (effectiveSize && _lastEffectiveImageSize[sizeKey].width > 0) {
+            const lastSize = _lastEffectiveImageSize[sizeKey];
+            const widthChange = Math.abs(effectiveSize.width - lastSize.width);
+            const heightChange = Math.abs(effectiveSize.height - lastSize.height);
             
-            // Calculer la taille en fonction de la largeur NATURELLE de l'image
+            // Recalculer uniquement si la zone colorée a changé de plus de 5%
+            const widthChangePercent = (widthChange / lastSize.width) * 100;
+            const heightChangePercent = (heightChange / lastSize.height) * 100;
+            
+            if (widthChangePercent > 5 || heightChangePercent > 5) {
+                shouldResize = true;
+                console.log(`Zone effective changée: largeur ${widthChangePercent.toFixed(1)}%, hauteur ${heightChangePercent.toFixed(1)}%`);
+            }
+        } else if (effectiveSize) {
+            // Première fois, forcer le calcul
+            shouldResize = true;
+        }
+        
+        if (shouldResize && effectiveSize) {
+            _lastEffectiveImageSize[sizeKey] = effectiveSize;
+            
+            // Calculer la taille en fonction de la zone effective réelle
             const naturalWidth = planImage.naturalWidth || 800;
             const displayWidth = imageRect.width;
             const scale = displayWidth / naturalWidth;
@@ -904,14 +982,14 @@
             let px;
             
             if (!isNaN(size) && size > 0) {
-                // Calculer la taille en pixels basée sur la largeur naturelle, puis appliquer le scale
-                const naturalSizePx = size * naturalWidth;
-                const displaySizePx = naturalSizePx * scale;
+                // Calculer la taille en pixels basée sur la zone effective
+                const effectiveSizePx = size * effectiveSize.width;
+                const displaySizePx = effectiveSizePx * scale;
                 px = Math.max(10, Math.min(50, Math.round(displaySizePx)));
             } else {
-                // Taille par défaut: 2.5% de la largeur naturelle
-                const defaultNaturalPx = naturalWidth * 0.025;
-                const defaultDisplayPx = defaultNaturalPx * scale;
+                // Taille par défaut: 2.5% de la zone effective
+                const defaultEffectivePx = effectiveSize.width * 0.025;
+                const defaultDisplayPx = defaultEffectivePx * scale;
                 px = Math.max(14, Math.min(28, Math.round(defaultDisplayPx)));
             }
             
@@ -1329,8 +1407,8 @@
         
         // Wait for image to be fully loaded and positioned
         const addHotspotsWhenReady = () => {
-            // Réinitialiser la largeur de référence pour forcer le calcul des tailles
-            _lastImageWidth.main = 0;
+            // Réinitialiser la taille effective de référence pour forcer le calcul des tailles
+            _lastEffectiveImageSize.main = { width: 0, height: 0 };
             
             // Add extincteur hotspots (from currentFloor)
             currentFloor.elements.extincteurs?.forEach(ext => {
