@@ -49,25 +49,21 @@
             border: 2px solid #e5e7eb;
             border-radius: 8px;
             display: flex;
-            align-items: stretch;
-            justify-content: stretch;
+            align-items: center;
+            justify-content: center;
         }
         
         .plan-container.admin-mode {
             max-height: 75vh;
             min-height: 600px;
             overflow: auto;
-            align-items: center;
-            justify-content: center;
         }
         
         .plan-wrapper {
             position: relative;
             width: 100%;
             height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            line-height: 0;
         }
         
         .plan-image {
@@ -76,20 +72,6 @@
             height: 100%;
             object-fit: contain;
             object-position: center;
-        }
-        
-        .plan-container.admin-mode .plan-wrapper {
-            width: auto;
-            height: auto;
-            display: inline-block;
-            line-height: 0;
-        }
-        
-        .plan-container.admin-mode .plan-image {
-            width: auto;
-            height: auto;
-            max-width: 100%;
-            max-height: 100%;
         }
         
         .hotspot, .admin-element {
@@ -899,12 +881,10 @@
     
     function positionElement(el, xPercent, yPercent, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
-        const wrapperId = isAdminMode ? 'adminPlanWrapper' : 'planWrapper';
         
         const planImage = document.getElementById(planImageId);
-        const wrapper = document.getElementById(wrapperId);
         
-        if (!planImage || !wrapper) {
+        if (!planImage) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
@@ -919,39 +899,17 @@
             return;
         }
         
-        // Mode admin : positionnement simple car l'image est en taille naturelle
-        if (isAdminMode) {
-            const imgWidth = planImage.offsetWidth;
-            const imgHeight = planImage.offsetHeight;
-            
-            if (!imgWidth || !imgHeight) {
-                el.style.position = 'absolute';
-                el.style.left = `${xPercent * 100}%`;
-                el.style.top = `${yPercent * 100}%`;
-                return;
-            }
-            
-            const leftPx = xPercent * imgWidth;
-            const topPx = yPercent * imgHeight;
-            
+        // Calculer les dimensions réelles avec object-fit: contain
+        const dims = getImageDisplayedDimensions(planImage);
+        
+        if (!dims.displayedWidth || !dims.displayedHeight) {
             el.style.position = 'absolute';
-            el.style.left = `${leftPx}px`;
-            el.style.top = `${topPx}px`;
-            el.style.transform = 'translate(-50%, -50%)';
-            
-            const size = parseFloat(el.dataset.size);
-            if (!isNaN(size)) {
-                const px = Math.max(6, Math.round(size * imgWidth));
-                el.style.width = px + 'px';
-                el.style.height = px + 'px';
-            }
+            el.style.left = `${xPercent * 100}%`;
+            el.style.top = `${yPercent * 100}%`;
             return;
         }
         
-        // Mode notation : calculer les dimensions réelles avec object-fit: contain
-        const dims = getImageDisplayedDimensions(planImage);
-        
-        // Position relative au wrapper (qui prend 100% du conteneur)
+        // Position relative au conteneur (avec offset pour centrage)
         const leftPx = dims.offsetX + (xPercent * dims.displayedWidth);
         const topPx = dims.offsetY + (yPercent * dims.displayedHeight);
         
