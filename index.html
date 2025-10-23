@@ -847,7 +847,10 @@
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
-    function positionElement(el, xPercent, yPercent, isAdminMode = false) {
+    // Mémoriser la largeur de référence de l'image pour éviter les redimensionnements inutiles
+    let _lastImageWidth = { main: 0, admin: 0 };
+    
+    function positionElement(el, xPercent, yPercent, isAdminMode = false, forceResize = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
         const planImage = document.getElementById(planImageId);
         
@@ -882,40 +885,52 @@
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
 
-        // CORRECTION: Calculer la taille en fonction de la largeur NATURELLE de l'image, 
-        // pas de sa largeur affichée qui varie selon le conteneur
-        const naturalWidth = planImage.naturalWidth || 800;
-        const displayWidth = imageRect.width;
-        const scale = displayWidth / naturalWidth;
+        // Déterminer si on doit recalculer la taille
+        const widthKey = isAdminMode ? 'admin' : 'main';
+        const currentWidth = Math.round(imageRect.width);
+        const shouldResize = forceResize || 
+                            !el.dataset.fixedSize || 
+                            Math.abs(currentWidth - _lastImageWidth[widthKey]) > 10; // Tolérance de 10px
         
-        const size = parseFloat(el.dataset.size);
-        if (!isNaN(size) && size > 0) {
-            // Calculer la taille en pixels basée sur la largeur naturelle, puis appliquer le scale
-            const naturalSizePx = size * naturalWidth;
-            const displaySizePx = naturalSizePx * scale;
-            const px = Math.max(10, Math.min(50, Math.round(displaySizePx)));
+        if (shouldResize) {
+            _lastImageWidth[widthKey] = currentWidth;
+            
+            // Calculer la taille en fonction de la largeur NATURELLE de l'image
+            const naturalWidth = planImage.naturalWidth || 800;
+            const displayWidth = imageRect.width;
+            const scale = displayWidth / naturalWidth;
+            
+            const size = parseFloat(el.dataset.size);
+            let px;
+            
+            if (!isNaN(size) && size > 0) {
+                // Calculer la taille en pixels basée sur la largeur naturelle, puis appliquer le scale
+                const naturalSizePx = size * naturalWidth;
+                const displaySizePx = naturalSizePx * scale;
+                px = Math.max(10, Math.min(50, Math.round(displaySizePx)));
+            } else {
+                // Taille par défaut: 2.5% de la largeur naturelle
+                const defaultNaturalPx = naturalWidth * 0.025;
+                const defaultDisplayPx = defaultNaturalPx * scale;
+                px = Math.max(14, Math.min(28, Math.round(defaultDisplayPx)));
+            }
+            
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-        } else {
-            // Taille par défaut: 2.5% de la largeur naturelle
-            const defaultNaturalPx = naturalWidth * 0.025;
-            const defaultDisplayPx = defaultNaturalPx * scale;
-            const px = Math.max(14, Math.min(28, Math.round(defaultDisplayPx)));
-            el.style.width = px + 'px';
-            el.style.height = px + 'px';
+            el.dataset.fixedSize = px; // Mémoriser la taille fixée
         }
         
         // Centrage
         el.style.transform = 'translate(-50%, -50%)';
     }
 
-    function repositionHotspots() {
+    function repositionHotspots(forceResize = false) {
         // Reposition hotspots en mode normal
         document.querySelectorAll('#planContainer .hotspot').forEach(h => {
             const x = parseFloat(h.dataset.x);
             const y = parseFloat(h.dataset.y);
             if (!isNaN(x) && !isNaN(y)) {
-                positionElement(h, x, y, false);
+                positionElement(h, x, y, false, forceResize);
             }
         });
         
@@ -924,18 +939,18 @@
             const x = parseFloat(a.dataset.x);
             const y = parseFloat(a.dataset.y);
             if (!isNaN(x) && !isNaN(y)) {
-                positionElement(a, x, y, true);
+                positionElement(a, x, y, true, forceResize);
             }
         });
     }
 
     let _repositionTimer = null;
-    function scheduleReposition(delay = 200) {
+    function scheduleReposition(delay = 200, forceResize = false) {
         if (_repositionTimer) clearTimeout(_repositionTimer);
         _repositionTimer = setTimeout(() => {
             // Attendre que le layout soit stabilisé
             requestAnimationFrame(() => {
-                repositionHotspots();
+                repositionHotspots(forceResize);
                 _repositionTimer = null;
             });
         }, delay);
@@ -956,8 +971,8 @@
             hotspot.dataset.size = '0.025';
         }
         
-        // Position initiale
-        positionElement(hotspot, x, y, false);
+        // Position initiale AVEC dimensionnement forcé
+        positionElement(hotspot, x, y, false, true);
 
         const inspection = getElementInspection(type, elementData);
         if (inspection && isElementCompleted(inspection)) {
@@ -966,8 +981,8 @@
 
         hotspot.addEventListener('click', () => {
             selectElement(type, elementData);
-            // Forcer reposition après affichage du panneau
-            scheduleReposition(150);
+            // Repositionner SANS redimensionner
+            scheduleReposition(150, false);
         });
 
         return hotspot;
@@ -979,28 +994,29 @@
         if (panel) {
             panel.classList.add('hidden');
             // Attendre que le DOM se stabilise avant de repositionner
+            // SANS redimensionner (forceResize = false)
             setTimeout(() => {
                 requestAnimationFrame(() => {
-                    scheduleReposition(100);
+                    scheduleReposition(100, false);
                 });
             }, 50);
         }
     }
 
-    window.addEventListener('resize', () => scheduleReposition(150));
-    window.addEventListener('orientationchange', () => scheduleReposition(150));
+    window.addEventListener('resize', () => scheduleReposition(150, true)); // Redimensionner sur resize fenêtre
+    window.addEventListener('orientationchange', () => scheduleReposition(150, true));
 
     // Observer pour surveiller les changements de DOM et repositionner
     const setupRepositionObserver = () => {
         const mainPlanImage = document.getElementById('planImage');
         if (mainPlanImage) {
             mainPlanImage.addEventListener('load', () => {
-                scheduleReposition(80);
+                scheduleReposition(80, true); // Forcer redimensionnement au chargement
             });
             
             // Observer les changements de taille de l'image
             const resizeObserver = new ResizeObserver(() => {
-                scheduleReposition(100);
+                scheduleReposition(100, false); // Ne pas redimensionner automatiquement
             });
             resizeObserver.observe(mainPlanImage);
         }
@@ -1022,9 +1038,10 @@
             if (label) label.classList.remove('hidden');
         }
         // Attendre la fin de la transition CSS (250ms) + marge
+        // SANS redimensionner les éléments
         setTimeout(() => {
             requestAnimationFrame(() => {
-                scheduleReposition(100);
+                scheduleReposition(100, false);
             });
         }, 300);
     }
@@ -1312,6 +1329,9 @@
         
         // Wait for image to be fully loaded and positioned
         const addHotspotsWhenReady = () => {
+            // Réinitialiser la largeur de référence pour forcer le calcul des tailles
+            _lastImageWidth.main = 0;
+            
             // Add extincteur hotspots (from currentFloor)
             currentFloor.elements.extincteurs?.forEach(ext => {
                 if (!filterChecked || hasElementNonConformity('extincteur', ext)) {
@@ -1336,8 +1356,8 @@
                 }
             });
             
-            // Reposition après ajout de tous les hotspots
-            setTimeout(() => repositionHotspots(), 50);
+            // Reposition après ajout de tous les hotspots (sans redimensionner, déjà fait)
+            setTimeout(() => repositionHotspots(false), 50);
         };
         
         if (planImage.complete && planImage.naturalHeight !== 0) {
@@ -1347,30 +1367,6 @@
         }
     }
 
-    function createHotspot(type, x, y, elementData) {
-        const hotspot = document.createElement('div');
-        hotspot.className = `hotspot ${type}`;
-        hotspot.dataset.x = String(x);
-        hotspot.dataset.y = String(y);
-        if (elementData && elementData.size !== undefined) hotspot.dataset.size = String(elementData.size);
-        
-        // Position initiale
-        positionElement(hotspot, x, y, false);
-
-        const inspection = getElementInspection(type, elementData);
-        if (inspection && isElementCompleted(inspection)) {
-            hotspot.classList.add('completed');
-        }
-
-        hotspot.addEventListener('click', () => {
-            selectElement(type, elementData);
-            // Forcer reposition après affichage du panneau
-            scheduleReposition(150);
-        });
-
-        return hotspot;
-    }
-
     function selectElement(type, elementData) {
         currentElement = { type, data: elementData };
         // show notation panel
@@ -1378,9 +1374,10 @@
         if (panel) {
             panel.classList.remove('hidden');
             // Attendre que le panneau soit affiché et le layout stabilisé
+            // SANS redimensionner les éléments
             setTimeout(() => {
                 requestAnimationFrame(() => {
-                    scheduleReposition(100);
+                    scheduleReposition(100, false);
                 });
             }, 100);
         }
