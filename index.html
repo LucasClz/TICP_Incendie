@@ -875,6 +875,7 @@
         const leftPx = relLeft + (xPercent * imageRect.width);
         const topPx = relTop + (yPercent * imageRect.height);
 
+        // Position using absolute pixels relative to the positioned parent
         el.style.position = 'absolute';
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
@@ -886,9 +887,11 @@
             const px = Math.max(6, Math.round(size * imageRect.width));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-            // keep center alignment via transform
-            el.style.transform = 'translate(-50%, -50%)';
         }
+
+        // Do NOT write an inline transform here. The CSS rules (.hotspot, .admin-element)
+        // already define translate(-50%, -50%) and hover scaling. Writing transform
+        // inline would override those stylesheet rules and break hover/scale behavior.
     }
 
     function repositionHotspots() {
@@ -962,6 +965,44 @@
             scheduleReposition(40);
         });
     }
+
+    // Observe plan container and left panel for size/layout changes so hotspots reposition smoothly
+    (function setupObservers() {
+        try {
+            const planContainer = document.getElementById('planContainer');
+            if (planContainer) {
+                const ro = new ResizeObserver(() => scheduleReposition(40));
+                ro.observe(planContainer);
+            }
+
+            const adminPlanContainer = document.getElementById('adminPlanContainer');
+            if (adminPlanContainer) {
+                const ro2 = new ResizeObserver(() => scheduleReposition(40));
+                ro2.observe(adminPlanContainer);
+            }
+
+            const leftPanel = document.getElementById('leftPanel');
+            if (leftPanel) {
+                // left panel transitions width; listen for transitionstart/transitionend to reposition
+                leftPanel.addEventListener('transitionstart', (e) => {
+                    if (e.propertyName === 'width') scheduleReposition(20);
+                });
+                leftPanel.addEventListener('transitionend', (e) => {
+                    if (e.propertyName === 'width') scheduleReposition(80);
+                });
+            }
+
+            // Also, if the right notation panel is hidden/shown via class changes, observe it
+            const notationPanel = document.getElementById('notationPanel');
+            if (notationPanel) {
+                const ro3 = new ResizeObserver(() => scheduleReposition(40));
+                ro3.observe(notationPanel);
+            }
+        } catch (err) {
+            // ResizeObserver might not be available in some old browsers - fallback to window resize
+            console.debug('setupObservers failed', err);
+        }
+    })();
 
     function toggleLeftPanel() {
         const left = document.getElementById('leftPanel');
