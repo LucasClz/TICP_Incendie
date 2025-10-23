@@ -2989,6 +2989,7 @@
                     renderElementsList();
                     renderElementCriteriaConfig();
                     renderZoneCriteriaConfig();
+                    updatePlanFileHint();
                     
                     // Reposition immédiat après setup
                     scheduleReposition(100);
@@ -3040,9 +3041,20 @@
     }
     
     function updatePlanFileHint() {
+        if (!currentZone || !currentFloor) return;
+        
+        const fileName = `${currentZone.id}_${currentFloor.name}.png`;
+        
+        // Mettre à jour l'exemple sous le champ de plan
         const exampleEl = document.getElementById('planFileExample');
-        if (exampleEl && currentZone && currentFloor) {
-            exampleEl.textContent = `${currentZone.id}_${currentFloor.name}.png`;
+        if (exampleEl) {
+            exampleEl.textContent = fileName;
+        }
+        
+        // Mettre à jour l'exemple dans l'en-tête
+        const headerHint = document.querySelector('.text-xs.text-gray-500');
+        if (headerHint && headerHint.textContent.includes('Format fichier:')) {
+            headerHint.textContent = `Format fichier: ID_NomEtage.png (ex: ${fileName})`;
         }
     }
 
@@ -3063,16 +3075,19 @@
     function editFloorName() {
         if (!currentZone || !currentFloor) return;
         
-        const newName = prompt(`Modifier le nom de l'étage "${currentFloor.name}" :\n(Ce nom sera utilisé dans le nom du fichier image)`, currentFloor.name);
+        const newName = prompt(`Modifier le nom de l'étage "${currentFloor.name}" :\n(Ce nom sera utilisé dans le nom du fichier image)\nUtilisez des caractères compatibles avec les noms de fichiers.`, currentFloor.name);
         
         if (newName && newName.trim() !== '') {
             const oldName = currentFloor.name;
-            currentFloor.name = newName.trim();
+            const cleanedName = newName.trim();
+            currentFloor.name = cleanedName;
             saveZones();
             renderAdminFloorSelector();
             updatePlanFileHint();
             
-            alert(`Nom de l'étage modifié de "${oldName}" vers "${newName.trim()}".\nNom de fichier image recommandé : ${currentZone.id}_${newName.trim()}.png`);
+            // Afficher un exemple avec le nom nettoyé
+            const fileExample = `${currentZone.id}_${cleanedName}.png`;
+            alert(`Nom de l'étage modifié de "${oldName}" vers "${cleanedName}".\n\nNom de fichier image recommandé :\n${fileExample}`);
         }
     }
 
