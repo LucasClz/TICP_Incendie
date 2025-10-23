@@ -58,6 +58,11 @@
             min-height: 600px;
         }
         
+        .plan-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
         .plan-image {
             display: block;
             max-width: 100%;
@@ -298,8 +303,10 @@
                 </div>
                 <div class="flex-1 flex items-center justify-center min-h-0">
                     <div id="planContainer" class="plan-container hidden w-full">
-                        <img id="planImage" class="plan-image w-full h-auto" alt="Plan de la zone">
-                        <!-- Hotspots will be added here -->
+                        <div id="planWrapper" class="plan-wrapper">
+                            <img id="planImage" class="plan-image" alt="Plan de la zone">
+                            <!-- Hotspots will be added here -->
+                        </div>
                     </div>
                     <div id="noZoneMessage" class="text-gray-500 text-center">
                         <div class="text-6xl mb-4">🏢</div>
@@ -838,9 +845,12 @@
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
     function positionElement(el, xPercent, yPercent, isAdminMode = false) {
         const planImageId = isAdminMode ? 'adminPlanImage' : 'planImage';
-        const planImage = document.getElementById(planImageId);
+        const wrapperId = isAdminMode ? 'adminPlanWrapper' : 'planWrapper';
         
-        if (!planImage) {
+        const planImage = document.getElementById(planImageId);
+        const wrapper = document.getElementById(wrapperId);
+        
+        if (!planImage || !wrapper) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
@@ -855,70 +865,56 @@
             return;
         }
         
-        const imageParent = planImage.parentElement;
-        if (!imageParent) {
+        // Utiliser directement la taille de l'image affichée
+        const imgWidth = planImage.offsetWidth;
+        const imgHeight = planImage.offsetHeight;
+        
+        if (!imgWidth || !imgHeight) {
             el.style.position = 'absolute';
             el.style.left = `${xPercent * 100}%`;
             el.style.top = `${yPercent * 100}%`;
             return;
         }
         
-        // Utiliser les dimensions naturelles de l'image et sa taille affichée pour calculer l'échelle
-        const naturalWidth = planImage.naturalWidth || 1;
-        const naturalHeight = planImage.naturalHeight || 1;
-        const displayedWidth = planImage.offsetWidth;
-        const displayedHeight = planImage.offsetHeight;
-        
-        // Calculer le ratio d'affichage (object-fit: contain preserve l'aspect ratio)
-        const scaleX = displayedWidth / naturalWidth;
-        const scaleY = displayedHeight / naturalHeight;
-        const scale = Math.min(scaleX, scaleY);
-        
-        // Dimensions réelles de l'image affichée (en tenant compte du ratio)
-        const actualWidth = naturalWidth * scale;
-        const actualHeight = naturalHeight * scale;
-        
-        // Offset de centrage si l'image est centrée dans son conteneur
-        const offsetX = (displayedWidth - actualWidth) / 2;
-        const offsetY = (displayedHeight - actualHeight) / 2;
-        
-        // Position absolue en pixels relative au conteneur de l'image
-        const leftPx = offsetX + (xPercent * actualWidth);
-        const topPx = offsetY + (yPercent * actualHeight);
-
+        // Position en pourcentage de l'image
         el.style.position = 'absolute';
-        el.style.left = `${leftPx}px`;
-        el.style.top = `${topPx}px`;
+        el.style.left = `${xPercent * 100}%`;
+        el.style.top = `${yPercent * 100}%`;
+        el.style.transform = 'translate(-50%, -50%)';
 
         // Taille de l'élément : fraction de la largeur affichée de l'image
         const size = parseFloat(el.dataset.size);
         if (!isNaN(size)) {
-            const px = Math.max(6, Math.round(size * actualWidth));
+            const px = Math.max(6, Math.round(size * imgWidth));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
-            // Centrage via transform
-            el.style.transform = 'translate(-50%, -50%)';
         }
     }
 
     function repositionHotspots() {
         // Reposition hotspots en mode normal
-        document.querySelectorAll('#planContainer .hotspot').forEach(h => {
-            const x = parseFloat(h.dataset.x);
-            const y = parseFloat(h.dataset.y);
-            if (!isNaN(x) && !isNaN(y)) {
-                positionElement(h, x, y, false);
-            }
-        });
+        const planWrapper = document.getElementById('planWrapper');
+        if (planWrapper) {
+            planWrapper.querySelectorAll('.hotspot').forEach(h => {
+                const x = parseFloat(h.dataset.x);
+                const y = parseFloat(h.dataset.y);
+                if (!isNaN(x) && !isNaN(y)) {
+                    positionElement(h, x, y, false);
+                }
+            });
+        }
         
         // Reposition admin-elements en mode admin
-        document.querySelectorAll('.plan-container.admin-mode .admin-element').forEach(a => {
-            const x = parseFloat(a.dataset.x);
-            const y = parseFloat(a.dataset.y);
-            if (!isNaN(x) && !isNaN(y)) {
-                positionElement(a, x, y, true);
-            }
-        });
+        const adminWrapper = document.getElementById('adminPlanWrapper');
+        if (adminWrapper) {
+            adminWrapper.querySelectorAll('.admin-element').forEach(a => {
+                const x = parseFloat(a.dataset.x);
+                const y = parseFloat(a.dataset.y);
+                if (!isNaN(x) && !isNaN(y)) {
+                    positionElement(a, x, y, true);
+                }
+            });
+        }
     }
 
     let _repositionTimer = null;
@@ -936,7 +932,7 @@
         hotspot.dataset.x = String(x);
         hotspot.dataset.y = String(y);
         hotspot.dataset.elementKey = getElementKey(type, elementData);
-        if (elementData && elementData.size !== undefined) hotspot.dataset.size = String(elementData.size);
+        hotspot.dataset.size = String(elementData?.size || 0.02);
         
         // Position initiale
         positionElement(hotspot, x, y, false);
@@ -980,6 +976,14 @@
     }
     
     // Observer le conteneur du plan pour détecter les changements de layout (volet fermé/ouvert)
+    const planWrapper = document.getElementById('planWrapper');
+    if (planWrapper) {
+        const wrapperObserver = new ResizeObserver(() => {
+            scheduleReposition(100);
+        });
+        wrapperObserver.observe(planWrapper);
+    }
+    
     const planContainer = document.getElementById('planContainer');
     if (planContainer) {
         const containerObserver = new ResizeObserver(() => {
@@ -1279,13 +1283,15 @@
     }
 
     function addHotspots() {
-        const planContainer = document.getElementById('planContainer');
+        const planWrapper = document.getElementById('planWrapper');
         const planImage = document.getElementById('planImage');
         
-        // Remove existing hotspots
-        planContainer.querySelectorAll('.hotspot').forEach(h => h.remove());
+        if (!planWrapper) return;
         
-    if (!currentZone || !planImage || !currentFloor) return;
+        // Remove existing hotspots
+        planWrapper.querySelectorAll('.hotspot').forEach(h => h.remove());
+        
+        if (!currentZone || !planImage || !currentFloor) return;
         
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
         
@@ -1295,7 +1301,7 @@
             currentFloor.elements.extincteurs?.forEach(ext => {
                 if (!filterChecked || hasElementNonConformity('extincteur', ext)) {
                     const hotspot = createHotspot('extincteur', ext.x, ext.y, ext);
-                    planContainer.appendChild(hotspot);
+                    planWrapper.appendChild(hotspot);
                 }
             });
             
@@ -1303,7 +1309,7 @@
             currentFloor.elements.dm?.forEach(dm => {
                 if (!filterChecked || hasElementNonConformity('dm', dm)) {
                     const hotspot = createHotspot('dm', dm.x, dm.y, dm);
-                    planContainer.appendChild(hotspot);
+                    planWrapper.appendChild(hotspot);
                 }
             });
             
@@ -1311,7 +1317,7 @@
             currentFloor.elements.sorties?.forEach((sortie, index) => {
                 if (!filterChecked || hasElementNonConformity('sortie', { ...sortie, index })) {
                     const hotspot = createHotspot('sortie', sortie.x, sortie.y, { ...sortie, index });
-                    planContainer.appendChild(hotspot);
+                    planWrapper.appendChild(hotspot);
                 }
             });
             
@@ -1322,7 +1328,7 @@
         if (planImage.complete && planImage.naturalHeight !== 0) {
             addHotspotsWhenReady();
         } else {
-            planImage.onload = addHotspotsWhenReady();
+            planImage.onload = addHotspotsWhenReady;
         }
     }
 
@@ -1516,11 +1522,14 @@
             // Update completed state on the matching hotspots and admin elements
             const elementKey = inspection.elementKey;
             // Hotspots
-            document.querySelectorAll(`#planContainer .hotspot`).forEach(h => {
-                if (h.dataset.elementKey === elementKey) {
-                    if (isElementCompleted(inspection)) h.classList.add('completed'); else h.classList.remove('completed');
-                }
-            });
+            const planWrapper = document.getElementById('planWrapper');
+            if (planWrapper) {
+                planWrapper.querySelectorAll('.hotspot').forEach(h => {
+                    if (h.dataset.elementKey === elementKey) {
+                        if (isElementCompleted(inspection)) h.classList.add('completed'); else h.classList.remove('completed');
+                    }
+                });
+            }
             // Admin elements
             document.querySelectorAll('.admin-element').forEach(a => {
                 if (a.dataset.elementKey === elementKey) {
@@ -2632,7 +2641,9 @@
         container.innerHTML = '';
         
         const planImage = document.getElementById('adminPlanImage');
-        if (!planImage) return;
+        const planWrapper = document.getElementById('adminPlanWrapper');
+        if (!planImage || !planWrapper) return;
+        
         ['extincteurs', 'dm', 'sorties'].forEach(type => {
             const elements = (currentFloor.elements && currentFloor.elements[type]) || [];
             elements.forEach((element, index) => {
@@ -2643,8 +2654,8 @@
                 adminElement.dataset.y = element.y;
                 adminElement.dataset.index = index;
                 adminElement.dataset.elementKey = getElementKey(typeShort, element);
-                // stocker le type singulier attendu par editElementDialog
                 adminElement.dataset.type = typeShort;
+                adminElement.dataset.size = String(element.size || 0.02);
                 
                 // Position initiale
                 positionElement(adminElement, element.x, element.y, true);
@@ -2673,28 +2684,18 @@
                     if (!planImage || !planImage.complete || planImage.naturalHeight === 0) return;
                     
                     const imageRect = planImage.getBoundingClientRect();
-                    const naturalWidth = planImage.naturalWidth || 1;
-                    const naturalHeight = planImage.naturalHeight || 1;
+                    const imgWidth = planImage.offsetWidth;
+                    const imgHeight = planImage.offsetHeight;
                     
-                    // Calculate the scale and actual displayed size (respecting object-fit: contain)
-                    const scaleX = imageRect.width / naturalWidth;
-                    const scaleY = imageRect.height / naturalHeight;
-                    const scale = Math.min(scaleX, scaleY);
+                    if (!imgWidth || !imgHeight) return;
                     
-                    const actualWidth = naturalWidth * scale;
-                    const actualHeight = naturalHeight * scale;
+                    // Calculate position relative to image
+                    const relativeX = e.clientX - imageRect.left;
+                    const relativeY = e.clientY - imageRect.top;
                     
-                    // Calculate offset for centering
-                    const offsetX = (imageRect.width - actualWidth) / 2;
-                    const offsetY = (imageRect.height - actualHeight) / 2;
-                    
-                    // Calculate position relative to actual image bounds
-                    const relativeX = e.clientX - imageRect.left - offsetX;
-                    const relativeY = e.clientY - imageRect.top - offsetY;
-                    
-                    // Convert to fraction (0-1) and clamp
-                    currentX = Math.max(0, Math.min(1, relativeX / actualWidth));
-                    currentY = Math.max(0, Math.min(1, relativeY / actualHeight));
+                    // Convert to fraction (0-1) and clamp to image bounds
+                    currentX = Math.max(0, Math.min(1, relativeX / imgWidth));
+                    currentY = Math.max(0, Math.min(1, relativeY / imgHeight));
                     
                     positionElement(adminElement, currentX, currentY, true);
                 };
@@ -2735,8 +2736,6 @@
                     editElementDialog(typeShort, index);
                 });
 
-                // initialize dataset.size
-                adminElement.dataset.size = (element.size !== undefined) ? String(element.size) : '0.02';
                 container.appendChild(adminElement);
             });
         });
@@ -2793,8 +2792,10 @@
                             </div>
                         </div>
                         <div class="plan-container admin-mode mb-4 flex-1 overflow-auto" id="adminPlanContainer">
-                            <img src="${(currentFloor && currentFloor.plan && currentFloor.plan.imageUrl) ? currentFloor.plan.imageUrl : ''}" class="plan-image w-full h-auto" id="adminPlanImage">
-                            <div id="adminElements"></div>
+                            <div id="adminPlanWrapper" class="plan-wrapper">
+                                <img src="${(currentFloor && currentFloor.plan && currentFloor.plan.imageUrl) ? currentFloor.plan.imageUrl : ''}" class="plan-image" id="adminPlanImage">
+                                <div id="adminElements"></div>
+                            </div>
                         </div>
                         
                         <div class="space-y-4">
