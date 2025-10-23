@@ -63,14 +63,31 @@
             position: relative;
             display: inline-block;
             line-height: 0;
+            max-width: 100%;
+            max-height: 100%;
         }
         
         .plan-image {
             display: block;
-            max-width: 100%;
-            max-height: 100%;
             width: auto;
             height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        /* Forcer l'image à prendre le maximum d'espace disponible */
+        .plan-container:not(.admin-mode) .plan-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .plan-container:not(.admin-mode) .plan-image {
+            width: 100%;
+            height: 100%;
             object-fit: contain;
         }
         
@@ -871,9 +888,12 @@
             return;
         }
         
-        // Utiliser directement la taille de l'image affichée
-        const imgWidth = planImage.offsetWidth;
-        const imgHeight = planImage.offsetHeight;
+        // Obtenir les dimensions réelles de l'image affichée et du wrapper
+        const imgRect = planImage.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+        
+        const imgWidth = imgRect.width;
+        const imgHeight = imgRect.height;
         
         if (!imgWidth || !imgHeight) {
             el.style.position = 'absolute';
@@ -882,9 +902,13 @@
             return;
         }
         
+        // Calculer l'offset si l'image est centrée dans le wrapper (object-fit: contain)
+        const offsetX = imgRect.left - wrapperRect.left;
+        const offsetY = imgRect.top - wrapperRect.top;
+        
         // Calculer la position en pixels relatifs à l'image
-        const leftPx = xPercent * imgWidth;
-        const topPx = yPercent * imgHeight;
+        const leftPx = offsetX + (xPercent * imgWidth);
+        const topPx = offsetY + (yPercent * imgHeight);
         
         // Position absolue en pixels
         el.style.position = 'absolute';
