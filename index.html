@@ -875,7 +875,6 @@
         const leftPx = relLeft + (xPercent * imageRect.width);
         const topPx = relTop + (yPercent * imageRect.height);
 
-        // Position using absolute pixels relative to the positioned parent
         el.style.position = 'absolute';
         el.style.left = `${leftPx}px`;
         el.style.top = `${topPx}px`;
@@ -887,11 +886,9 @@
             const px = Math.max(6, Math.round(size * imageRect.width));
             el.style.width = px + 'px';
             el.style.height = px + 'px';
+            // keep center alignment via transform
+            el.style.transform = 'translate(-50%, -50%)';
         }
-
-        // Do NOT write an inline transform here. The CSS rules (.hotspot, .admin-element)
-        // already define translate(-50%, -50%) and hover scaling. Writing transform
-        // inline would override those stylesheet rules and break hover/scale behavior.
     }
 
     function repositionHotspots() {
@@ -965,44 +962,6 @@
             scheduleReposition(40);
         });
     }
-
-    // Observe plan container and left panel for size/layout changes so hotspots reposition smoothly
-    (function setupObservers() {
-        try {
-            const planContainer = document.getElementById('planContainer');
-            if (planContainer) {
-                const ro = new ResizeObserver(() => scheduleReposition(40));
-                ro.observe(planContainer);
-            }
-
-            const adminPlanContainer = document.getElementById('adminPlanContainer');
-            if (adminPlanContainer) {
-                const ro2 = new ResizeObserver(() => scheduleReposition(40));
-                ro2.observe(adminPlanContainer);
-            }
-
-            const leftPanel = document.getElementById('leftPanel');
-            if (leftPanel) {
-                // left panel transitions width; listen for transitionstart/transitionend to reposition
-                leftPanel.addEventListener('transitionstart', (e) => {
-                    if (e.propertyName === 'width') scheduleReposition(20);
-                });
-                leftPanel.addEventListener('transitionend', (e) => {
-                    if (e.propertyName === 'width') scheduleReposition(80);
-                });
-            }
-
-            // Also, if the right notation panel is hidden/shown via class changes, observe it
-            const notationPanel = document.getElementById('notationPanel');
-            if (notationPanel) {
-                const ro3 = new ResizeObserver(() => scheduleReposition(40));
-                ro3.observe(notationPanel);
-            }
-        } catch (err) {
-            // ResizeObserver might not be available in some old browsers - fallback to window resize
-            console.debug('setupObservers failed', err);
-        }
-    })();
 
     function toggleLeftPanel() {
         const left = document.getElementById('leftPanel');
@@ -1596,9 +1555,50 @@
                 const img = new Image();
                 img.onload = () => {
                     currentFloor.plan = currentFloor.plan || {};
+
+                    // If previous natural dimensions are present, try to preserve element positions/sizes
+                    const oldNaturalWidth = currentFloor.plan.naturalWidth || null;
+                    const oldNaturalHeight = currentFloor.plan.naturalHeight || null;
+                    const newNaturalWidth = img.width;
+                    const newNaturalHeight = img.height;
+
+                    // If elements exist, normalize/convert coordinates to relative fractions
+                    if (currentFloor.elements) {
+                        ['extincteurs', 'dm', 'sorties'].forEach(collectionKey => {
+                            const arr = currentFloor.elements[collectionKey] || [];
+                            arr.forEach(el => {
+                                // If coordinates look like absolute pixels (greater than 1), convert to fractions
+                                if (oldNaturalWidth && oldNaturalHeight) {
+                                    if (el.x > 1) el.x = Math.max(0, Math.min(1, el.x / oldNaturalWidth));
+                                    if (el.y > 1) el.y = Math.max(0, Math.min(1, el.y / oldNaturalHeight));
+                                } else {
+                                    // If no old natural size but coords appear >1, assume pixels and convert using new size
+                                    if (el.x > 1) el.x = Math.max(0, Math.min(1, el.x / newNaturalWidth));
+                                    if (el.y > 1) el.y = Math.max(0, Math.min(1, el.y / newNaturalHeight));
+                                }
+
+                                // Resize value: if size looks like pixels (>1) convert to fraction of width
+                                if (el.size !== undefined) {
+                                    if (oldNaturalWidth && el.size > 1) {
+                                        // convert from px (old natural reference) to fraction of new width
+                                        const px = el.size;
+                                        const frac = px / oldNaturalWidth;
+                                        el.size = Math.max(0.005, Math.min(0.5, frac * (oldNaturalWidth / newNaturalWidth)));
+                                    } else if (el.size > 1) {
+                                        // no old reference: interpret as px on new image
+                                        el.size = Math.max(0.005, Math.min(0.5, el.size / newNaturalWidth));
+                                    }
+                                    // if el.size <= 1 it's already a fraction; keep as-is
+                                }
+                            });
+                        });
+                    }
+
+                    // Now store the new plan and its natural dimensions
                     currentFloor.plan.imageUrl = compressedDataUrl;
-                    currentFloor.plan.naturalWidth = img.width;
-                    currentFloor.plan.naturalHeight = img.height;
+                    currentFloor.plan.naturalWidth = newNaturalWidth;
+                    currentFloor.plan.naturalHeight = newNaturalHeight;
+
                     // Save with quota handling
                     saveZones();
 
