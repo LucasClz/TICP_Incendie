@@ -1501,6 +1501,46 @@
         currentZone.name = newName.trim();
     }
 
+    function updateZoneId(newId) {
+        if (!currentZone) return;
+        
+        const trimmedId = newId.trim();
+        if (!trimmedId) {
+            alert('L\'ID de la zone ne peut pas être vide');
+            document.getElementById('editZoneId').value = currentZone.id;
+            return;
+        }
+        
+        // Vérifier si l'ID existe déjà (sauf pour la zone actuelle)
+        const existingZone = zones.find(z => z.id === trimmedId && z !== currentZone);
+        if (existingZone) {
+            alert(`Une zone avec l'ID "${trimmedId}" existe déjà !`);
+            document.getElementById('editZoneId').value = currentZone.id;
+            return;
+        }
+        
+        const oldId = currentZone.id;
+        currentZone.id = trimmedId;
+        
+        // Mettre à jour les inspections liées à cette zone
+        inspections.forEach(insp => {
+            if (insp.zoneId === oldId) {
+                insp.zoneId = trimmedId;
+            }
+        });
+        
+        saveZones();
+        saveInspections();
+        
+        // Mettre à jour l'indication du format de fichier
+        const formatHint = document.querySelector('.text-xs.text-gray-500');
+        if (formatHint) {
+            formatHint.textContent = `Format fichier: ID_Etage.png (ex: ${trimmedId}_RDC.png)`;
+        }
+        
+        alert(`ID de la zone mis à jour de "${oldId}" vers "${trimmedId}".\nPensez à renommer vos fichiers images selon le format: ${trimmedId}_NomEtage.png`);
+    }
+
     // Get element inspection
     function getElementInspection(type, elementData) {
         const key = getElementKey(type, elementData);
@@ -2791,10 +2831,21 @@
             <div class="text-left h-full flex flex-col">
                 <div class="flex justify-between items-center mb-6 pb-4 border-b flex-shrink-0">
                     <div class="flex items-center gap-3 flex-1">
-                        <h2 class="text-2xl font-bold">Édition -</h2>
-                        <input type="text" id="editZoneName" value="${zone.name}" 
-                            class="text-2xl font-bold px-3 py-1 border border-gray-300 rounded-md flex-1"
-                            onchange="updateZoneName(this.value)">
+                        <div class="flex flex-col gap-2 flex-1">
+                            <div class="flex items-center gap-3">
+                                <h2 class="text-2xl font-bold">Édition -</h2>
+                                <input type="text" id="editZoneName" value="${zone.name}" 
+                                    class="text-2xl font-bold px-3 py-1 border border-gray-300 rounded-md flex-1"
+                                    onchange="updateZoneName(this.value)">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium whitespace-nowrap">ID Zone:</label>
+                                <input type="text" id="editZoneId" value="${zone.id}" 
+                                    class="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                                    onchange="updateZoneId(this.value)">
+                                <span class="text-xs text-gray-500">Format fichier: ID_Etage.png (ex: ${zone.id}_RDC.png)</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="ml-4">
                         <label class="block text-sm font-medium">Catégorie</label>
@@ -2839,6 +2890,9 @@
                                 <label class="block text-sm font-medium mb-2">Modifier le plan</label>
                                 <input type="file" accept="image/*" onchange="updateZonePlan(event)" 
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                <p class="text-xs text-gray-500 mt-1" id="planFileHint">
+                                    Convention de nommage recommandée : <strong id="planFileExample"></strong>
+                                </p>
                             </div>
                             
                             <div class="flex flex-col gap-2">
@@ -2976,8 +3030,17 @@
                 if (adminImg) adminImg.src = currentFloor.plan?.imageUrl || '';
                 renderAdminElements();
                 renderElementsList();
+                updatePlanFileHint();
             }
         };
+        updatePlanFileHint();
+    }
+    
+    function updatePlanFileHint() {
+        const exampleEl = document.getElementById('planFileExample');
+        if (exampleEl && currentZone && currentFloor) {
+            exampleEl.textContent = `${currentZone.id}_${currentFloor.id}.png`;
+        }
     }
 
     function addFloor() {
@@ -2991,6 +3054,7 @@
         renderAdminFloorSelector();
         renderAdminElements();
         renderElementsList();
+        updatePlanFileHint();
     }
 
     function removeFloor(floorId) {
@@ -3006,13 +3070,17 @@
 
             function saveAndReturn() {
                 const newName = document.getElementById('editZoneName')?.value;
+                const newId = document.getElementById('editZoneId')?.value;
                 const newCategory = document.getElementById('editZoneCategory')?.value;
-                if (newName && currentZone) {
-                    updateZoneName(newName);
+                
+                if (currentZone) {
+                    if (newName) updateZoneName(newName);
+                    if (newId && newId !== currentZone.id) updateZoneId(newId);
                     if (newCategory !== undefined) currentZone.category = newCategory || '';
                     saveZones();
                 }
                 renderAdminContent();
+                renderAdminZoneList();
             }
 
             function duplicateZone() {
