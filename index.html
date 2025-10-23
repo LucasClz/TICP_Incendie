@@ -1551,6 +1551,15 @@
         if (!file || !currentZone || !currentFloor) return;
         const reader = new FileReader();
         reader.onload = (e) => {
+            // create a backup of current elements and plan before attempting conversion
+            try {
+                currentFloor._backupElements = currentFloor.elements ? JSON.parse(JSON.stringify(currentFloor.elements)) : null;
+                currentFloor._backupPlanImage = currentFloor.plan && currentFloor.plan.imageUrl ? currentFloor.plan.imageUrl : '';
+            } catch (err) {
+                // ignore backup failure
+                console.debug('backup creation failed', err);
+            }
+
             compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
@@ -1621,6 +1630,67 @@
             });
         };
         reader.readAsDataURL(file);
+    }
+
+    // Normalize floor elements to ensure x/y are fractions (0..1) and size is fraction of width
+    function normalizeFloorElements(floor) {
+        if (!floor || !floor.elements) return;
+        const cols = ['extincteurs', 'dm', 'sorties'];
+        cols.forEach(key => {
+            const arr = floor.elements[key] || [];
+            arr.forEach(el => {
+                if (!el) return;
+                // normalize x/y
+                if (typeof el.x === 'number') {
+                    if (el.x > 1) el.x = Math.max(0, Math.min(1, el.x / (floor.plan?.naturalWidth || el.x)));
+                } else {
+                    el.x = 0.5;
+                }
+                if (typeof el.y === 'number') {
+                    if (el.y > 1) el.y = Math.max(0, Math.min(1, el.y / (floor.plan?.naturalHeight || el.y)));
+                } else {
+                    el.y = 0.5;
+                }
+
+                // normalize size
+                if (el.size === undefined || el.size === null) {
+                    el.size = 0.02;
+                } else if (el.size > 1) {
+                    // interpret as pixels relative to width
+                    el.size = Math.max(0.005, Math.min(0.5, el.size / (floor.plan?.naturalWidth || 200)));
+                } else {
+                    el.size = Math.max(0.005, Math.min(0.5, el.size));
+                }
+            });
+        });
+    }
+
+    // Restore a previously stored backup for the current floor (elements + plan image)
+    function restoreBackupPlan() {
+        if (!currentZone || !currentFloor) return alert('Aucune zone ou étage sélectionné.');
+        if (!currentFloor._backupElements && !currentFloor._backupPlanImage) return alert('Aucune sauvegarde trouvée pour cet étage.');
+
+        if (!confirm('Restaurer la sauvegarde de ce plan et de ses éléments ? Cela remplacera les modifications actuelles.')) return;
+
+        try {
+            if (currentFloor._backupElements) currentFloor.elements = JSON.parse(JSON.stringify(currentFloor._backupElements));
+            if (currentFloor._backupPlanImage) {
+                currentFloor.plan = currentFloor.plan || {};
+                currentFloor.plan.imageUrl = currentFloor._backupPlanImage;
+            }
+            // normalize and persist
+            normalizeFloorElements(currentFloor);
+            saveZones();
+            // refresh admin UI if visible
+            renderAdminElements();
+            renderElementsList();
+            const adminImg = document.getElementById('adminPlanImage');
+            if (adminImg) adminImg.src = currentFloor.plan.imageUrl || '';
+            alert('Restauration effectuée.');
+        } catch (err) {
+            console.error('restoreBackupPlan failed', err);
+            alert('Échec de la restauration : voir la console.');
+        }
     }
 
     // Get zone inspection
@@ -2545,6 +2615,10 @@
                         <button onclick="saveAndReturn()" 
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                             Enregistrer
+                        </button>
+                        <button onclick="restoreBackupPlan()" title="Restaurer la dernière sauvegarde locale" 
+                                class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
+                            Restaurer sauvegarde
                         </button>
                         <button onclick="renderAdminContent()" 
                                 class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
