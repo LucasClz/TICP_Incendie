@@ -1534,11 +1534,13 @@
         
         // Mettre à jour l'indication du format de fichier
         const formatHint = document.querySelector('.text-xs.text-gray-500');
-        if (formatHint) {
-            formatHint.textContent = `Format fichier: ID_Etage.png (ex: ${trimmedId}_RDC.png)`;
+        if (formatHint && currentFloor) {
+            formatHint.textContent = `Format fichier: ID_NomEtage.png (ex: ${trimmedId}_${currentFloor.name}.png)`;
         }
         
-        alert(`ID de la zone mis à jour de "${oldId}" vers "${trimmedId}".\nPensez à renommer vos fichiers images selon le format: ${trimmedId}_NomEtage.png`);
+        updatePlanFileHint();
+        
+        alert(`ID de la zone mis à jour de "${oldId}" vers "${trimmedId}".\nPensez à renommer vos fichiers images selon le format: ${trimmedId}_NomEtage.png\nExemple: ${trimmedId}_${currentFloor?.name || 'RDC'}.png`);
     }
 
     // Get element inspection
@@ -2843,7 +2845,7 @@
                                 <input type="text" id="editZoneId" value="${zone.id}" 
                                     class="px-3 py-1 border border-gray-300 rounded-md text-sm"
                                     onchange="updateZoneId(this.value)">
-                                <span class="text-xs text-gray-500">Format fichier: ID_Etage.png (ex: ${zone.id}_RDC.png)</span>
+                                <span class="text-xs text-gray-500">Format fichier: ID_NomEtage.png (ex: ${zone.id}_${currentFloor?.name || 'RDC'}.png)</span>
                             </div>
                         </div>
                     </div>
@@ -2875,7 +2877,8 @@
                             <h3 class="font-semibold">Plan de la Zone</h3>
                             <div class="flex items-center gap-2">
                                 <select id="adminFloorSelect" class="px-2 py-1 border border-gray-200 rounded text-sm"></select>
-                                <button type="button" onclick="(function(){ addFloor(); })()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
+                                <button type="button" onclick="editFloorName()" class="px-2 py-1 bg-blue-500 text-white rounded text-xs" title="Modifier le nom de l'étage">✏️</button>
+                                <button type="button" onclick="addFloor()" class="px-2 py-1 bg-gray-200 rounded text-xs">+ Etage</button>
                             </div>
                         </div>
                         <div class="plan-container admin-mode mb-4 flex-1 overflow-auto" id="adminPlanContainer">
@@ -3039,7 +3042,7 @@
     function updatePlanFileHint() {
         const exampleEl = document.getElementById('planFileExample');
         if (exampleEl && currentZone && currentFloor) {
-            exampleEl.textContent = `${currentZone.id}_${currentFloor.id}.png`;
+            exampleEl.textContent = `${currentZone.id}_${currentFloor.name}.png`;
         }
     }
 
@@ -3055,6 +3058,22 @@
         renderAdminElements();
         renderElementsList();
         updatePlanFileHint();
+    }
+    
+    function editFloorName() {
+        if (!currentZone || !currentFloor) return;
+        
+        const newName = prompt(`Modifier le nom de l'étage "${currentFloor.name}" :\n(Ce nom sera utilisé dans le nom du fichier image)`, currentFloor.name);
+        
+        if (newName && newName.trim() !== '') {
+            const oldName = currentFloor.name;
+            currentFloor.name = newName.trim();
+            saveZones();
+            renderAdminFloorSelector();
+            updatePlanFileHint();
+            
+            alert(`Nom de l'étage modifié de "${oldName}" vers "${newName.trim()}".\nNom de fichier image recommandé : ${currentZone.id}_${newName.trim()}.png`);
+        }
     }
 
     function removeFloor(floorId) {
