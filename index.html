@@ -12,8 +12,10 @@
         
         .hotspot {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            min-width: 12px;
+            min-height: 12px;
+            max-width: 80px;
+            max-height: 80px;
             /* carré avec coins légèrement arrondis */
             border-radius: 4px;
             border: 2px solid white;
@@ -25,7 +27,7 @@
         }
         
         .hotspot:hover {
-            transform: translate(-50%, -50%) scale(1.2);
+            transform: translate(-50%, -50%) scale(1.15);
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         
@@ -95,8 +97,10 @@
         
         .admin-element {
             position: absolute;
-            width: 16px;
-            height: 16px;
+            min-width: 10px;
+            min-height: 10px;
+            max-width: 80px;
+            max-height: 80px;
             border: 2px solid #fff;
             border-radius: 4px; /* square-ish */
             cursor: move;
@@ -114,13 +118,13 @@
         .admin-element.resizing { transition: none; opacity: 0.95; }
         
         .admin-element:hover {
-            transform: translate(-50%, -50%) scale(1.2);
+            transform: translate(-50%, -50%) scale(1.15);
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         
         .admin-element:active {
             cursor: grabbing;
-            transform: translate(-50%, -50%) scale(1.1);
+            transform: translate(-50%, -50%) scale(1.05);
         }
         
         .admin-element.extincteur { background: #ef4444; }
@@ -579,6 +583,8 @@
                 renderZoneList();
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
+                // Force un repositionnement initial après un court délai
+                setTimeout(() => scheduleReposition(200), 500);
             }
 
             // Load data from localStorage. When the app is served over HTTP(S) (for example
@@ -916,11 +922,14 @@
     }
 
     let _repositionTimer = null;
-    function scheduleReposition(delay = 100) {
+    function scheduleReposition(delay = 200) {
         if (_repositionTimer) clearTimeout(_repositionTimer);
         _repositionTimer = setTimeout(() => {
-            repositionHotspots();
-            _repositionTimer = null;
+            // Attendre que le layout soit stabilisé
+            requestAnimationFrame(() => {
+                repositionHotspots();
+                _repositionTimer = null;
+            });
         }, delay);
     }
 
@@ -978,18 +987,14 @@
         const mainPlanImage = document.getElementById('planImage');
         if (mainPlanImage) {
             mainPlanImage.addEventListener('load', () => {
-                setTimeout(() => repositionHotspots(), 50);
+                scheduleReposition(80);
             });
             
             // Observer les changements de taille de l'image
-            try {
-                const resizeObserver = new ResizeObserver(() => {
-                    scheduleReposition(100);
-                });
-                resizeObserver.observe(mainPlanImage);
-            } catch (e) {
-                // ResizeObserver non supporté
-            }
+            const resizeObserver = new ResizeObserver(() => {
+                scheduleReposition(100);
+            });
+            resizeObserver.observe(mainPlanImage);
         }
     };
 
@@ -2419,6 +2424,15 @@
         
         const planImage = document.getElementById('adminPlanImage');
         if (!planImage) return;
+        
+        // Vérifier que l'image a des dimensions valides avant de positionner
+        if (!planImage.complete || planImage.clientWidth === 0) {
+            // Attendre que l'image soit chargée
+            planImage.onload = () => {
+                requestAnimationFrame(() => renderAdminElements());
+            };
+            return;
+        }
         ['extincteurs', 'dm', 'sorties'].forEach(type => {
             const elements = (currentFloor.elements && currentFloor.elements[type]) || [];
             elements.forEach((element, index) => {
@@ -2513,7 +2527,9 @@
         });
         
         // Force un repositionnement après ajout de tous les éléments
-        setTimeout(() => repositionHotspots(), 50);
+        requestAnimationFrame(() => {
+            scheduleReposition(50);
+        });
     }
 
     function editZone(zoneId) {
