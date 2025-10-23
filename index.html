@@ -242,17 +242,6 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-3 text-sm">
-                            <div class="font-medium mb-1">Filtrer par catégorie</div>
-                            <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
-                            </div>
-                        </div>
-
-                        <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
                         <label class="flex items-center mt-2">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
                             <span class="text-sm">Afficher seulement les zones non conformes</span>
@@ -511,14 +500,7 @@
                 const campaignSelect = document.getElementById('campaignSelect');
                 if (campaignSelect) campaignSelect.addEventListener('change', e => {
                     currentCampaign = e.target.value;
-                    // Update KPIs and visual state for the selected campaign
                     updateKPIs();
-                    // Recreate hotspots so their 'completed' (green) state reflects the new campaign's inspections
-                    try { addHotspots(); } catch (err) { console.debug('addHotspots error on campaign change', err); }
-                    // Update admin elements completion state if admin UI is visible
-                    try { renderAdminElements(); } catch (err) { console.debug('renderAdminElements error on campaign change', err); }
-                    // Update non-conformities view if open
-                    try { updateNonConformitiesView(); } catch (err) { /* ignore if modal not open */ }
                 });
 
                 // Zone select
@@ -562,71 +544,23 @@
             }
 
             // Initialize application
-            async function init() {
-                await loadData();
+            function init() {
+                loadData();
                 setupEventListeners();
                 renderZoneList();
                 updateKPIs();
                 applyLeftPanelState(); // apply saved collapsed state
             }
 
-            // Load data from localStorage. When the app is served over HTTP(S) (for example
-            // via GitHub Pages) try to load `TICP.json` from the repository by default so
-            // every user sees the pre-created zones.
-            async function loadData() {
+            // Load data from localStorage
+            function loadData() {
                 const savedZones = localStorage.getItem('fireInspection_zones');
                 const savedInspections = localStorage.getItem('fireInspection_inspections');
-
+                
                 if (savedZones) {
-                    try {
-                        zones = JSON.parse(savedZones);
-                    } catch (e) {
-                        console.error('Erreur parsing savedZones from localStorage, ignoring savedZones', e);
-                        zones = [];
-                    }
-                }
-
-                // If no saved zones, and we're served over HTTP(S), try to fetch TICP.json
-                if ((!zones || zones.length === 0) && window.location && /^https?:/.test(window.location.protocol)) {
-                    const candidates = [
-                        'TICP.json',
-                        './TICP.json',
-                        './data/TICP.json'
-                    ];
-
-                    for (const path of candidates) {
-                        try {
-                            console.info('Attempting to fetch zones from', path);
-                            const resp = await fetch(path);
-                            if (!resp.ok) {
-                                console.debug('Fetch returned non-ok for', path, resp.status);
-                                continue;
-                            }
-                            const json = await resp.json();
-
-                            if (Array.isArray(json)) {
-                                zones = json;
-                            } else if (json && Array.isArray(json.zones)) {
-                                zones = json.zones;
-                            } else if (json && (json.id || json.name)) {
-                                zones = [json];
-                            } else {
-                                console.debug('Fetched JSON from', path, 'did not match expected shape');
-                                continue;
-                            }
-
-                            console.info('Zones loaded from', path);
-                            // persist to localStorage so users get the same view locally
-                            saveZones();
-                            break;
-                        } catch (err) {
-                            console.debug('Failed to fetch', path, err);
-                        }
-                    }
-                }
-
-                // If still empty, fall back to the embedded default
-                if (!zones || zones.length === 0) {
+                    zones = JSON.parse(savedZones);
+                } else {
+                    // Default zones
                     zones = [{
                         id: 'AT14',
                         name: 'AT14',
@@ -668,14 +602,9 @@
                     }];
                     saveZones();
                 }
-
+                
                 if (savedInspections) {
-                    try {
-                        inspections = JSON.parse(savedInspections);
-                    } catch (e) {
-                        console.error('Erreur parsing savedInspections from localStorage', e);
-                        inspections = [];
-                    }
+                    inspections = JSON.parse(savedInspections);
                 }
             }
 
@@ -1085,33 +1014,18 @@
 
     function renderZoneList() {
         const container = document.getElementById('zoneSelect');
+
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
-
-        // Category filters
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-
-        let filteredZones = zones.slice();
-
+        let filteredZones = zones;
         if (filterChecked) {
-            filteredZones = filteredZones.filter(hasNonConformities);
+            filteredZones = zones.filter(hasNonConformities);
         }
-
-        if (categoryChecks.length > 0) {
-            filteredZones = filteredZones.filter(z => {
-                const cat = z.category || '';
-                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return categoryChecks.includes(normalized);
-            });
-        }
-
-        // Default sorting by name A→Z
-        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
         container.innerHTML = '<option value="">Sélectionnez une zone...</option>' +
             filteredZones.map(zone => `
+
                 <option value="${zone.id}" ${currentZone?.id === zone.id ? 'selected' : ''}>
-                    ${zone.name} (${zone.id})${zone.category ? ' — ' + zone.category : ''}
+                    ${zone.name} (${zone.id})
                 </option>
             `).join('');
         // Update left panel compact label when collapsed
@@ -1747,7 +1661,14 @@
     function exportCurrentZone() {
         if (!currentZone) return;
         
-        const data = JSON.stringify(currentZone, null, 2);
+        // Create a copy to modify for export
+        const exportZone = JSON.parse(JSON.stringify(currentZone));
+        // Replace data URL with filename
+        if (exportZone.plan && exportZone.plan.imageUrl && exportZone.plan.imageUrl.startsWith('data:')) {
+            exportZone.plan.imageUrl = `plan_${exportZone.id}.png`;
+        }
+        
+        const data = JSON.stringify(exportZone, null, 2);
         downloadFile(data, `zone_${currentZone.id}.json`, 'application/json');
     }
 
@@ -1786,13 +1707,10 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        container.innerHTML = zones.map(zone => {
-            const cat = zone.category || '';
-            const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return `
+        container.innerHTML = zones.map(zone => `
             <div class="flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50">
                 <div class="flex-1">
-                    <div class="font-medium">${zone.name} ${displayCat ? `<span class=\"text-xs ml-2 px-1 py-0.5 bg-gray-100 rounded\">${displayCat}</span>` : ''}</div>
+                    <div class="font-medium">${zone.name}</div>
                     <div class="text-sm text-gray-500">${zone.id}</div>
                 </div>
                 <button onclick="editZone('${zone.id}')" 
@@ -1800,7 +1718,7 @@
                     Éditer
                 </button>
             </div>
-        `}).join('');
+        `).join('');
     }
 
     function createNewZone() {
@@ -1868,7 +1786,6 @@
             name: zoneName,
             plan: { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
             elements: { extincteurs: [], dm: [], sorties: [] },
-            category: '',
             enabledCriteria: {
                 extincteur: Object.keys(CRITERIA.extincteur),
                 dm: Object.keys(CRITERIA.dm),
@@ -2371,16 +2288,6 @@
                             class="text-2xl font-bold px-3 py-1 border border-gray-300 rounded-md flex-1"
                             onchange="updateZoneName(this.value)">
                     </div>
-                    <div class="ml-4">
-                        <label class="block text-sm font-medium">Catégorie</label>
-                        <select id="editZoneCategory" class="px-2 py-1 border border-gray-300 rounded">
-                            <option value="">-- Aucune --</option>
-                            <option value="MR" ${zone.category === 'MR' ? 'selected' : ''}>MR</option>
-                            <option value="PRM" ${zone.category === 'PRM' ? 'selected' : ''}>PRM</option>
-                            <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
-                            <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
-                        </select>
-                    </div>
                     <div class="flex gap-2 flex-shrink-0">
                         <button onclick="saveAndReturn()" 
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
@@ -2537,10 +2444,8 @@
 
             function saveAndReturn() {
                 const newName = document.getElementById('editZoneName')?.value;
-                const newCategory = document.getElementById('editZoneCategory')?.value;
                 if (newName && currentZone) {
                     updateZoneName(newName);
-                    if (newCategory !== undefined) currentZone.category = newCategory || '';
                     saveZones();
                 }
                 renderAdminContent();
