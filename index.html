@@ -43,7 +43,7 @@
         
         .plan-container {
             position: relative;
-            max-width: 100%;
+            width: 100%;
             height: 100%;
             overflow: hidden;
             border: 2px solid #e5e7eb;
@@ -61,15 +61,19 @@
         
         .plan-wrapper {
             position: relative;
-            display: inline-block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             max-width: 100%;
             max-height: 100%;
         }
         
         .plan-image {
             display: block;
-            width: 100%;
-            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
             object-fit: contain;
         }
         
@@ -292,8 +296,8 @@
             </div>
 
             <!-- Center Panel: Plan -->
-            <div class="flex-1 p-4 flex flex-col min-w-0">
-                <div class="flex justify-between items-center mb-4">
+            <div class="flex-1 p-4 flex flex-col min-w-0 overflow-hidden">
+                <div class="flex justify-between items-center mb-4 flex-shrink-0">
                     <div class="flex items-center gap-3">
                         <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
                         <select id="floorSelect" class="px-2 py-1 border border-gray-300 rounded-md text-sm hidden"></select>
@@ -302,8 +306,8 @@
                         Checklist Zone
                     </button>
                 </div>
-                <div class="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
-                    <div id="planContainer" class="plan-container hidden w-full h-full">
+                <div class="flex-1 flex items-center justify-center overflow-hidden" style="min-height: 0;">
+                    <div id="planContainer" class="plan-container hidden" style="width: 100%; height: 100%;">
                         <div id="planWrapper" class="plan-wrapper">
                             <img id="planImage" class="plan-image" alt="Plan de la zone">
                             <!-- Hotspots will be added here -->
