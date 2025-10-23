@@ -2670,12 +2670,31 @@
                     e.preventDefault();
                 
                     const planImage = document.getElementById('adminPlanImage');
-                    if (!planImage) return;
+                    if (!planImage || !planImage.complete || planImage.naturalHeight === 0) return;
                     
                     const imageRect = planImage.getBoundingClientRect();
+                    const naturalWidth = planImage.naturalWidth || 1;
+                    const naturalHeight = planImage.naturalHeight || 1;
                     
-                    currentX = Math.max(0, Math.min(1, (e.clientX - imageRect.left) / imageRect.width));
-                    currentY = Math.max(0, Math.min(1, (e.clientY - imageRect.top) / imageRect.height));
+                    // Calculate the scale and actual displayed size (respecting object-fit: contain)
+                    const scaleX = imageRect.width / naturalWidth;
+                    const scaleY = imageRect.height / naturalHeight;
+                    const scale = Math.min(scaleX, scaleY);
+                    
+                    const actualWidth = naturalWidth * scale;
+                    const actualHeight = naturalHeight * scale;
+                    
+                    // Calculate offset for centering
+                    const offsetX = (imageRect.width - actualWidth) / 2;
+                    const offsetY = (imageRect.height - actualHeight) / 2;
+                    
+                    // Calculate position relative to actual image bounds
+                    const relativeX = e.clientX - imageRect.left - offsetX;
+                    const relativeY = e.clientY - imageRect.top - offsetY;
+                    
+                    // Convert to fraction (0-1) and clamp
+                    currentX = Math.max(0, Math.min(1, relativeX / actualWidth));
+                    currentY = Math.max(0, Math.min(1, relativeY / actualHeight));
                     
                     positionElement(adminElement, currentX, currentY, true);
                 };
