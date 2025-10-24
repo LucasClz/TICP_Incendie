@@ -2982,6 +2982,38 @@
             const adminContainer = document.getElementById('adminPlanContainer');
             
             if (adminImg && adminContainer) {
+                // Fonction pour vérifier si les dimensions de l'image sont stables
+                const waitForStableDimensions = (callback, maxAttempts = 20) => {
+                    let attempts = 0;
+                    let lastWidth = 0;
+                    let lastHeight = 0;
+                    
+                    const check = () => {
+                        const currentWidth = adminImg.offsetWidth;
+                        const currentHeight = adminImg.offsetHeight;
+                        
+                        // Si les dimensions sont valides et stables
+                        if (currentWidth > 0 && currentHeight > 0 && 
+                            currentWidth === lastWidth && currentHeight === lastHeight) {
+                            callback();
+                            return;
+                        }
+                        
+                        lastWidth = currentWidth;
+                        lastHeight = currentHeight;
+                        attempts++;
+                        
+                        if (attempts < maxAttempts) {
+                            requestAnimationFrame(check);
+                        } else {
+                            // Fallback après maxAttempts
+                            callback();
+                        }
+                    };
+                    
+                    requestAnimationFrame(check);
+                };
+                
                 // Fonction pour repositionner avec observation
                 const setupPositioning = () => {
                     renderAdminFloorSelector();
@@ -2991,26 +3023,10 @@
                     renderZoneCriteriaConfig();
                     updatePlanFileHint();
                     
-                    // Forcer le navigateur à recalculer les dimensions
-                    adminImg.offsetHeight; // Force reflow
-                    
-                    // Reposition immédiat après setup
-                    repositionHotspots();
-                    
-                    // Forcer plusieurs repositionnements pour garantir la stabilité
-                    setTimeout(() => {
-                        adminImg.offsetHeight; // Force reflow
+                    // Attendre que les dimensions soient stables avant de positionner
+                    waitForStableDimensions(() => {
                         repositionHotspots();
-                    }, 50);
-                    
-                    setTimeout(() => {
-                        adminImg.offsetHeight; // Force reflow
-                        repositionHotspots();
-                    }, 200);
-                    
-                    setTimeout(() => {
-                        repositionHotspots();
-                    }, 500);
+                    });
                 };
                 
                 if (adminImg.complete && adminImg.naturalHeight !== 0) {
