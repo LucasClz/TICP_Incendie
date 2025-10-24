@@ -2993,6 +2993,15 @@
                     
                     // Reposition immédiat après setup
                     scheduleReposition(100);
+                    
+                    // Forcer un repositionnement supplémentaire après un délai pour garantir que tout est chargé
+                    setTimeout(() => {
+                        repositionHotspots();
+                    }, 300);
+                    
+                    setTimeout(() => {
+                        repositionHotspots();
+                    }, 600);
                 };
                 
                 if (adminImg.complete && adminImg.naturalHeight !== 0) {
