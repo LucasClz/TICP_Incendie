@@ -2991,17 +2991,26 @@
                     renderZoneCriteriaConfig();
                     updatePlanFileHint();
                     
+                    // Forcer le navigateur à recalculer les dimensions
+                    adminImg.offsetHeight; // Force reflow
+                    
                     // Reposition immédiat après setup
-                    scheduleReposition(100);
+                    repositionHotspots();
                     
-                    // Forcer un repositionnement supplémentaire après un délai pour garantir que tout est chargé
+                    // Forcer plusieurs repositionnements pour garantir la stabilité
+                    setTimeout(() => {
+                        adminImg.offsetHeight; // Force reflow
+                        repositionHotspots();
+                    }, 50);
+                    
+                    setTimeout(() => {
+                        adminImg.offsetHeight; // Force reflow
+                        repositionHotspots();
+                    }, 200);
+                    
                     setTimeout(() => {
                         repositionHotspots();
-                    }, 300);
-                    
-                    setTimeout(() => {
-                        repositionHotspots();
-                    }, 600);
+                    }, 500);
                 };
                 
                 if (adminImg.complete && adminImg.naturalHeight !== 0) {
