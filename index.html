@@ -857,6 +857,11 @@
         const containerWidth = img.offsetWidth;
         const containerHeight = img.offsetHeight;
         
+        // Si les dimensions du conteneur sont nulles, attendre
+        if (!containerWidth || !containerHeight) {
+            return { displayedWidth: 0, displayedHeight: 0, offsetX: 0, offsetY: 0 };
+        }
+        
         const naturalRatio = naturalWidth / naturalHeight;
         const containerRatio = containerWidth / containerHeight;
         
@@ -885,17 +890,19 @@
         const planImage = document.getElementById(planImageId);
         
         if (!planImage) {
-            el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            // Pas d'image, ne rien faire - attendre
             return;
         }
         
         // Vérifier que l'image est chargée
         if (!planImage.complete || planImage.naturalHeight === 0) {
-            el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            // Image pas encore chargée, ne rien faire
+            return;
+        }
+        
+        // Vérifier que l'image a des dimensions valides
+        if (!planImage.offsetWidth || !planImage.offsetHeight) {
+            // Dimensions pas encore calculées, ne rien faire
             return;
         }
         
@@ -903,9 +910,7 @@
         const dims = getImageDisplayedDimensions(planImage);
         
         if (!dims.displayedWidth || !dims.displayedHeight) {
-            el.style.position = 'absolute';
-            el.style.left = `${xPercent * 100}%`;
-            el.style.top = `${yPercent * 100}%`;
+            // Dimensions pas valides, ne rien faire
             return;
         }
         
@@ -2977,44 +2982,62 @@
         // Variable pour stocker l'intervalle de reposition
         let adminEditRepositionInterval = null;
 
+        // Attendre que le DOM soit prêt et que l'image soit chargée
         setTimeout(() => {
             const adminImg = document.getElementById('adminPlanImage');
             const adminContainer = document.getElementById('adminPlanContainer');
+            const adminWrapper = document.getElementById('adminPlanWrapper');
             
-            if (adminImg && adminContainer) {
-                // Fonction pour vérifier si les dimensions de l'image sont stables
-                const waitForStableDimensions = (callback, maxAttempts = 20) => {
+            if (adminImg && adminContainer && adminWrapper) {
+                // Fonction pour vérifier si les dimensions sont valides et stables
+                const waitForValidDimensions = (callback, maxAttempts = 50) => {
                     let attempts = 0;
+                    let consecutiveValid = 0;
                     let lastWidth = 0;
                     let lastHeight = 0;
                     
                     const check = () => {
-                        const currentWidth = adminImg.offsetWidth;
-                        const currentHeight = adminImg.offsetHeight;
+                        // Vérifier à la fois l'image et le wrapper
+                        const imgWidth = adminImg.offsetWidth;
+                        const imgHeight = adminImg.offsetHeight;
+                        const wrapperWidth = adminWrapper.offsetWidth;
+                        const wrapperHeight = adminWrapper.offsetHeight;
                         
-                        // Si les dimensions sont valides et stables
-                        if (currentWidth > 0 && currentHeight > 0 && 
-                            currentWidth === lastWidth && currentHeight === lastHeight) {
-                            callback();
-                            return;
+                        // Les dimensions doivent être valides (>0)
+                        const isValid = imgWidth > 0 && imgHeight > 0 && 
+                                       wrapperWidth > 0 && wrapperHeight > 0;
+                        
+                        // Les dimensions doivent être stables
+                        const isStable = imgWidth === lastWidth && imgHeight === lastHeight;
+                        
+                        if (isValid && isStable) {
+                            consecutiveValid++;
+                            // Attendre 3 frames consécutifs identiques pour être sûr
+                            if (consecutiveValid >= 3) {
+                                callback();
+                                return;
+                            }
+                        } else {
+                            consecutiveValid = 0;
                         }
                         
-                        lastWidth = currentWidth;
-                        lastHeight = currentHeight;
+                        lastWidth = imgWidth;
+                        lastHeight = imgHeight;
                         attempts++;
                         
                         if (attempts < maxAttempts) {
                             requestAnimationFrame(check);
                         } else {
-                            // Fallback après maxAttempts
+                            // Fallback: forcer le repositionnement même si pas stable
                             callback();
                         }
                     };
                     
+                    // Démarrer la vérification
                     requestAnimationFrame(check);
                 };
                 
-                // Fonction pour repositionner avec observation
+                // Fonction pour setup après que les dimensions soient stables
                 const setupPositioning = () => {
                     renderAdminFloorSelector();
                     renderAdminElements();
@@ -3024,15 +3047,25 @@
                     updatePlanFileHint();
                     
                     // Attendre que les dimensions soient stables avant de positionner
-                    waitForStableDimensions(() => {
+                    waitForValidDimensions(() => {
+                        // Repositionner tous les éléments
                         repositionHotspots();
+                        
+                        // Double-check après un court délai
+                        setTimeout(() => {
+                            repositionHotspots();
+                        }, 100);
                     });
                 };
                 
                 if (adminImg.complete && adminImg.naturalHeight !== 0) {
+                    // Image déjà chargée
                     setupPositioning();
                 } else {
+                    // Attendre le chargement de l'image
                     adminImg.onload = setupPositioning;
+                    // Fallback si onload ne se déclenche pas
+                    setTimeout(setupPositioning, 500);
                 }
                 
                 // Observer de scroll pour repositionner en temps réel
