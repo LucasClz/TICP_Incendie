@@ -1816,13 +1816,27 @@
         const inspection = getElementInspection(type, data) || createElementInspection(type, data);
         
         let title = type.charAt(0).toUpperCase() + type.slice(1);
-        if (data.id) title += ` - ${data.id}`;
-        if (data.type) title += ` (${data.type})`;
+        
+        // Afficher le numéro/ID en évidence pour extincteurs et DM
+        if (type === 'extincteur' || type === 'dm') {
+            if (data.id) {
+                title = `<span class="text-gray-600">${type === 'extincteur' ? 'Extincteur' : 'DM'}</span> <span class="text-2xl font-bold text-blue-600">N°${data.id}</span>`;
+            } else {
+                title = `<span class="text-gray-600">${type === 'extincteur' ? 'Extincteur' : 'DM'}</span> <span class="text-red-600 text-sm">(pas de numéro)</span>`;
+            }
+            if (type === 'extincteur' && data.type) {
+                title += ` <span class="text-sm text-gray-500">(${data.type})</span>`;
+            }
+        } else {
+            // Pour les sorties ou autres
+            if (data.id) title += ` - ${data.id}`;
+            if (data.type) title += ` (${data.type})`;
+        }
         
         // Afficher la quantité si c'est un extincteur
         const quantity = data.quantity || 1;
         if (type === 'extincteur' && quantity > 1) {
-            title += ` [×${quantity}]`;
+            title += ` <span class="text-sm bg-orange-100 text-orange-800 px-2 py-1 rounded">[×${quantity}]</span>`;
         }
         
         // Calculer la complétude de cet élément
