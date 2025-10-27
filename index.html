@@ -622,21 +622,134 @@
                 updateKPIs();
                 updateStorageIndicator(); // Afficher l'état du stockage
                 applyLeftPanelState(); // apply saved collapsed state
+                
+                // Tenter de charger TICP.json si disponible (pour synchronisation)
+                await tryLoadTICPJson();
+            }
+            
+            // Fonction pour charger TICP.json en arrière-plan
+            async function tryLoadTICPJson() {
+                // Essayer de charger TICP.json même si des données existent déjà
+                // Cela permet la synchronisation avec un fichier centralisé
+                if (window.location && /^https?:/.test(window.location.protocol)) {
+                    const candidates = [
+                        'TICP.json',
+                        './TICP.json',
+                        './data/TICP.json'
+                    ];
+
+                    for (const path of candidates) {
+                        try {
+                            console.info('Tentative de chargement de', path);
+                            const resp = await fetch(path, { cache: 'no-cache' });
+                            if (!resp.ok) continue;
+                            
+                            const json = await resp.json();
+                            let externalZones = [];
+                            
+                            if (Array.isArray(json)) {
+                                externalZones = json;
+                            } else if (json && Array.isArray(json.zones)) {
+                                externalZones = json.zones;
+                            } else if (json && (json.id || json.name)) {
+                                externalZones = [json];
+                            }
+                            
+                            if (externalZones.length > 0) {
+                                console.info(`✅ ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
+                                
+                                // Proposer de fusionner ou remplacer
+                                if (zones.length > 0) {
+                                    const choice = confirm(
+                                        `📂 Fichier ${path} détecté avec ${externalZones.length} zone(s).\n\n` +
+                                        `Vous avez actuellement ${zones.length} zone(s) en local.\n\n` +
+                                        `OK = Fusionner les nouvelles zones\n` +
+                                        `Annuler = Ignorer le fichier`
+                                    );
+                                    
+                                    if (choice) {
+                                        // Fusionner : ajouter les zones qui n'existent pas encore
+                                        let added = 0;
+                                        externalZones.forEach(extZone => {
+                                            if (!zones.find(z => z.id === extZone.id)) {
+                                                zones.push(extZone);
+                                                added++;
+                                            }
+                                        });
+                                        
+                                        if (added > 0) {
+                                            saveZones();
+                                            renderZoneList();
+                                            alert(`✅ ${added} nouvelle(s) zone(s) ajoutée(s) !`);
+                                        } else {
+                                            alert('ℹ️ Toutes les zones du fichier existent déjà.');
+                                        }
+                                    }
+                                } else {
+                                    // Pas de zones locales, charger directement
+                                    zones = externalZones;
+                                    saveZones();
+                                    renderZoneList();
+                                    alert(`✅ ${externalZones.length} zone(s) chargée(s) depuis ${path}`);
+                                }
+                                
+                                break;
+                            }
+                        } catch (err) {
+                            console.debug('Échec du chargement de', path, err);
+                        }
+                    }
+                }
             }
 
             // Load data from localStorage. When the app is served over HTTP(S) (for example
             // via GitHub Pages) try to load `TICP.json` from the repository by default so
             // every user sees the pre-created zones.
             async function loadData() {
-                const savedZones = localStorage.getItem('fireInspection_zones');
-                const savedInspections = localStorage.getItem('fireInspection_inspections');
-
-                if (savedZones) {
+                // Essayer d'abord de charger depuis IndexedDB (plus d'espace, prioritaire)
+                if (isIndexedDBAvailable()) {
                     try {
-                        zones = JSON.parse(savedZones);
-                    } catch (e) {
-                        console.error('Erreur parsing savedZones from localStorage, ignoring savedZones', e);
-                        zones = [];
+                        const idbZones = await loadFromIndexedDB('zones');
+                        const idbInspections = await loadFromIndexedDB('inspections');
+                        
+                        if (idbZones && Array.isArray(idbZones)) {
+                            zones = idbZones;
+                            console.log('✅ Zones chargées depuis IndexedDB');
+                        }
+                        
+                        if (idbInspections && Array.isArray(idbInspections)) {
+                            inspections = idbInspections;
+                            console.log('✅ Inspections chargées depuis IndexedDB');
+                        }
+                    } catch (err) {
+                        console.warn('Erreur lors du chargement depuis IndexedDB, utilisation de localStorage', err);
+                    }
+                }
+                
+                // Fallback sur localStorage si IndexedDB n'a rien retourné
+                if (!zones || zones.length === 0) {
+                    const savedZones = localStorage.getItem('fireInspection_zones');
+                    if (savedZones) {
+                        try {
+                            zones = JSON.parse(savedZones);
+                            console.log('✅ Zones chargées depuis localStorage');
+                        } catch (e) {
+                            console.error('Erreur parsing savedZones from localStorage, ignoring savedZones', e);
+                            zones = [];
+                        }
+                    }
+                }
+                
+                if (!inspections || inspections.length === 0) {
+                    const savedInspections = localStorage.getItem('fireInspection_inspections');
+                    if (savedInspections) {
+                        try {
+                            inspections = JSON.parse(savedInspections);
+                            console.log('✅ Inspections chargées depuis localStorage');
+                        } catch (e) {
+                            console.error('Erreur parsing savedInspections from localStorage', e);
+                            inspections = [];
+                        }
                     }
                 }
 
@@ -659,45 +772,6 @@
                     });
                     // persist migration result
                     saveZones();
-                }
-
-                // If no saved zones, and we're served over HTTP(S), try to fetch TICP.json
-                if ((!zones || zones.length === 0) && window.location && /^https?:/.test(window.location.protocol)) {
-                    const candidates = [
-                        'TICP.json',
-                        './TICP.json',
-                        './data/TICP.json'
-                    ];
-
-                    for (const path of candidates) {
-                        try {
-                            console.info('Attempting to fetch zones from', path);
-                            const resp = await fetch(path);
-                            if (!resp.ok) {
-                                console.debug('Fetch returned non-ok for', path, resp.status);
-                                continue;
-                            }
-                            const json = await resp.json();
-
-                            if (Array.isArray(json)) {
-                                zones = json;
-                            } else if (json && Array.isArray(json.zones)) {
-                                zones = json.zones;
-                            } else if (json && (json.id || json.name)) {
-                                zones = [json];
-                            } else {
-                                console.debug('Fetched JSON from', path, 'did not match expected shape');
-                                continue;
-                            }
-
-                            console.info('Zones loaded from', path);
-                            // persist to localStorage so users get the same view locally
-                            saveZones();
-                            break;
-                        } catch (err) {
-                            console.debug('Failed to fetch', path, err);
-                        }
-                    }
                 }
 
                 // If still empty, fall back to the embedded default
@@ -769,15 +843,6 @@
                     }];
                     saveZones();
                 }
-
-                if (savedInspections) {
-                    try {
-                        inspections = JSON.parse(savedInspections);
-                    } catch (e) {
-                        console.error('Erreur parsing savedInspections from localStorage', e);
-                        inspections = [];
-                    }
-                }
             }
 
             // Save data to localStorage (robuste face au quota)
@@ -798,10 +863,28 @@
             }
 
             // Tentatives de sauvegarde avec strategies si quota dépassé
-            function saveZones() {
+            async function saveZones() {
                 // Vérifier l'espace avant de sauvegarder
                 const storageInfo = getStorageInfo();
                 console.log(`Utilisation du stockage: ${storageInfo.used}MB / ${storageInfo.limit}MB (${storageInfo.percent}%)`);
+                
+                // Essayer d'abord IndexedDB si disponible (beaucoup plus d'espace)
+                if (isIndexedDBAvailable()) {
+                    try {
+                        await saveToIndexedDB('zones', zones);
+                        console.log('✅ Zones sauvegardées dans IndexedDB');
+                        // Sauvegarder aussi dans localStorage comme backup (si possible)
+                        try {
+                            localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
+                        } catch (e) {
+                            console.debug('localStorage backup failed, but IndexedDB succeeded');
+                        }
+                        updateStorageIndicator();
+                        return;
+                    } catch (err) {
+                        console.warn('IndexedDB save failed, falling back to localStorage', err);
+                    }
+                }
                 
                 // Nettoyage préventif si > 80%
                 if (parseFloat(storageInfo.percent) > 80) {
@@ -866,7 +949,25 @@
                 }
             }
 
-            function saveInspections() {
+            async function saveInspections() {
+                // Essayer d'abord IndexedDB si disponible
+                if (isIndexedDBAvailable()) {
+                    try {
+                        await saveToIndexedDB('inspections', inspections);
+                        console.log('✅ Inspections sauvegardées dans IndexedDB');
+                        // Backup dans localStorage si possible
+                        try {
+                            localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
+                        } catch (e) {
+                            console.debug('localStorage backup failed, but IndexedDB succeeded');
+                        }
+                        updateStorageIndicator();
+                        return;
+                    } catch (err) {
+                        console.warn('IndexedDB save failed, falling back to localStorage', err);
+                    }
+                }
+                
                 try {
                     localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
                     updateStorageIndicator(); // Mettre à jour l'indicateur après sauvegarde réussie
@@ -961,6 +1062,81 @@
                 };
             }
             
+            // ===== IndexedDB Storage (pour plus d'espace) =====
+            const DB_NAME = 'FireInspectionDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'data';
+            
+            // Ouvrir la base de données IndexedDB
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME);
+                        }
+                    };
+                });
+            }
+            
+            // Sauvegarder dans IndexedDB
+            async function saveToIndexedDB(key, value) {
+                try {
+                    const db = await openDB();
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+                    store.put(value, key);
+                    
+                    return new Promise((resolve, reject) => {
+                        transaction.oncomplete = () => {
+                            db.close();
+                            resolve();
+                        };
+                        transaction.onerror = () => {
+                            db.close();
+                            reject(transaction.error);
+                        };
+                    });
+                } catch (err) {
+                    console.error('IndexedDB save error:', err);
+                    throw err;
+                }
+            }
+            
+            // Lire depuis IndexedDB
+            async function loadFromIndexedDB(key) {
+                try {
+                    const db = await openDB();
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.get(key);
+                    
+                    return new Promise((resolve, reject) => {
+                        request.onsuccess = () => {
+                            db.close();
+                            resolve(request.result);
+                        };
+                        request.onerror = () => {
+                            db.close();
+                            reject(request.error);
+                        };
+                    });
+                } catch (err) {
+                    console.error('IndexedDB load error:', err);
+                    return null;
+                }
+            }
+            
+            // Vérifier si IndexedDB est disponible
+            function isIndexedDBAvailable() {
+                return typeof indexedDB !== 'undefined';
+            }
+            
             // Fonction pour mettre à jour l'indicateur visuel de stockage
             function updateStorageIndicator() {
                 const storage = getStorageInfo();
@@ -974,19 +1150,23 @@
                 storageBar.style.width = `${Math.min(100, percent)}%`;
                 storageText.textContent = `${storage.percent}%`;
                 
+                // Indiquer si IndexedDB est utilisé
+                const usingIndexedDB = isIndexedDBAvailable();
+                const storageType = usingIndexedDB ? '(IndexedDB)' : '(localStorage)';
+                
                 // Changer la couleur selon le niveau d'utilisation
                 if (percent < 60) {
                     storageBar.className = 'h-full bg-green-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - Bon`;
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - Bon`;
                 } else if (percent < 80) {
                     storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - Attention`;
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - Attention`;
                 } else if (percent < 95) {
                     storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - Critique !`;
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - Critique !`;
                 } else {
                     storageBar.className = 'h-full bg-red-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - PLEIN !`;
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - PLEIN !`;
                 }
             }
             
