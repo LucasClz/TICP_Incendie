@@ -524,7 +524,8 @@
                         if (insp && isElementCompleted(insp)) completed++;
                     });
 
-                    el.textContent = `${Math.round((completed / total) * 100)}%`;
+                    const percent = Math.round((completed / total) * 100);
+                    el.textContent = `${percent}% (${completed}/${total})`;
                 });
 
                 // KPI Bâtiment -> basé sur la checklist zone
