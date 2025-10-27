@@ -88,7 +88,7 @@
         .kpi-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 0.25rem;
+            padding: 0.375rem 0.25rem;
             border-radius: 4px;
             text-align: center;
         }
@@ -96,8 +96,8 @@
         /* Ajout d'un style spécifique pour l'indicateur Bâtiment */
         .kpi-card.batiment {
             background: linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%);
-            border: 2px solid #2563eb;
-            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+            border: 1.5px solid #2563eb;
+            box-shadow: 0 2px 4px -1px rgba(59, 130, 246, 0.3);
         }
         
         .admin-element {
@@ -291,24 +291,24 @@
 
                     <!-- KPIs -->
                     <div class="p-1 flex-1">
-                        <h2 class="text-base font-semibold mb-2">Indicateurs</h2>
+                        <h2 class="text-sm font-semibold mb-1.5">Indicateurs</h2>
                         <div class="space-y-1">
                             <div class="kpi-card">
-                                <div class="text-lg font-bold" id="kpiExtincteurs">0%</div>
-                                <div class="text-xs opacity-90">Extincteurs</div>
+                                <div class="text-base font-bold" id="kpiExtincteurs">0%</div>
+                                <div class="text-[10px] opacity-90 leading-tight">Extincteurs</div>
                             </div>
                             <div class="kpi-card">
-                                <div class="text-lg font-bold" id="kpiDM">0%</div>
-                                <div class="text-xs opacity-90">Déclencheurs Manuels</div>
+                                <div class="text-base font-bold" id="kpiDM">0%</div>
+                                <div class="text-[10px] opacity-90 leading-tight">Déclencheurs Manuels</div>
                             </div>
                             <div class="kpi-card">
-                                <div class="text-lg font-bold" id="kpiSorties">0%</div>
-                                <div class="text-xs opacity-90">Sorties de Secours</div>
+                                <div class="text-base font-bold" id="kpiSorties">0%</div>
+                                <div class="text-[10px] opacity-90 leading-tight">Sorties de Secours</div>
                             </div>
                             <!-- Indicateur Bâtiment pour la checklist zone -->
                             <div class="kpi-card batiment">
-                                <div class="text-lg font-bold" id="kpiBatiment">0%</div>
-                                <div class="text-xs opacity-90">Bâtiment</div>
+                                <div class="text-base font-bold" id="kpiBatiment">0%</div>
+                                <div class="text-[10px] opacity-90 leading-tight">Bâtiment</div>
                             </div>
                         </div>
                     </div>
