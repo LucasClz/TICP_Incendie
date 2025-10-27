@@ -423,6 +423,7 @@
                     'fixation': 'Fixation',
                     'goupille': 'Goupille',
                     'entretien': 'Entretien',
+                    'a_identifie': 'A identifié',
                     'cinq_s': '5S'
                 },
                 sortie: {
@@ -1818,6 +1819,12 @@
         if (data.id) title += ` - ${data.id}`;
         if (data.type) title += ` (${data.type})`;
         
+        // Afficher la quantité si c'est un extincteur
+        const quantity = data.quantity || 1;
+        if (type === 'extincteur' && quantity > 1) {
+            title += ` [×${quantity}]`;
+        }
+        
         // Calculer la complétude de cet élément
         const enabledCriteria = currentZone?.enabledCriteria?.[type] || Object.keys(criteria);
         const completedCount = enabledCriteria.filter(key => inspection.criteria[key] && inspection.criteria[key] !== '').length;
@@ -1861,6 +1868,19 @@
                     `).join('')}
 
                 </div>
+                
+                ${type === 'extincteur' ? `
+                <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <label class="block text-sm font-medium mb-2">
+                        <span class="text-blue-800">🔢 Quantité d'extincteurs</span>
+                        <span class="text-xs text-gray-600 ml-2">(regroupement)</span>
+                    </label>
+                    <input type="number" min="1" max="99" value="${quantity}" 
+                        onchange="updateQuantity(this.value)"
+                        class="w-24 px-3 py-2 border border-blue-300 rounded-md text-center font-semibold">
+                    <p class="text-xs text-gray-600 mt-1">Indiquez le nombre d'extincteurs à ce même emplacement</p>
+                </div>
+                ` : ''}
                 
                 <div class="mt-6">
                     <label class="block text-sm font-medium mb-2">Commentaires</label>
@@ -2024,6 +2044,29 @@
             inspection.comments = comments;
             inspection.timestamp = new Date().toISOString();
             saveInspections();
+        }
+    }
+
+    // Update quantity (for extincteurs)
+    function updateQuantity(quantity) {
+        if (!currentElement || currentElement.type !== 'extincteur') return;
+        
+        const qty = parseInt(quantity);
+        if (isNaN(qty) || qty < 1) return;
+        
+        currentElement.data.quantity = qty;
+        
+        // Mettre à jour dans la zone
+        if (currentZone && currentFloor) {
+            const extincteurs = currentFloor.elements.extincteurs || [];
+            const index = extincteurs.findIndex(ext => getElementKey('extincteur', ext) === getElementKey('extincteur', currentElement.data));
+            if (index !== -1) {
+                extincteurs[index].quantity = qty;
+                saveZones();
+                
+                // Re-render pour afficher la nouvelle quantité
+                renderNotationPanel();
+            }
         }
     }
 
@@ -2949,6 +2992,15 @@
                                     ${EXTINGUISHER_TYPES.map(t => `<option value="${t}" ${element.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                                 </select>
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    🔢 Quantité
+                                    <span class="text-xs text-gray-500">(regroupement)</span>
+                                </label>
+                                <input id="editElemQuantity" type="number" min="1" max="99" value="${element.quantity || 1}"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                <p class="text-xs text-gray-500 mt-1">Nombre d'extincteurs à ce même emplacement</p>
+                            </div>
                         ` : ''}
 
                         <div>
@@ -3009,6 +3061,15 @@
         }
         if (type === 'extincteur') {
             element.type = document.getElementById('editElemType').value;
+            
+            // Sauvegarder la quantité
+            const quantityInput = document.getElementById('editElemQuantity');
+            if (quantityInput) {
+                const qty = parseInt(quantityInput.value);
+                if (!isNaN(qty) && qty >= 1) {
+                    element.quantity = qty;
+                }
+            }
         }
         // save size if provided
         const sizeInput = document.getElementById('editElemSize');
