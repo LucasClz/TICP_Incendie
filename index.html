@@ -2934,6 +2934,24 @@
         alert(`Librairie exportée avec succès : ${zones.length} zone(s)\nFichier : ${filename}`);
     }
 
+    function exportCurrentZone() {
+        if (!currentZone) {
+            alert('Aucune zone sélectionnée pour l\'export.');
+            return;
+        }
+        
+        // Export uniquement la zone courante
+        const exportData = {
+            version: "1.0",
+            exportDate: new Date().toISOString(),
+            zones: [currentZone]
+        };
+        const data = JSON.stringify(exportData, null, 2);
+        const filename = `TICP_zone_${currentZone.id}_${new Date().toISOString().split('T')[0]}.json`;
+        downloadFile(data, filename, 'application/json');
+        alert(`Zone "${currentZone.name}" exportée avec succès !\nFichier : ${filename}`);
+    }
+
     const ELEMENT_COLLECTION_MAP = { extincteur: 'extincteurs', dm: 'dm', sortie: 'sorties' };
     const EXTINGUISHER_TYPES = ['Eau', 'Mousse', 'Poudre', 'CO2', 'Lithium', 'A identifié'];
 
@@ -3489,10 +3507,16 @@
                     </div>
                     <div class="ml-4">
                         <label class="block text-sm font-medium mb-2">Actions groupées</label>
-                        <button onclick="bulkUpdateExtinguisherType()" 
-                                class="px-3 py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-medium flex items-center gap-2">
-                            🧯 Modifier type extincteurs
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="bulkUpdateExtinguisherType()" 
+                                    class="px-3 py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-medium flex items-center gap-2">
+                                🧯 Modifier type extincteurs
+                            </button>
+                            <button onclick="exportCurrentZone()" 
+                                    class="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium flex items-center gap-2">
+                                📥 Exporter cette zone
+                            </button>
+                        </div>
                     </div>
                     <div class="flex gap-2 flex-shrink-0">
                         <button onclick="saveAndReturn()" 
