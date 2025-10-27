@@ -659,23 +659,88 @@
                             if (externalZones.length > 0) {
                                 console.info(`✅ ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
                                 
-                                // Fusionner automatiquement sans confirmation
+                                // Fusionner automatiquement avec gestion intelligente des éléments
                                 if (zones.length > 0) {
-                                    // Fusionner : ajouter les zones qui n'existent pas encore
-                                    let added = 0;
+                                    let addedZones = 0;
+                                    let addedElements = 0;
+                                    
                                     externalZones.forEach(extZone => {
-                                        if (!zones.find(z => z.id === extZone.id)) {
+                                        const existingZone = zones.find(z => z.id === extZone.id);
+                                        
+                                        if (!existingZone) {
+                                            // Zone n'existe pas : ajouter entièrement
                                             zones.push(extZone);
-                                            added++;
+                                            addedZones++;
+                                        } else {
+                                            // Zone existe : fusionner les éléments intelligemment
+                                            if (extZone.floors && existingZone.floors) {
+                                                extZone.floors.forEach(extFloor => {
+                                                    const existingFloor = existingZone.floors.find(f => f.id === extFloor.id);
+                                                    
+                                                    if (!existingFloor) {
+                                                        // Floor n'existe pas : ajouter entièrement
+                                                        existingZone.floors.push(extFloor);
+                                                    } else if (extFloor.elements) {
+                                                        // Floor existe : fusionner les éléments
+                                                        
+                                                        // Fonction helper pour vérifier si un élément existe déjà (même position)
+                                                        const elementExists = (collection, newElement) => {
+                                                            const tolerance = 0.01; // 1% de tolérance sur la position
+                                                            return collection.some(existing => {
+                                                                const samePosition = Math.abs(existing.x - newElement.x) < tolerance && 
+                                                                                   Math.abs(existing.y - newElement.y) < tolerance;
+                                                                const sameId = existing.id && newElement.id && existing.id === newElement.id;
+                                                                return samePosition || sameId;
+                                                            });
+                                                        };
+                                                        
+                                                        // Fusionner les extincteurs
+                                                        if (extFloor.elements.extincteurs) {
+                                                            existingFloor.elements.extincteurs = existingFloor.elements.extincteurs || [];
+                                                            extFloor.elements.extincteurs.forEach(ext => {
+                                                                if (!elementExists(existingFloor.elements.extincteurs, ext)) {
+                                                                    existingFloor.elements.extincteurs.push(ext);
+                                                                    addedElements++;
+                                                                    console.info(`➕ Ajout extincteur ${ext.id || 'sans ID'} dans ${existingZone.name} (${extFloor.name})`);
+                                                                }
+                                                            });
+                                                        }
+                                                        
+                                                        // Fusionner les DM
+                                                        if (extFloor.elements.dm) {
+                                                            existingFloor.elements.dm = existingFloor.elements.dm || [];
+                                                            extFloor.elements.dm.forEach(dm => {
+                                                                if (!elementExists(existingFloor.elements.dm, dm)) {
+                                                                    existingFloor.elements.dm.push(dm);
+                                                                    addedElements++;
+                                                                    console.info(`➕ Ajout DM ${dm.id || 'sans ID'} dans ${existingZone.name} (${extFloor.name})`);
+                                                                }
+                                                            });
+                                                        }
+                                                        
+                                                        // Fusionner les sorties
+                                                        if (extFloor.elements.sorties) {
+                                                            existingFloor.elements.sorties = existingFloor.elements.sorties || [];
+                                                            extFloor.elements.sorties.forEach(sortie => {
+                                                                if (!elementExists(existingFloor.elements.sorties, sortie)) {
+                                                                    existingFloor.elements.sorties.push(sortie);
+                                                                    addedElements++;
+                                                                    console.info(`➕ Ajout sortie dans ${existingZone.name} (${extFloor.name}) à position (${sortie.x}, ${sortie.y})`);
+                                                                }
+                                                            });
+                                                        }
+                                                    }
+                                                });
+                                            }
                                         }
                                     });
                                     
-                                    if (added > 0) {
+                                    if (addedZones > 0 || addedElements > 0) {
                                         saveZones();
                                         renderZoneList();
-                                        console.info(`✅ ${added} nouvelle(s) zone(s) ajoutée(s) depuis ${path}`);
+                                        console.info(`✅ Fusion terminée : ${addedZones} zone(s) + ${addedElements} élément(s) ajouté(s) depuis ${path}`);
                                     } else {
-                                        console.info(`ℹ️ Toutes les zones du fichier ${path} existent déjà.`);
+                                        console.info(`ℹ️ Aucun nouvel élément à ajouter depuis ${path}`);
                                     }
                                 } else {
                                     // Pas de zones locales, charger directement
