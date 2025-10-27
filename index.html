@@ -1853,6 +1853,31 @@
                     </div>
                 </div>
                 
+                ${(type === 'extincteur' || type === 'dm') ? `
+                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <h4 class="text-sm font-semibold text-yellow-800 mb-3">✏️ Modifier l'élément</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
+                            <input type="text" id="elementIdInput" value="${data.id || ''}" 
+                                onchange="updateElementId(this.value)"
+                                placeholder="${type === 'extincteur' ? 'EXT-001' : 'DM-001'}"
+                                class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm font-semibold">
+                        </div>
+                        ${type === 'extincteur' ? `
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Type d'extincteur</label>
+                            <select id="elementTypeSelect" onchange="updateElementType(this.value)"
+                                class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm">
+                                <option value="">-- Sélectionner --</option>
+                                ${EXTINGUISHER_TYPES.map(t => `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                            </select>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+                
                 <div class="space-y-4">
                     ${Object.entries(criteria).map(([key, label]) => `
                         <div class="criteria-grid">
@@ -2152,6 +2177,78 @@
                 
                 // Re-render pour afficher la nouvelle quantité
                 renderNotationPanel();
+            }
+        }
+    }
+
+    // Update element ID (number)
+    function updateElementId(newId) {
+        if (!currentElement) return;
+        
+        const trimmedId = newId.trim();
+        if (!trimmedId) {
+            alert('Le numéro ne peut pas être vide');
+            document.getElementById('elementIdInput').value = currentElement.data.id || '';
+            return;
+        }
+        
+        const oldKey = getElementKey(currentElement.type, currentElement.data);
+        currentElement.data.id = trimmedId;
+        
+        // Mettre à jour dans la zone
+        if (currentZone && currentFloor) {
+            const elementType = currentElement.type;
+            const collectionKey = elementType === 'extincteur' ? 'extincteurs' : elementType === 'dm' ? 'dm' : 'sorties';
+            const collection = currentFloor.elements[collectionKey] || [];
+            
+            const index = collection.findIndex(el => getElementKey(elementType, el) === oldKey);
+            if (index !== -1) {
+                collection[index].id = trimmedId;
+                saveZones();
+                
+                // Mettre à jour la clé de l'inspection si elle existe
+                const inspection = inspections.find(i => 
+                    i.campaign === currentCampaign && 
+                    i.zoneId === currentZone.id && 
+                    i.floorId === (currentFloor?.id || null) &&
+                    i.elementKey === oldKey
+                );
+                if (inspection) {
+                    inspection.elementKey = getElementKey(elementType, currentElement.data);
+                    inspection.elementData = currentElement.data;
+                    saveInspections();
+                }
+                
+                // Re-render pour afficher le nouveau numéro
+                renderNotationPanel();
+                // Mettre à jour les hotspots
+                addHotspots();
+                // Mettre à jour les éléments admin si en mode admin
+                if (isAdminMode) renderAdminElements();
+            }
+        }
+    }
+
+    // Update element type (for extincteurs)
+    function updateElementType(newType) {
+        if (!currentElement || currentElement.type !== 'extincteur') return;
+        
+        currentElement.data.type = newType;
+        
+        // Mettre à jour dans la zone
+        if (currentZone && currentFloor) {
+            const extincteurs = currentFloor.elements.extincteurs || [];
+            const index = extincteurs.findIndex(ext => getElementKey('extincteur', ext) === getElementKey('extincteur', currentElement.data));
+            if (index !== -1) {
+                extincteurs[index].type = newType;
+                saveZones();
+                
+                // Re-render pour afficher le nouveau type
+                renderNotationPanel();
+                // Mettre à jour les hotspots
+                addHotspots();
+                // Mettre à jour les éléments admin si en mode admin
+                if (isAdminMode) renderAdminElements();
             }
         }
     }
