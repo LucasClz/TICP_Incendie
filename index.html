@@ -228,7 +228,19 @@
         <!-- Header -->
         <header class="bg-white shadow-sm border-b px-6 py-4">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
+                    <!-- Indicateur de stockage -->
+                    <div id="storageIndicator" class="text-xs" title="Utilisation du stockage local">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-600">💾</span>
+                            <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div id="storageBar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <span id="storageText" class="text-gray-700 font-medium">0%</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="flex gap-4">
                     <select id="campaignSelect" class="px-3 py-2 border border-gray-300 rounded-md">
                         <option value="2025Q1">2025 Q1</option>
@@ -473,6 +485,9 @@
 
             // Add updateKPIs function
             function updateKPIs() {
+                // Mettre à jour l'indicateur de stockage
+                updateStorageIndicator();
+                
                 // si pas de zone sélectionnée, remettre tout à zéro
                 if (!currentZone) {
                     const reset = id => { const el = document.getElementById(id); if (el) el.textContent = '0%'; };
@@ -605,6 +620,7 @@
                 setupEventListeners();
                 renderZoneList();
                 updateKPIs();
+                updateStorageIndicator(); // Afficher l'état du stockage
                 applyLeftPanelState(); // apply saved collapsed state
             }
 
@@ -783,24 +799,50 @@
 
             // Tentatives de sauvegarde avec strategies si quota dépassé
             function saveZones() {
+                // Vérifier l'espace avant de sauvegarder
+                const storageInfo = getStorageInfo();
+                console.log(`Utilisation du stockage: ${storageInfo.used}MB / ${storageInfo.limit}MB (${storageInfo.percent}%)`);
+                
+                // Nettoyage préventif si > 80%
+                if (parseFloat(storageInfo.percent) > 80) {
+                    const cleaned = autoCleanStorage();
+                    if (cleaned) {
+                        console.log(`Nettoyage automatique: ${cleaned.photosRemoved} photos supprimées`);
+                    }
+                }
+                
                 try {
                     localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
+                    updateStorageIndicator(); // Mettre à jour l'indicateur après sauvegarde réussie
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
+                        console.warn('Quota dépassé, tentative de libération d\'espace...');
+                        
                         // 1) tenter de libérer en supprimant photos d'inspection
                         const removedPhotos = removeAllInspectionPhotos();
                         try {
                             localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
                             localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
-                            alert(`Espace local saturé : ${removedPhotos} photo(s) d'inspection ont été supprimées pour libérer de l'espace.`);
+                            const newStorage = getStorageInfo();
+                            alert(`✅ Espace libéré : ${removedPhotos} photo(s) supprimées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB (${newStorage.percent}%)`);
                             return;
                         } catch (err2) {
-                            // 2) retirer les plans volumineux (en dernier recours)
-                            const threshold = 200 * 1024; // ~200KB
+                            // 2) retirer les plans volumineux des floors (en dernier recours)
+                            const threshold = 150 * 1024; // ~150KB
                             let removedPlans = 0;
                             zones.forEach(z => {
+                                if (z.floors) {
+                                    z.floors.forEach(floor => {
+                                        if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > threshold) {
+                                            floor.plan._backupImage = floor.plan.imageUrl; // mémoire temporaire (non persistée)
+                                            floor.plan.imageUrl = '';
+                                            removedPlans++;
+                                        }
+                                    });
+                                }
+                                // Ancien format (compatibility)
                                 if (z.plan && z.plan.imageUrl && z.plan.imageUrl.length > threshold) {
-                                    z.plan._backupImage = z.plan.imageUrl; // mémoire temporaire (non persistée)
+                                    z.plan._backupImage = z.plan.imageUrl;
                                     z.plan.imageUrl = '';
                                     removedPlans++;
                                 }
@@ -808,11 +850,13 @@
                             try {
                                 localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
                                 localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
-                                alert(`Espace local très limité : ${removedPlans} image(s) de plan ont été retirées pour permettre la sauvegarde.`);
+                                const newStorage = getStorageInfo();
+                                alert(`⚠️ Espace critique : ${removedPlans} image(s) de plan retirées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB\n\nConseils:\n- Exportez vos données\n- Utilisez des images plus petites\n- Supprimez les anciennes zones`);
                                 return;
                             } catch (err3) {
                                 console.error('saveZones failed after cleanup', err3);
-                                alert('Impossible de sauvegarder les zones : espace de stockage local insuffisant.');
+                                const finalStorage = getStorageInfo();
+                                alert(`❌ Impossible de sauvegarder.\n\nStockage: ${finalStorage.used}MB / ${finalStorage.limit}MB (${finalStorage.percent}%)\n\n💡 Solutions:\n1. Exportez vos données (bouton Exporter)\n2. Supprimez des zones inutiles\n3. Videz le cache du navigateur\n4. Utilisez un autre navigateur`);
                             }
                         }
                     } else {
@@ -825,15 +869,18 @@
             function saveInspections() {
                 try {
                     localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
+                    updateStorageIndicator(); // Mettre à jour l'indicateur après sauvegarde réussie
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
                         const removedPhotos = removeAllInspectionPhotos();
                         try {
                             localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
-                            alert(`Espace local saturé : ${removedPhotos} photo(s) d'inspection ont été supprimées pour libérer de l'espace.`);
+                            const storageInfo = getStorageInfo();
+                            alert(`✅ ${removedPhotos} photo(s) supprimées.\n\nStockage: ${storageInfo.used}MB / ${storageInfo.limit}MB (${storageInfo.percent}%)`);
                         } catch (err2) {
                             console.error('saveInspections failed after cleanup', err2);
-                            alert('Impossible de sauvegarder les inspections : espace de stockage local insuffisant.');
+                            const storageInfo = getStorageInfo();
+                            alert(`❌ Impossible de sauvegarder les inspections.\n\nStockage: ${storageInfo.used}MB / ${storageInfo.limit}MB\n\n💡 Exportez vos données et supprimez des anciennes zones.`);
                         }
                     } else {
                         console.error('saveInspections unexpected error', err);
@@ -843,28 +890,140 @@
             }
 
             // Compression / redimensionnement des images DataURL pour stocker dans localStorage
-            function compressImage(dataUrl, maxWidth = 1600, quality = 0.75) {
+            // Optimisation agressive pour économiser l'espace
+            function compressImage(dataUrl, maxWidth = 1200, quality = 0.65) {
                 return new Promise(resolve => {
                     const img = new Image();
                     img.onload = () => {
                         let width = img.width;
                         let height = img.height;
+                        
+                        // Réduire davantage si l'image est très grande
                         if (width > maxWidth) {
                             height = Math.round((height * maxWidth) / width);
                             width = maxWidth;
                         }
+                        
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
+                        
+                        // Amélioration de la qualité de rendu avant compression
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(img, 0, 0, width, height);
-                        // Exporter en JPEG réduit la taille généralement
-                        const compressed = canvas.toDataURL('image/jpeg', quality);
+                        
+                        // Exporter en JPEG avec qualité réduite
+                        let compressed = canvas.toDataURL('image/jpeg', quality);
+                        
+                        // Si l'image est encore trop grande (>500KB), réduire davantage
+                        if (compressed.length > 500000) {
+                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        }
+                        
+                        // Si encore trop grande (>800KB), réduire la résolution
+                        if (compressed.length > 800000) {
+                            const smallerWidth = Math.round(width * 0.75);
+                            const smallerHeight = Math.round(height * 0.75);
+                            canvas.width = smallerWidth;
+                            canvas.height = smallerHeight;
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            ctx.drawImage(img, 0, 0, smallerWidth, smallerHeight);
+                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        }
+                        
                         resolve(compressed);
                     };
                     img.onerror = () => resolve(dataUrl);
                     img.src = dataUrl;
                 });
+            }
+            
+            // Fonction pour calculer l'utilisation du stockage
+            function getStorageInfo() {
+                let total = 0;
+                for (let key in localStorage) {
+                    if (localStorage.hasOwnProperty(key)) {
+                        total += localStorage[key].length + key.length;
+                    }
+                }
+                const totalMB = (total / (1024 * 1024)).toFixed(2);
+                const limitMB = 5; // Limite typique de localStorage
+                const percentUsed = ((total / (limitMB * 1024 * 1024)) * 100).toFixed(1);
+                
+                return {
+                    used: totalMB,
+                    limit: limitMB,
+                    percent: percentUsed,
+                    bytes: total
+                };
+            }
+            
+            // Fonction pour mettre à jour l'indicateur visuel de stockage
+            function updateStorageIndicator() {
+                const storage = getStorageInfo();
+                const storageBar = document.getElementById('storageBar');
+                const storageText = document.getElementById('storageText');
+                const storageIndicator = document.getElementById('storageIndicator');
+                
+                if (!storageBar || !storageText || !storageIndicator) return;
+                
+                const percent = parseFloat(storage.percent);
+                storageBar.style.width = `${Math.min(100, percent)}%`;
+                storageText.textContent = `${storage.percent}%`;
+                
+                // Changer la couleur selon le niveau d'utilisation
+                if (percent < 60) {
+                    storageBar.className = 'h-full bg-green-500 transition-all duration-300';
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - Bon`;
+                } else if (percent < 80) {
+                    storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - Attention`;
+                } else if (percent < 95) {
+                    storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - Critique !`;
+                } else {
+                    storageBar.className = 'h-full bg-red-500 transition-all duration-300';
+                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB - PLEIN !`;
+                }
+            }
+            
+            // Fonction pour nettoyer automatiquement l'espace
+            function autoCleanStorage() {
+                const storage = getStorageInfo();
+                
+                // Si on dépasse 80% du quota, nettoyer
+                if (parseFloat(storage.percent) > 80) {
+                    console.log('Nettoyage automatique du stockage...');
+                    
+                    // 1. Supprimer les photos d'inspection les plus anciennes
+                    let photosRemoved = 0;
+                    inspections.forEach(insp => {
+                        if (insp.photo) {
+                            insp.photo = '';
+                            photosRemoved++;
+                        }
+                    });
+                    
+                    // 2. Re-compresser les images de plan si nécessaire
+                    let plansCompressed = 0;
+                    zones.forEach(z => {
+                        if (z.floors) {
+                            z.floors.forEach(floor => {
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 300000) {
+                                    // Marquer pour re-compression au prochain chargement
+                                    plansCompressed++;
+                                }
+                            });
+                        }
+                    });
+                    
+                    return { photosRemoved, plansCompressed };
+                }
+                
+                return null;
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
@@ -1670,7 +1829,7 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 // compress image before storing
-                compressImage(e.target.result, 1600, 0.75).then(compressed => {
+                compressImage(e.target.result, 1200, 0.65).then(compressed => {
                     inspection.photos = inspection.photos || [];
                     inspection.photos.push(compressed);
                     inspection.timestamp = new Date().toISOString();
@@ -1697,7 +1856,7 @@
                 console.debug('backup creation failed', err);
             }
 
-            compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
+            compressImage(e.target.result, 1200, 0.65).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
                     currentFloor.plan = currentFloor.plan || {};
