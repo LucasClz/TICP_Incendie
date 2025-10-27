@@ -630,7 +630,7 @@
             
             // Fonction pour charger TICP.json en arrière-plan
             async function tryLoadTICPJson() {
-                // Essayer de charger TICP.json même si des données existent déjà
+                // Charger TICP.json automatiquement en arrière-plan (sans alertes)
                 // Cela permet la synchronisation avec un fichier centralisé
                 if (window.location && /^https?:/.test(window.location.protocol)) {
                     const candidates = [
@@ -659,39 +659,30 @@
                             if (externalZones.length > 0) {
                                 console.info(`✅ ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
                                 
-                                // Proposer de fusionner ou remplacer
+                                // Fusionner automatiquement sans confirmation
                                 if (zones.length > 0) {
-                                    const choice = confirm(
-                                        `📂 Fichier ${path} détecté avec ${externalZones.length} zone(s).\n\n` +
-                                        `Vous avez actuellement ${zones.length} zone(s) en local.\n\n` +
-                                        `OK = Fusionner les nouvelles zones\n` +
-                                        `Annuler = Ignorer le fichier`
-                                    );
-                                    
-                                    if (choice) {
-                                        // Fusionner : ajouter les zones qui n'existent pas encore
-                                        let added = 0;
-                                        externalZones.forEach(extZone => {
-                                            if (!zones.find(z => z.id === extZone.id)) {
-                                                zones.push(extZone);
-                                                added++;
-                                            }
-                                        });
-                                        
-                                        if (added > 0) {
-                                            saveZones();
-                                            renderZoneList();
-                                            alert(`✅ ${added} nouvelle(s) zone(s) ajoutée(s) !`);
-                                        } else {
-                                            alert('ℹ️ Toutes les zones du fichier existent déjà.');
+                                    // Fusionner : ajouter les zones qui n'existent pas encore
+                                    let added = 0;
+                                    externalZones.forEach(extZone => {
+                                        if (!zones.find(z => z.id === extZone.id)) {
+                                            zones.push(extZone);
+                                            added++;
                                         }
+                                    });
+                                    
+                                    if (added > 0) {
+                                        saveZones();
+                                        renderZoneList();
+                                        console.info(`✅ ${added} nouvelle(s) zone(s) ajoutée(s) depuis ${path}`);
+                                    } else {
+                                        console.info(`ℹ️ Toutes les zones du fichier ${path} existent déjà.`);
                                     }
                                 } else {
                                     // Pas de zones locales, charger directement
                                     zones = externalZones;
                                     saveZones();
                                     renderZoneList();
-                                    alert(`✅ ${externalZones.length} zone(s) chargée(s) depuis ${path}`);
+                                    console.info(`✅ ${externalZones.length} zone(s) chargée(s) depuis ${path}`);
                                 }
                                 
                                 break;
