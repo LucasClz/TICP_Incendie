@@ -2564,29 +2564,82 @@
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Exporter les Données</h2>
+                    <h2 class="text-2xl font-bold">📦 Exporter / Importer les Données</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
-                <div class="space-y-4">
-                    <button onclick="exportInspections('json')" 
-                            class="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Exporter Inspections (JSON)
-                    </button>
-                    <button onclick="exportInspections('csv')" 
-                            class="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700">
-                        Exporter Inspections (CSV)
-                    </button>
-                    <button onclick="exportCurrentZone()" 
-                            class="w-full px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-                        Exporter Zone Actuelle (JSON)
-                    </button>
-                </div>
-                
-                <div class="mt-6">
-                    <h3 class="font-semibold mb-3">Importer Inspections</h3>
-                    <input type="file" accept=".json" onchange="importInspections(event)" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <div class="space-y-6">
+                    <!-- Section Export -->
+                    <div class="border border-blue-200 bg-blue-50 rounded-lg p-4">
+                        <h3 class="font-semibold mb-3 flex items-center gap-2 text-blue-900">
+                            <span>📤</span> Exporter mes données
+                        </h3>
+                        <div class="space-y-2">
+                            <button onclick="exportCompleteData()" 
+                                    class="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium flex items-center justify-center gap-2">
+                                <span>💾</span> Export Complet (Zones + Inspections + Photos)
+                            </button>
+                            <p class="text-xs text-blue-800">
+                                ✓ Toutes les zones et étages<br>
+                                ✓ Toutes les inspections et notations<br>
+                                ✓ Toutes les photos (incluses dans le fichier)<br>
+                                ✓ Compatible pour réouverture
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <h4 class="font-medium mb-3 text-gray-700">Exports partiels</h4>
+                        <div class="space-y-2">
+                            <button onclick="exportInspections('json')" 
+                                    class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm">
+                                Inspections uniquement (JSON)
+                            </button>
+                            <button onclick="exportInspections('csv')" 
+                                    class="w-full px-4 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 text-sm">
+                                Inspections uniquement (CSV)
+                            </button>
+                            <button onclick="exportCurrentZone()" 
+                                    class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm">
+                                Zone actuelle uniquement
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Section Import -->
+                    <div class="border border-green-200 bg-green-50 rounded-lg p-4">
+                        <h3 class="font-semibold mb-3 flex items-center gap-2 text-green-900">
+                            <span>📥</span> Importer des données
+                        </h3>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-green-800">
+                                    Choisir un fichier d'export complet (.json)
+                                </label>
+                                <input type="file" accept=".json" onchange="importCompleteData(event)" 
+                                    class="w-full px-3 py-2 border border-green-300 rounded-md bg-white">
+                                <p class="text-xs text-green-700 mt-2">
+                                    ℹ️ Importe toutes les zones, inspections et photos depuis un fichier d'export complet
+                                </p>
+                            </div>
+                            
+                            <div class="border-t border-green-300 pt-3 mt-3">
+                                <label class="block text-sm font-medium mb-2 text-green-800">
+                                    Importer inspections uniquement (.json)
+                                </label>
+                                <input type="file" accept=".json" onchange="importInspections(event)" 
+                                    class="w-full px-3 py-2 border border-green-300 rounded-md bg-white">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Avertissement -->
+                    <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+                        <p class="text-xs text-yellow-800">
+                            <strong>⚠️ Important :</strong> Les fichiers d'export complet contiennent toutes vos photos encodées. 
+                            La taille du fichier peut être importante (plusieurs MB). Conservez ces fichiers en lieu sûr comme sauvegarde !
+                        </p>
+                    </div>
                 </div>
             </div>
         `;
@@ -2691,7 +2744,143 @@
         listDiv.innerHTML = content;
     }
 
-    // Export inspections
+    // Export complete data (zones + inspections + photos)
+    function exportCompleteData() {
+        const exportData = {
+            version: "2.0",
+            exportDate: new Date().toISOString(),
+            exportType: "complete",
+            description: "Export complet : zones, inspections et photos",
+            zones: zones,
+            inspections: inspections,
+            campaigns: [currentCampaign], // Pour info
+            metadata: {
+                totalZones: zones.length,
+                totalInspections: inspections.length,
+                totalPhotos: inspections.reduce((acc, insp) => acc + (insp.photos?.length || 0), 0)
+            }
+        };
+        
+        const data = JSON.stringify(exportData, null, 2);
+        const sizeInMB = (data.length / (1024 * 1024)).toFixed(2);
+        const filename = `TICP_Export_Complet_${new Date().toISOString().split('T')[0]}.json`;
+        
+        downloadFile(data, filename, 'application/json');
+        
+        alert(`✅ Export complet réussi !\n\n` +
+              `📊 Statistiques :\n` +
+              `• ${exportData.metadata.totalZones} zone(s)\n` +
+              `• ${exportData.metadata.totalInspections} inspection(s)\n` +
+              `• ${exportData.metadata.totalPhotos} photo(s)\n` +
+              `• Taille : ${sizeInMB} MB\n\n` +
+              `📁 Fichier : ${filename}\n\n` +
+              `💡 Ce fichier peut être réimporté sur n'importe quel ordinateur pour restaurer toutes vos données.`);
+    }
+    
+    // Import complete data
+    function importCompleteData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Confirmation avant import
+        if (!confirm('⚠️ ATTENTION !\n\n' +
+                     'L\'import va remplacer TOUTES vos données actuelles.\n\n' +
+                     'Options :\n' +
+                     '• OK = Remplacer tout (recommandé pour une restauration)\n' +
+                     '• Annuler = Ne rien faire\n\n' +
+                     'Continuer ?')) {
+            event.target.value = ''; // Reset input
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                
+                // Validation du format
+                if (!importedData.version || !importedData.zones || !importedData.inspections) {
+                    throw new Error('Format de fichier invalide. Utilisez un fichier d\'export complet.');
+                }
+                
+                // Compteurs pour le rapport
+                let stats = {
+                    zonesImported: 0,
+                    inspectionsImported: 0,
+                    photosImported: 0
+                };
+                
+                // Importer les zones
+                if (Array.isArray(importedData.zones)) {
+                    zones = importedData.zones;
+                    stats.zonesImported = zones.length;
+                    
+                    // Normaliser les zones (assurer la structure floors, etc.)
+                    zones = zones.map(z => {
+                        if (!z.floors && (z.plan || z.elements)) {
+                            z.floors = [{
+                                id: z.defaultFloorId || 'RDC',
+                                name: z.defaultFloorName || 'Rez-de-chaussée',
+                                plan: z.plan || { imageUrl: '', naturalWidth: 800, naturalHeight: 600 },
+                                elements: z.elements || { extincteurs: [], dm: [], sorties: [] }
+                            }];
+                            delete z.plan;
+                            delete z.elements;
+                        }
+                        
+                        // Normaliser les éléments de chaque floor
+                        if (z.floors) {
+                            z.floors.forEach(floor => normalizeFloorElements(floor));
+                        }
+                        
+                        return z;
+                    });
+                    
+                    await saveZones();
+                }
+                
+                // Importer les inspections
+                if (Array.isArray(importedData.inspections)) {
+                    inspections = importedData.inspections;
+                    stats.inspectionsImported = inspections.length;
+                    
+                    // Compter les photos
+                    inspections.forEach(insp => {
+                        if (insp.photos && Array.isArray(insp.photos)) {
+                            stats.photosImported += insp.photos.length;
+                        }
+                    });
+                    
+                    await saveInspections();
+                }
+                
+                // Rafraîchir l'interface
+                renderZoneList();
+                renderAdminZoneList();
+                updateKPIs();
+                updateStorageIndicator();
+                
+                // Fermer la modal
+                const modal = event.target.closest('.modal');
+                if (modal) modal.remove();
+                
+                // Afficher le rapport d'import
+                alert(`✅ Import réussi !\n\n` +
+                      `📊 Données importées :\n` +
+                      `• ${stats.zonesImported} zone(s)\n` +
+                      `• ${stats.inspectionsImported} inspection(s)\n` +
+                      `• ${stats.photosImported} photo(s)\n\n` +
+                      `💾 Les données ont été sauvegardées localement.`);
+                
+            } catch (error) {
+                console.error('Import error:', error);
+                alert('❌ Erreur lors de l\'import :\n\n' + error.message + '\n\nVérifiez que le fichier est bien un export complet valide.');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // Export inspections (existing function, kept for compatibility)
     function exportInspections(format) {
         const campaignInspections = inspections.filter(i => i.campaign === currentCampaign);
         
@@ -2737,29 +2926,124 @@
         URL.revokeObjectURL(url);
     }
 
-    // Export current zone
+    // Export current zone (avec ses inspections)
     function exportCurrentZone() {
-        if (!currentZone) return;
+        if (!currentZone) {
+            alert('Aucune zone sélectionnée pour l\'export.');
+            return;
+        }
         
-        const data = JSON.stringify(currentZone, null, 2);
-        downloadFile(data, `zone_${currentZone.id}.json`, 'application/json');
+        // Récupérer toutes les inspections liées à cette zone
+        const zoneInspections = inspections.filter(i => i.zoneId === currentZone.id);
+        
+        // Export uniquement la zone courante avec ses inspections
+        const exportData = {
+            version: "2.0",
+            exportDate: new Date().toISOString(),
+            exportType: "single_zone",
+            description: `Export de la zone ${currentZone.name} avec ses inspections`,
+            zone: currentZone,
+            inspections: zoneInspections,
+            metadata: {
+                totalInspections: zoneInspections.length,
+                totalPhotos: zoneInspections.reduce((acc, insp) => acc + (insp.photos?.length || 0), 0)
+            }
+        };
+        
+        const data = JSON.stringify(exportData, null, 2);
+        const sizeInMB = (data.length / (1024 * 1024)).toFixed(2);
+        const filename = `TICP_Zone_${currentZone.id}_${new Date().toISOString().split('T')[0]}.json`;
+        
+        downloadFile(data, filename, 'application/json');
+        
+        alert(`✅ Zone "${currentZone.name}" exportée avec succès !\n\n` +
+              `📊 Contenu :\n` +
+              `• 1 zone (${currentZone.floors?.length || 1} étage(s))\n` +
+              `• ${exportData.metadata.totalInspections} inspection(s)\n` +
+              `• ${exportData.metadata.totalPhotos} photo(s)\n` +
+              `• Taille : ${sizeInMB} MB\n\n` +
+              `📁 Fichier : ${filename}`);
     }
 
-    // Import inspections
+    // Import inspections (amélioration pour fusion intelligente)
     function importInspections(event) {
         const file = event.target.files[0];
         if (!file) return;
         
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
-                inspections = [...inspections, ...importedData];
-                saveInspections();
+                let inspectionsToImport = [];
+                
+                // Support de différents formats
+                if (Array.isArray(importedData)) {
+                    inspectionsToImport = importedData;
+                } else if (importedData.inspections && Array.isArray(importedData.inspections)) {
+                    inspectionsToImport = importedData.inspections;
+                } else {
+                    throw new Error('Format de fichier non reconnu');
+                }
+                
+                if (inspectionsToImport.length === 0) {
+                    alert('Aucune inspection trouvée dans le fichier');
+                    return;
+                }
+                
+                // Demander le mode d'import
+                const mode = confirm(
+                    '📥 Mode d\'importation des inspections :\n\n' +
+                    '• OK = REMPLACER toutes les inspections existantes\n' +
+                    '• Annuler = FUSIONNER avec les inspections existantes\n\n' +
+                    'Que souhaitez-vous faire ?'
+                ) ? 'replace' : 'merge';
+                
+                let addedCount = 0;
+                let updatedCount = 0;
+                
+                if (mode === 'replace') {
+                    inspections = inspectionsToImport;
+                    addedCount = inspectionsToImport.length;
+                } else {
+                    // Mode fusion : ajouter seulement les nouvelles
+                    inspectionsToImport.forEach(imported => {
+                        const existing = inspections.find(i => 
+                            i.campaign === imported.campaign &&
+                            i.zoneId === imported.zoneId &&
+                            i.elementKey === imported.elementKey &&
+                            i.type === imported.type
+                        );
+                        
+                        if (existing) {
+                            // Mettre à jour l'existant si l'importé est plus récent
+                            if (new Date(imported.timestamp) > new Date(existing.timestamp)) {
+                                Object.assign(existing, imported);
+                                updatedCount++;
+                            }
+                        } else {
+                            // Ajouter nouveau
+                            inspections.push(imported);
+                            addedCount++;
+                        }
+                    });
+                }
+                
+                await saveInspections();
                 updateKPIs();
-                alert('Inspections importées avec succès !');
+                
+                // Fermer la modal
+                const modal = event.target.closest('.modal');
+                if (modal) modal.remove();
+                
+                alert(`✅ Import des inspections terminé !\n\n` +
+                      `📊 Résultat :\n` +
+                      `• ${addedCount} inspection(s) ajoutée(s)\n` +
+                      `• ${updatedCount} inspection(s) mise(s) à jour\n` +
+                      `• Mode : ${mode === 'replace' ? 'Remplacement' : 'Fusion'}`);
+                
             } catch (error) {
-                alert('Erreur lors de l\'importation : ' + error.message);
+                console.error('Import error:', error);
+                alert('❌ Erreur lors de l\'importation : ' + error.message);
             }
         };
         reader.readAsText(file);
@@ -2954,10 +3238,11 @@
         if (!file) return;
         
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
                 let zonesToImport = [];
+                let inspectionsToImport = [];
                 
                 // Support multiple import formats
                 if (Array.isArray(importedData)) {
@@ -2966,8 +3251,18 @@
                 } else if (importedData.zones && Array.isArray(importedData.zones)) {
                     // Library format with zones property
                     zonesToImport = importedData.zones;
+                    // Check for inspections in the export
+                    if (importedData.inspections && Array.isArray(importedData.inspections)) {
+                        inspectionsToImport = importedData.inspections;
+                    }
+                } else if (importedData.zone) {
+                    // Single zone export (new format with inspections)
+                    zonesToImport = [importedData.zone];
+                    if (importedData.inspections && Array.isArray(importedData.inspections)) {
+                        inspectionsToImport = importedData.inspections;
+                    }
                 } else if (importedData.id && importedData.name) {
-                    // Single zone object
+                    // Single zone object (legacy format)
                     zonesToImport = [importedData];
                 } else {
                     throw new Error('Format de fichier non reconnu');
@@ -3063,26 +3358,57 @@
                     imported++;
                 });
                 
+                // Import inspections if any
+                let inspectionsAdded = 0;
+                let photosImported = 0;
+                if (inspectionsToImport.length > 0) {
+                    inspectionsToImport.forEach(insp => {
+                        // Vérifier si l'inspection existe déjà
+                        const exists = inspections.some(existing => 
+                            existing.campaign === insp.campaign &&
+                            existing.zoneId === insp.zoneId &&
+                            existing.elementKey === insp.elementKey &&
+                            existing.type === insp.type
+                        );
+                        
+                        if (!exists) {
+                            inspections.push(insp);
+                            inspectionsAdded++;
+                            if (insp.photos && Array.isArray(insp.photos)) {
+                                photosImported += insp.photos.length;
+                            }
+                        }
+                    });
+                    await saveInspections();
+                }
+                
                 if (imported > 0) {
-                    saveZones();
+                    await saveZones();
                     renderAdminZoneList();
                     renderZoneList();
+                    updateKPIs();
                     event.target.closest('.modal').remove();
                 }
                 
                 // Show detailed result
-                let message = `Import terminé :\n✓ ${imported} zone(s) importée(s)`;
+                let message = `✅ Import terminé :\n\n📦 Zones :\n• ${imported} zone(s) importée(s)`;
                 if (skipped > 0) {
-                    message += `\n⚠ ${skipped} zone(s) ignorée(s)`;
+                    message += `\n• ${skipped} zone(s) ignorée(s)`;
+                }
+                if (inspectionsAdded > 0) {
+                    message += `\n\n📊 Inspections :\n• ${inspectionsAdded} inspection(s) importée(s)`;
+                    if (photosImported > 0) {
+                        message += `\n• ${photosImported} photo(s) importée(s)`;
+                    }
                 }
                 if (conflicts.length > 0) {
-                    message += `\n\nConflits (ID déjà existants) :\n- ${conflicts.join('\n- ')}`;
+                    message += `\n\n⚠️ Conflits (ID déjà existants) :\n${conflicts.map(id => `• ${id}`).join('\n')}`;
                 }
                 alert(message);
                 
             } catch (error) {
                 console.error('Import error:', error);
-                alert('Erreur lors de l\'importation : ' + error.message);
+                alert('❌ Erreur lors de l\'importation : ' + error.message);
             }
         };
         reader.readAsText(file);
