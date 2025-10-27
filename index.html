@@ -1042,23 +1042,44 @@
                 });
             }
             
-            // Fonction pour calculer l'utilisation du stockage
+            // Fonction pour calculer l'utilisation du stockage (uniquement pour cette app)
             function getStorageInfo() {
-                let total = 0;
+                // Calculer uniquement l'espace utilisé par notre application
+                let appTotal = 0;
+                const appKeys = ['fireInspection_zones', 'fireInspection_inspections', 'fireInspection_leftPanelCollapsed'];
+                
+                appKeys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                        appTotal += value.length + key.length;
+                    }
+                });
+                
+                // Calculer aussi le total global pour diagnostic
+                let globalTotal = 0;
                 for (let key in localStorage) {
                     if (localStorage.hasOwnProperty(key)) {
-                        total += localStorage[key].length + key.length;
+                        globalTotal += localStorage[key].length + key.length;
                     }
                 }
-                const totalMB = (total / (1024 * 1024)).toFixed(2);
+                
+                const appMB = (appTotal / (1024 * 1024)).toFixed(2);
+                const globalMB = (globalTotal / (1024 * 1024)).toFixed(2);
                 const limitMB = 5; // Limite typique de localStorage
-                const percentUsed = ((total / (limitMB * 1024 * 1024)) * 100).toFixed(1);
+                const percentUsed = ((appTotal / (limitMB * 1024 * 1024)) * 100).toFixed(1);
+                
+                // Log pour diagnostic
+                if (parseFloat(globalMB) - parseFloat(appMB) > 0.5) {
+                    console.log(`ℹ️ Stockage global: ${globalMB}MB (dont ${appMB}MB pour cette app, ${(globalMB - appMB).toFixed(2)}MB autres données)`);
+                }
                 
                 return {
-                    used: totalMB,
+                    used: appMB,           // Uniquement cette app
+                    usedGlobal: globalMB,  // Total localStorage
                     limit: limitMB,
-                    percent: percentUsed,
-                    bytes: total
+                    percent: percentUsed,  // Pourcentage basé sur cette app
+                    bytes: appTotal,
+                    bytesGlobal: globalTotal
                 };
             }
             
@@ -1138,6 +1159,7 @@
             }
             
             // Fonction pour mettre à jour l'indicateur visuel de stockage
+            // Fonction pour mettre à jour l'indicateur visuel de stockage
             function updateStorageIndicator() {
                 const storage = getStorageInfo();
                 const storageBar = document.getElementById('storageBar');
@@ -1152,21 +1174,29 @@
                 
                 // Indiquer si IndexedDB est utilisé
                 const usingIndexedDB = isIndexedDBAvailable();
-                const storageType = usingIndexedDB ? '(IndexedDB)' : '(localStorage)';
+                const storageType = usingIndexedDB ? 'IndexedDB' : 'localStorage';
                 
-                // Changer la couleur selon le niveau d'utilisation
+                // Construire le message avec détails
+                let tooltipMsg = `App: ${storage.used}MB / ${storage.limit}MB (${storageType})`;
+                
+                // Ajouter info sur le stockage global si différent
+                if (storage.usedGlobal && parseFloat(storage.usedGlobal) > parseFloat(storage.used) + 0.1) {
+                    tooltipMsg += `\nGlobal: ${storage.usedGlobal}MB (autres données)`;
+                }
+                
+                // Changer la couleur selon le niveau d'utilisation de l'app
                 if (percent < 60) {
                     storageBar.className = 'h-full bg-green-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - Bon`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Bon ✓`;
                 } else if (percent < 80) {
                     storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - Attention`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Attention ⚠`;
                 } else if (percent < 95) {
                     storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - Critique !`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Critique !`;
                 } else {
                     storageBar.className = 'h-full bg-red-500 transition-all duration-300';
-                    storageIndicator.title = `Stockage: ${storage.used}MB / ${storage.limit}MB ${storageType} - PLEIN !`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: PLEIN !`;
                 }
             }
             
