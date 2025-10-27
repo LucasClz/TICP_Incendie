@@ -230,11 +230,6 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-4">
                     <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
-                    <!-- Indicateur de filtre catégorie -->
-                    <div id="categoryFilterBadge" class="hidden px-3 py-1 bg-orange-100 border border-orange-300 rounded-full text-sm font-medium text-orange-800">
-                        <span class="mr-1">🔍</span>
-                        <span id="categoryFilterText">Filtre: MR</span>
-                    </div>
                     <!-- Indicateur de stockage -->
                     <div id="storageIndicator" class="text-xs" title="Utilisation du stockage local">
                         <div class="flex items-center gap-2">
@@ -292,7 +287,7 @@
                         <div class="mt-3 text-sm">
                             <div class="font-medium mb-1">Filtrer par catégorie</div>
                             <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1" checked>MR</label>
                                 <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
                                 <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
                                 <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
@@ -375,14 +370,7 @@
     <div id="adminMode" class="hidden h-full bg-gray-50">
         <header class="bg-white shadow-sm border-b px-6 py-4">
             <div class="flex justify-between items-center">
-                <div class="flex items-center gap-4">
-                    <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
-                    <!-- Indicateur de filtre catégorie -->
-                    <div id="categoryFilterBadgeAdmin" class="hidden px-3 py-1 bg-orange-100 border border-orange-300 rounded-full text-sm font-medium text-orange-800">
-                        <span class="mr-1">🔍</span>
-                        <span id="categoryFilterTextAdmin">Filtre: MR</span>
-                    </div>
-                </div>
+                <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
                 <button id="exitAdminBtn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
                     Retour
                 </button>
@@ -426,7 +414,6 @@
             let zones = [];
             let inspections = [];
             let isAdminMode = false;
-            let categoryFilter = null; // Filtre par catégorie (ex: 'MR', 'PRM', etc.)
 
             // Criteria definitions
             const CRITERIA = {
@@ -630,28 +617,6 @@
 
             // Initialize application
             async function init() {
-                // Détecter le filtre de catégorie depuis l'URL (ex: ?category=MR)
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.has('category')) {
-                    categoryFilter = urlParams.get('category').toUpperCase();
-                    console.info(`🔍 Mode filtré activé : catégorie "${categoryFilter}"`);
-                    
-                    // Afficher l'indicateur de filtre
-                    const badge = document.getElementById('categoryFilterBadge');
-                    const badgeAdmin = document.getElementById('categoryFilterBadgeAdmin');
-                    const filterText = document.getElementById('categoryFilterText');
-                    const filterTextAdmin = document.getElementById('categoryFilterTextAdmin');
-                    
-                    if (badge) {
-                        badge.classList.remove('hidden');
-                        if (filterText) filterText.textContent = `Filtre: ${categoryFilter}`;
-                    }
-                    if (badgeAdmin) {
-                        badgeAdmin.classList.remove('hidden');
-                        if (filterTextAdmin) filterTextAdmin.textContent = `Filtre: ${categoryFilter}`;
-                    }
-                }
-                
                 await loadData();
                 setupEventListeners();
                 renderZoneList();
@@ -1667,15 +1632,6 @@
 
         let filteredZones = zones.slice();
 
-        // Filtre global par catégorie (depuis URL)
-        if (categoryFilter) {
-            filteredZones = filteredZones.filter(z => {
-                const cat = z.category || '';
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return normalized === categoryFilter;
-            });
-        }
-
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
         }
@@ -2657,17 +2613,7 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Filtrer les zones si un filtre de catégorie est actif
-        let displayZones = zones;
-        if (categoryFilter) {
-            displayZones = zones.filter(z => {
-                const cat = z.category || '';
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return normalized === categoryFilter;
-            });
-        }
-
-        container.innerHTML = displayZones.map(zone => {
+        container.innerHTML = zones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return `
