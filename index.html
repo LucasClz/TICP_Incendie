@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tournées Incendie - Gestion des Inspections</title>
+    <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -3377,6 +3378,10 @@
     }
 
     // ===== FIN EXPORT / IMPORT NOTATIONS =====
+    
+    // Rendre les fonctions disponibles globalement (pour compatibilité onclick)
+    window.exportNotations = exportNotations;
+    window.importNotations = importNotations;
 
     const ELEMENT_COLLECTION_MAP = { extincteur: 'extincteurs', dm: 'dm', sortie: 'sorties' };
     const EXTINGUISHER_TYPES = ['Eau', 'Mousse', 'Poudre', 'CO2', 'Lithium', 'A identifié'];
