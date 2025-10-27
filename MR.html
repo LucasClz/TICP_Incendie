@@ -228,7 +228,24 @@
         <!-- Header -->
         <header class="bg-white shadow-sm border-b px-6 py-4">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
+                    <!-- Indicateur de filtre catégorie -->
+                    <div id="categoryFilterBadge" class="hidden px-3 py-1 bg-orange-100 border border-orange-300 rounded-full text-sm font-medium text-orange-800">
+                        <span class="mr-1">🔍</span>
+                        <span id="categoryFilterText">Filtre: MR</span>
+                    </div>
+                    <!-- Indicateur de stockage -->
+                    <div id="storageIndicator" class="text-xs" title="Utilisation du stockage local">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-600">💾</span>
+                            <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div id="storageBar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <span id="storageText" class="text-gray-700 font-medium">0%</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="flex gap-4">
                     <select id="campaignSelect" class="px-3 py-2 border border-gray-300 rounded-md">
                         <option value="2025Q1">2025 Q1</option>
@@ -236,7 +253,7 @@
                         <option value="2025Q3">2025 Q3</option>
                         <option value="2025Q4" selected>2025 Q4</option>
                     </select>
-                    <button id="adminModeBtn" class="hidden px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                    <button id="adminModeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         Mode Admin
                     </button>
                     <button id="nonConformitesBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
@@ -358,7 +375,14 @@
     <div id="adminMode" class="hidden h-full bg-gray-50">
         <header class="bg-white shadow-sm border-b px-6 py-4">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
+                    <!-- Indicateur de filtre catégorie -->
+                    <div id="categoryFilterBadgeAdmin" class="hidden px-3 py-1 bg-orange-100 border border-orange-300 rounded-full text-sm font-medium text-orange-800">
+                        <span class="mr-1">🔍</span>
+                        <span id="categoryFilterTextAdmin">Filtre: MR</span>
+                    </div>
+                </div>
                 <button id="exitAdminBtn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
                     Retour
                 </button>
@@ -402,6 +426,7 @@
             let zones = [];
             let inspections = [];
             let isAdminMode = false;
+            let categoryFilter = null; // Filtre par catégorie (ex: 'MR', 'PRM', etc.)
 
             // Criteria definitions
             const CRITERIA = {
@@ -473,6 +498,9 @@
 
             // Add updateKPIs function
             function updateKPIs() {
+                // Mettre à jour l'indicateur de stockage
+                updateStorageIndicator();
+                
                 // si pas de zone sélectionnée, remettre tout à zéro
                 if (!currentZone) {
                     const reset = id => { const el = document.getElementById(id); if (el) el.textContent = '0%'; };
@@ -509,7 +537,8 @@
                         if (insp && isElementCompleted(insp)) completed++;
                     });
 
-                    el.textContent = `${Math.round((completed / total) * 100)}%`;
+                    const percent = Math.round((completed / total) * 100);
+                    el.textContent = `${percent}% (${completed}/${total})`;
                 });
 
                 // KPI Bâtiment -> basé sur la checklist zone
@@ -601,26 +630,147 @@
 
             // Initialize application
             async function init() {
+                // Détecter le filtre de catégorie depuis l'URL (ex: ?category=MR)
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('category')) {
+                    categoryFilter = urlParams.get('category').toUpperCase();
+                    console.info(`🔍 Mode filtré activé : catégorie "${categoryFilter}"`);
+                }
+                
                 await loadData();
                 setupEventListeners();
                 renderZoneList();
                 updateKPIs();
+                updateStorageIndicator(); // Afficher l'état du stockage
                 applyLeftPanelState(); // apply saved collapsed state
+                
+                // Tenter de charger TICP.json si disponible (pour synchronisation)
+                await tryLoadTICPJson();
+            }
+            
+            // Fonction pour charger TICP.json en arrière-plan
+            async function tryLoadTICPJson() {
+                // Essayer de charger TICP.json même si des données existent déjà
+                // Cela permet la synchronisation avec un fichier centralisé
+                if (window.location && /^https?:/.test(window.location.protocol)) {
+                    const candidates = [
+                        'TICP.json',
+                        './TICP.json',
+                        './data/TICP.json'
+                    ];
+
+                    for (const path of candidates) {
+                        try {
+                            console.info('Tentative de chargement de', path);
+                            const resp = await fetch(path, { cache: 'no-cache' });
+                            if (!resp.ok) continue;
+                            
+                            const json = await resp.json();
+                            let externalZones = [];
+                            
+                            if (Array.isArray(json)) {
+                                externalZones = json;
+                            } else if (json && Array.isArray(json.zones)) {
+                                externalZones = json.zones;
+                            } else if (json && (json.id || json.name)) {
+                                externalZones = [json];
+                            }
+                            
+                            if (externalZones.length > 0) {
+                                console.info(`✅ ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
+                                
+                                // Proposer de fusionner ou remplacer
+                                if (zones.length > 0) {
+                                    const choice = confirm(
+                                        `📂 Fichier ${path} détecté avec ${externalZones.length} zone(s).\n\n` +
+                                        `Vous avez actuellement ${zones.length} zone(s) en local.\n\n` +
+                                        `OK = Fusionner les nouvelles zones\n` +
+                                        `Annuler = Ignorer le fichier`
+                                    );
+                                    
+                                    if (choice) {
+                                        // Fusionner : ajouter les zones qui n'existent pas encore
+                                        let added = 0;
+                                        externalZones.forEach(extZone => {
+                                            if (!zones.find(z => z.id === extZone.id)) {
+                                                zones.push(extZone);
+                                                added++;
+                                            }
+                                        });
+                                        
+                                        if (added > 0) {
+                                            saveZones();
+                                            renderZoneList();
+                                            alert(`✅ ${added} nouvelle(s) zone(s) ajoutée(s) !`);
+                                        } else {
+                                            alert('ℹ️ Toutes les zones du fichier existent déjà.');
+                                        }
+                                    }
+                                } else {
+                                    // Pas de zones locales, charger directement
+                                    zones = externalZones;
+                                    saveZones();
+                                    renderZoneList();
+                                    alert(`✅ ${externalZones.length} zone(s) chargée(s) depuis ${path}`);
+                                }
+                                
+                                break;
+                            }
+                        } catch (err) {
+                            console.debug('Échec du chargement de', path, err);
+                        }
+                    }
+                }
             }
 
             // Load data from localStorage. When the app is served over HTTP(S) (for example
             // via GitHub Pages) try to load `TICP.json` from the repository by default so
             // every user sees the pre-created zones.
             async function loadData() {
-                const savedZones = localStorage.getItem('fireInspection_zones');
-                const savedInspections = localStorage.getItem('fireInspection_inspections');
-
-                if (savedZones) {
+                // Essayer d'abord de charger depuis IndexedDB (plus d'espace, prioritaire)
+                if (isIndexedDBAvailable()) {
                     try {
-                        zones = JSON.parse(savedZones);
-                    } catch (e) {
-                        console.error('Erreur parsing savedZones from localStorage, ignoring savedZones', e);
-                        zones = [];
+                        const idbZones = await loadFromIndexedDB('zones');
+                        const idbInspections = await loadFromIndexedDB('inspections');
+                        
+                        if (idbZones && Array.isArray(idbZones)) {
+                            zones = idbZones;
+                            console.log('✅ Zones chargées depuis IndexedDB');
+                        }
+                        
+                        if (idbInspections && Array.isArray(idbInspections)) {
+                            inspections = idbInspections;
+                            console.log('✅ Inspections chargées depuis IndexedDB');
+                        }
+                    } catch (err) {
+                        console.warn('Erreur lors du chargement depuis IndexedDB, utilisation de localStorage', err);
+                    }
+                }
+                
+                // Fallback sur localStorage si IndexedDB n'a rien retourné
+                if (!zones || zones.length === 0) {
+                    const savedZones = localStorage.getItem('fireInspection_zones');
+                    if (savedZones) {
+                        try {
+                            zones = JSON.parse(savedZones);
+                            console.log('✅ Zones chargées depuis localStorage');
+                        } catch (e) {
+                            console.error('Erreur parsing savedZones from localStorage, ignoring savedZones', e);
+                            zones = [];
+                        }
+                    }
+                }
+                
+                if (!inspections || inspections.length === 0) {
+                    const savedInspections = localStorage.getItem('fireInspection_inspections');
+                    if (savedInspections) {
+                        try {
+                            inspections = JSON.parse(savedInspections);
+                            console.log('✅ Inspections chargées depuis localStorage');
+                        } catch (e) {
+                            console.error('Erreur parsing savedInspections from localStorage', e);
+                            inspections = [];
+                        }
                     }
                 }
 
@@ -643,45 +793,6 @@
                     });
                     // persist migration result
                     saveZones();
-                }
-
-                // If no saved zones, and we're served over HTTP(S), try to fetch TICP.json
-                if ((!zones || zones.length === 0) && window.location && /^https?:/.test(window.location.protocol)) {
-                    const candidates = [
-                        'TICP.json',
-                        './TICP.json',
-                        './data/TICP.json'
-                    ];
-
-                    for (const path of candidates) {
-                        try {
-                            console.info('Attempting to fetch zones from', path);
-                            const resp = await fetch(path);
-                            if (!resp.ok) {
-                                console.debug('Fetch returned non-ok for', path, resp.status);
-                                continue;
-                            }
-                            const json = await resp.json();
-
-                            if (Array.isArray(json)) {
-                                zones = json;
-                            } else if (json && Array.isArray(json.zones)) {
-                                zones = json.zones;
-                            } else if (json && (json.id || json.name)) {
-                                zones = [json];
-                            } else {
-                                console.debug('Fetched JSON from', path, 'did not match expected shape');
-                                continue;
-                            }
-
-                            console.info('Zones loaded from', path);
-                            // persist to localStorage so users get the same view locally
-                            saveZones();
-                            break;
-                        } catch (err) {
-                            console.debug('Failed to fetch', path, err);
-                        }
-                    }
                 }
 
                 // If still empty, fall back to the embedded default
@@ -753,15 +864,6 @@
                     }];
                     saveZones();
                 }
-
-                if (savedInspections) {
-                    try {
-                        inspections = JSON.parse(savedInspections);
-                    } catch (e) {
-                        console.error('Erreur parsing savedInspections from localStorage', e);
-                        inspections = [];
-                    }
-                }
             }
 
             // Save data to localStorage (robuste face au quota)
@@ -782,25 +884,69 @@
             }
 
             // Tentatives de sauvegarde avec strategies si quota dépassé
-            function saveZones() {
+            async function saveZones() {
+                // Vérifier l'espace avant de sauvegarder
+                const storageInfo = getStorageInfo();
+                console.log(`Utilisation du stockage: ${storageInfo.used}MB / ${storageInfo.limit}MB (${storageInfo.percent}%)`);
+                
+                // Essayer d'abord IndexedDB si disponible (beaucoup plus d'espace)
+                if (isIndexedDBAvailable()) {
+                    try {
+                        await saveToIndexedDB('zones', zones);
+                        console.log('✅ Zones sauvegardées dans IndexedDB');
+                        // Sauvegarder aussi dans localStorage comme backup (si possible)
+                        try {
+                            localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
+                        } catch (e) {
+                            console.debug('localStorage backup failed, but IndexedDB succeeded');
+                        }
+                        updateStorageIndicator();
+                        return;
+                    } catch (err) {
+                        console.warn('IndexedDB save failed, falling back to localStorage', err);
+                    }
+                }
+                
+                // Nettoyage préventif si > 80%
+                if (parseFloat(storageInfo.percent) > 80) {
+                    const cleaned = autoCleanStorage();
+                    if (cleaned) {
+                        console.log(`Nettoyage automatique: ${cleaned.photosRemoved} photos supprimées`);
+                    }
+                }
+                
                 try {
                     localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
+                    updateStorageIndicator(); // Mettre à jour l'indicateur après sauvegarde réussie
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
+                        console.warn('Quota dépassé, tentative de libération d\'espace...');
+                        
                         // 1) tenter de libérer en supprimant photos d'inspection
                         const removedPhotos = removeAllInspectionPhotos();
                         try {
                             localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
                             localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
-                            alert(`Espace local saturé : ${removedPhotos} photo(s) d'inspection ont été supprimées pour libérer de l'espace.`);
+                            const newStorage = getStorageInfo();
+                            alert(`✅ Espace libéré : ${removedPhotos} photo(s) supprimées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB (${newStorage.percent}%)`);
                             return;
                         } catch (err2) {
-                            // 2) retirer les plans volumineux (en dernier recours)
-                            const threshold = 200 * 1024; // ~200KB
+                            // 2) retirer les plans volumineux des floors (en dernier recours)
+                            const threshold = 150 * 1024; // ~150KB
                             let removedPlans = 0;
                             zones.forEach(z => {
+                                if (z.floors) {
+                                    z.floors.forEach(floor => {
+                                        if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > threshold) {
+                                            floor.plan._backupImage = floor.plan.imageUrl; // mémoire temporaire (non persistée)
+                                            floor.plan.imageUrl = '';
+                                            removedPlans++;
+                                        }
+                                    });
+                                }
+                                // Ancien format (compatibility)
                                 if (z.plan && z.plan.imageUrl && z.plan.imageUrl.length > threshold) {
-                                    z.plan._backupImage = z.plan.imageUrl; // mémoire temporaire (non persistée)
+                                    z.plan._backupImage = z.plan.imageUrl;
                                     z.plan.imageUrl = '';
                                     removedPlans++;
                                 }
@@ -808,11 +954,13 @@
                             try {
                                 localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
                                 localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
-                                alert(`Espace local très limité : ${removedPlans} image(s) de plan ont été retirées pour permettre la sauvegarde.`);
+                                const newStorage = getStorageInfo();
+                                alert(`⚠️ Espace critique : ${removedPlans} image(s) de plan retirées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB\n\nConseils:\n- Exportez vos données\n- Utilisez des images plus petites\n- Supprimez les anciennes zones`);
                                 return;
                             } catch (err3) {
                                 console.error('saveZones failed after cleanup', err3);
-                                alert('Impossible de sauvegarder les zones : espace de stockage local insuffisant.');
+                                const finalStorage = getStorageInfo();
+                                alert(`❌ Impossible de sauvegarder.\n\nStockage: ${finalStorage.used}MB / ${finalStorage.limit}MB (${finalStorage.percent}%)\n\n💡 Solutions:\n1. Exportez vos données (bouton Exporter)\n2. Supprimez des zones inutiles\n3. Videz le cache du navigateur\n4. Utilisez un autre navigateur`);
                             }
                         }
                     } else {
@@ -822,18 +970,39 @@
                 }
             }
 
-            function saveInspections() {
+            async function saveInspections() {
+                // Essayer d'abord IndexedDB si disponible
+                if (isIndexedDBAvailable()) {
+                    try {
+                        await saveToIndexedDB('inspections', inspections);
+                        console.log('✅ Inspections sauvegardées dans IndexedDB');
+                        // Backup dans localStorage si possible
+                        try {
+                            localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
+                        } catch (e) {
+                            console.debug('localStorage backup failed, but IndexedDB succeeded');
+                        }
+                        updateStorageIndicator();
+                        return;
+                    } catch (err) {
+                        console.warn('IndexedDB save failed, falling back to localStorage', err);
+                    }
+                }
+                
                 try {
                     localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
+                    updateStorageIndicator(); // Mettre à jour l'indicateur après sauvegarde réussie
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
                         const removedPhotos = removeAllInspectionPhotos();
                         try {
                             localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
-                            alert(`Espace local saturé : ${removedPhotos} photo(s) d'inspection ont été supprimées pour libérer de l'espace.`);
+                            const storageInfo = getStorageInfo();
+                            alert(`✅ ${removedPhotos} photo(s) supprimées.\n\nStockage: ${storageInfo.used}MB / ${storageInfo.limit}MB (${storageInfo.percent}%)`);
                         } catch (err2) {
                             console.error('saveInspections failed after cleanup', err2);
-                            alert('Impossible de sauvegarder les inspections : espace de stockage local insuffisant.');
+                            const storageInfo = getStorageInfo();
+                            alert(`❌ Impossible de sauvegarder les inspections.\n\nStockage: ${storageInfo.used}MB / ${storageInfo.limit}MB\n\n💡 Exportez vos données et supprimez des anciennes zones.`);
                         }
                     } else {
                         console.error('saveInspections unexpected error', err);
@@ -843,28 +1012,249 @@
             }
 
             // Compression / redimensionnement des images DataURL pour stocker dans localStorage
-            function compressImage(dataUrl, maxWidth = 1600, quality = 0.75) {
+            // Optimisation agressive pour économiser l'espace
+            function compressImage(dataUrl, maxWidth = 1200, quality = 0.65) {
                 return new Promise(resolve => {
                     const img = new Image();
                     img.onload = () => {
                         let width = img.width;
                         let height = img.height;
+                        
+                        // Réduire davantage si l'image est très grande
                         if (width > maxWidth) {
                             height = Math.round((height * maxWidth) / width);
                             width = maxWidth;
                         }
+                        
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
+                        
+                        // Amélioration de la qualité de rendu avant compression
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(img, 0, 0, width, height);
-                        // Exporter en JPEG réduit la taille généralement
-                        const compressed = canvas.toDataURL('image/jpeg', quality);
+                        
+                        // Exporter en JPEG avec qualité réduite
+                        let compressed = canvas.toDataURL('image/jpeg', quality);
+                        
+                        // Si l'image est encore trop grande (>500KB), réduire davantage
+                        if (compressed.length > 500000) {
+                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        }
+                        
+                        // Si encore trop grande (>800KB), réduire la résolution
+                        if (compressed.length > 800000) {
+                            const smallerWidth = Math.round(width * 0.75);
+                            const smallerHeight = Math.round(height * 0.75);
+                            canvas.width = smallerWidth;
+                            canvas.height = smallerHeight;
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            ctx.drawImage(img, 0, 0, smallerWidth, smallerHeight);
+                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        }
+                        
                         resolve(compressed);
                     };
                     img.onerror = () => resolve(dataUrl);
                     img.src = dataUrl;
                 });
+            }
+            
+            // Fonction pour calculer l'utilisation du stockage (uniquement pour cette app)
+            function getStorageInfo() {
+                // Calculer uniquement l'espace utilisé par notre application
+                let appTotal = 0;
+                const appKeys = ['fireInspection_zones', 'fireInspection_inspections', 'fireInspection_leftPanelCollapsed'];
+                
+                appKeys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                        appTotal += value.length + key.length;
+                    }
+                });
+                
+                // Calculer aussi le total global pour diagnostic
+                let globalTotal = 0;
+                for (let key in localStorage) {
+                    if (localStorage.hasOwnProperty(key)) {
+                        globalTotal += localStorage[key].length + key.length;
+                    }
+                }
+                
+                const appMB = (appTotal / (1024 * 1024)).toFixed(2);
+                const globalMB = (globalTotal / (1024 * 1024)).toFixed(2);
+                const limitMB = 5; // Limite typique de localStorage
+                const percentUsed = ((appTotal / (limitMB * 1024 * 1024)) * 100).toFixed(1);
+                
+                // Log pour diagnostic
+                if (parseFloat(globalMB) - parseFloat(appMB) > 0.5) {
+                    console.log(`ℹ️ Stockage global: ${globalMB}MB (dont ${appMB}MB pour cette app, ${(globalMB - appMB).toFixed(2)}MB autres données)`);
+                }
+                
+                return {
+                    used: appMB,           // Uniquement cette app
+                    usedGlobal: globalMB,  // Total localStorage
+                    limit: limitMB,
+                    percent: percentUsed,  // Pourcentage basé sur cette app
+                    bytes: appTotal,
+                    bytesGlobal: globalTotal
+                };
+            }
+            
+            // ===== IndexedDB Storage (pour plus d'espace) =====
+            const DB_NAME = 'FireInspectionDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'data';
+            
+            // Ouvrir la base de données IndexedDB
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME);
+                        }
+                    };
+                });
+            }
+            
+            // Sauvegarder dans IndexedDB
+            async function saveToIndexedDB(key, value) {
+                try {
+                    const db = await openDB();
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+                    store.put(value, key);
+                    
+                    return new Promise((resolve, reject) => {
+                        transaction.oncomplete = () => {
+                            db.close();
+                            resolve();
+                        };
+                        transaction.onerror = () => {
+                            db.close();
+                            reject(transaction.error);
+                        };
+                    });
+                } catch (err) {
+                    console.error('IndexedDB save error:', err);
+                    throw err;
+                }
+            }
+            
+            // Lire depuis IndexedDB
+            async function loadFromIndexedDB(key) {
+                try {
+                    const db = await openDB();
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.get(key);
+                    
+                    return new Promise((resolve, reject) => {
+                        request.onsuccess = () => {
+                            db.close();
+                            resolve(request.result);
+                        };
+                        request.onerror = () => {
+                            db.close();
+                            reject(request.error);
+                        };
+                    });
+                } catch (err) {
+                    console.error('IndexedDB load error:', err);
+                    return null;
+                }
+            }
+            
+            // Vérifier si IndexedDB est disponible
+            function isIndexedDBAvailable() {
+                return typeof indexedDB !== 'undefined';
+            }
+            
+            // Fonction pour mettre à jour l'indicateur visuel de stockage
+            // Fonction pour mettre à jour l'indicateur visuel de stockage
+            function updateStorageIndicator() {
+                const storage = getStorageInfo();
+                const storageBar = document.getElementById('storageBar');
+                const storageText = document.getElementById('storageText');
+                const storageIndicator = document.getElementById('storageIndicator');
+                
+                if (!storageBar || !storageText || !storageIndicator) return;
+                
+                const percent = parseFloat(storage.percent);
+                storageBar.style.width = `${Math.min(100, percent)}%`;
+                storageText.textContent = `${storage.percent}%`;
+                
+                // Indiquer si IndexedDB est utilisé
+                const usingIndexedDB = isIndexedDBAvailable();
+                const storageType = usingIndexedDB ? 'IndexedDB' : 'localStorage';
+                
+                // Construire le message avec détails
+                let tooltipMsg = `App: ${storage.used}MB / ${storage.limit}MB (${storageType})`;
+                
+                // Ajouter info sur le stockage global si différent
+                if (storage.usedGlobal && parseFloat(storage.usedGlobal) > parseFloat(storage.used) + 0.1) {
+                    tooltipMsg += `\nGlobal: ${storage.usedGlobal}MB (autres données)`;
+                }
+                
+                // Changer la couleur selon le niveau d'utilisation de l'app
+                if (percent < 60) {
+                    storageBar.className = 'h-full bg-green-500 transition-all duration-300';
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Bon ✓`;
+                } else if (percent < 80) {
+                    storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Attention ⚠`;
+                } else if (percent < 95) {
+                    storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Critique !`;
+                } else {
+                    storageBar.className = 'h-full bg-red-500 transition-all duration-300';
+                    storageIndicator.title = `${tooltipMsg}\nStatut: PLEIN !`;
+                }
+            }
+            
+            // Fonction pour nettoyer automatiquement l'espace
+            function autoCleanStorage() {
+                const storage = getStorageInfo();
+                
+                // Si on dépasse 80% du quota, nettoyer
+                if (parseFloat(storage.percent) > 80) {
+                    console.log('Nettoyage automatique du stockage...');
+                    
+                    // 1. Supprimer les photos d'inspection les plus anciennes
+                    let photosRemoved = 0;
+                    inspections.forEach(insp => {
+                        if (insp.photo) {
+                            insp.photo = '';
+                            photosRemoved++;
+                        }
+                    });
+                    
+                    // 2. Re-compresser les images de plan si nécessaire
+                    let plansCompressed = 0;
+                    zones.forEach(z => {
+                        if (z.floors) {
+                            z.floors.forEach(floor => {
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 300000) {
+                                    // Marquer pour re-compression au prochain chargement
+                                    plansCompressed++;
+                                }
+                            });
+                        }
+                    });
+                    
+                    return { photosRemoved, plansCompressed };
+                }
+                
+                return null;
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
@@ -1262,6 +1652,15 @@
 
         let filteredZones = zones.slice();
 
+        // Filtre global par catégorie (depuis URL)
+        if (categoryFilter) {
+            filteredZones = filteredZones.filter(z => {
+                const cat = z.category || '';
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return normalized === categoryFilter;
+            });
+        }
+
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
         }
@@ -1449,6 +1848,12 @@
         if (data.id) title += ` - ${data.id}`;
         if (data.type) title += ` (${data.type})`;
         
+        // Afficher la quantité si c'est un extincteur
+        const quantity = data.quantity || 1;
+        if (type === 'extincteur' && quantity > 1) {
+            title += ` [×${quantity}]`;
+        }
+        
         // Calculer la complétude de cet élément
         const enabledCriteria = currentZone?.enabledCriteria?.[type] || Object.keys(criteria);
         const completedCount = enabledCriteria.filter(key => inspection.criteria[key] && inspection.criteria[key] !== '').length;
@@ -1492,6 +1897,19 @@
                     `).join('')}
 
                 </div>
+                
+                ${type === 'extincteur' ? `
+                <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <label class="block text-sm font-medium mb-2">
+                        <span class="text-blue-800">🔢 Quantité d'extincteurs</span>
+                        <span class="text-xs text-gray-600 ml-2">(regroupement)</span>
+                    </label>
+                    <input type="number" min="1" max="99" value="${quantity}" 
+                        onchange="updateQuantity(this.value)"
+                        class="w-24 px-3 py-2 border border-blue-300 rounded-md text-center font-semibold">
+                    <p class="text-xs text-gray-600 mt-1">Indiquez le nombre d'extincteurs à ce même emplacement</p>
+                </div>
+                ` : ''}
                 
                 <div class="mt-6">
                     <label class="block text-sm font-medium mb-2">Commentaires</label>
@@ -1565,6 +1983,78 @@
         updatePlanFileHint();
         
         alert(`ID de la zone mis à jour de "${oldId}" vers "${trimmedId}".\nPensez à renommer vos fichiers images selon le format: ${trimmedId}_NomEtage.png\nExemple: ${trimmedId}_${currentFloor?.name || 'RDC'}.png`);
+    }
+
+    function bulkUpdateExtinguisherType() {
+        if (!currentZone) return;
+        
+        // Compter le nombre total d'extincteurs dans la zone
+        let totalExtinguishers = 0;
+        currentZone.floors.forEach(floor => {
+            if (floor.elements && floor.elements.extincteurs) {
+                totalExtinguishers += floor.elements.extincteurs.length;
+            }
+        });
+        
+        if (totalExtinguishers === 0) {
+            alert('Aucun extincteur trouvé dans cette zone.');
+            return;
+        }
+        
+        // Créer une modal pour choisir le nouveau type
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px;">
+                <h3 class="text-lg font-bold mb-4">Modifier le type de tous les extincteurs</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Cette action va modifier le type de <strong>${totalExtinguishers} extincteur(s)</strong> dans tous les étages de la zone.
+                </p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Nouveau type :</label>
+                    <select id="bulkExtType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        ${EXTINGUISHER_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="flex gap-2 justify-end">
+                    <button onclick="this.closest('.modal').remove()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                        Annuler
+                    </button>
+                    <button onclick="confirmBulkUpdateExtinguisherType()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Confirmer
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    function confirmBulkUpdateExtinguisherType() {
+        const newType = document.getElementById('bulkExtType').value;
+        if (!newType || !currentZone) return;
+        
+        let updatedCount = 0;
+        
+        // Parcourir tous les étages et tous les extincteurs
+        currentZone.floors.forEach(floor => {
+            if (floor.elements && floor.elements.extincteurs) {
+                floor.elements.extincteurs.forEach(ext => {
+                    ext.type = newType;
+                    updatedCount++;
+                });
+            }
+        });
+        
+        saveZones();
+        renderElementsList();
+        renderAdminElements();
+        
+        // Fermer la modal
+        document.querySelector('.modal')?.remove();
+        
+        alert(`${updatedCount} extincteur(s) mis à jour vers le type "${newType}".`);
     }
 
     // Get element inspection
@@ -1658,6 +2148,29 @@
         }
     }
 
+    // Update quantity (for extincteurs)
+    function updateQuantity(quantity) {
+        if (!currentElement || currentElement.type !== 'extincteur') return;
+        
+        const qty = parseInt(quantity);
+        if (isNaN(qty) || qty < 1) return;
+        
+        currentElement.data.quantity = qty;
+        
+        // Mettre à jour dans la zone
+        if (currentZone && currentFloor) {
+            const extincteurs = currentFloor.elements.extincteurs || [];
+            const index = extincteurs.findIndex(ext => getElementKey('extincteur', ext) === getElementKey('extincteur', currentElement.data));
+            if (index !== -1) {
+                extincteurs[index].quantity = qty;
+                saveZones();
+                
+                // Re-render pour afficher la nouvelle quantité
+                renderNotationPanel();
+            }
+        }
+    }
+
     // Handle photo upload (compress before storing)
     function handlePhotoUpload(event) {
         if (!currentElement) return;
@@ -1670,7 +2183,7 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 // compress image before storing
-                compressImage(e.target.result, 1600, 0.75).then(compressed => {
+                compressImage(e.target.result, 1200, 0.65).then(compressed => {
                     inspection.photos = inspection.photos || [];
                     inspection.photos.push(compressed);
                     inspection.timestamp = new Date().toISOString();
@@ -1697,7 +2210,7 @@
                 console.debug('backup creation failed', err);
             }
 
-            compressImage(e.target.result, 1600, 0.8).then(compressedDataUrl => {
+            compressImage(e.target.result, 1200, 0.65).then(compressedDataUrl => {
                 const img = new Image();
                 img.onload = () => {
                     currentFloor.plan = currentFloor.plan || {};
@@ -2129,7 +2642,17 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        container.innerHTML = zones.map(zone => {
+        // Filtrer les zones si un filtre de catégorie est actif
+        let displayZones = zones;
+        if (categoryFilter) {
+            displayZones = zones.filter(z => {
+                const cat = z.category || '';
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return normalized === categoryFilter;
+            });
+        }
+
+        container.innerHTML = displayZones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return `
@@ -2450,8 +2973,26 @@
         alert(`Librairie exportée avec succès : ${zones.length} zone(s)\nFichier : ${filename}`);
     }
 
+    function exportCurrentZone() {
+        if (!currentZone) {
+            alert('Aucune zone sélectionnée pour l\'export.');
+            return;
+        }
+        
+        // Export uniquement la zone courante
+        const exportData = {
+            version: "1.0",
+            exportDate: new Date().toISOString(),
+            zones: [currentZone]
+        };
+        const data = JSON.stringify(exportData, null, 2);
+        const filename = `TICP_zone_${currentZone.id}_${new Date().toISOString().split('T')[0]}.json`;
+        downloadFile(data, filename, 'application/json');
+        alert(`Zone "${currentZone.name}" exportée avec succès !\nFichier : ${filename}`);
+    }
+
     const ELEMENT_COLLECTION_MAP = { extincteur: 'extincteurs', dm: 'dm', sortie: 'sorties' };
-    const EXTINGUISHER_TYPES = ['Eau', 'Mousse', 'Poudre', 'CO2', 'Lithium'];
+    const EXTINGUISHER_TYPES = ['Eau', 'Mousse', 'Poudre', 'CO2', 'Lithium', 'A identifié'];
 
     function generateUniqueElementId(type, elements) {
         const prefix = type === 'extincteur' ? 'EXT' : 'DM';
@@ -2580,6 +3121,15 @@
                                     ${EXTINGUISHER_TYPES.map(t => `<option value="${t}" ${element.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                                 </select>
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    🔢 Quantité
+                                    <span class="text-xs text-gray-500">(regroupement)</span>
+                                </label>
+                                <input id="editElemQuantity" type="number" min="1" max="99" value="${element.quantity || 1}"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                <p class="text-xs text-gray-500 mt-1">Nombre d'extincteurs à ce même emplacement</p>
+                            </div>
                         ` : ''}
 
                         <div>
@@ -2640,6 +3190,15 @@
         }
         if (type === 'extincteur') {
             element.type = document.getElementById('editElemType').value;
+            
+            // Sauvegarder la quantité
+            const quantityInput = document.getElementById('editElemQuantity');
+            if (quantityInput) {
+                const qty = parseInt(quantityInput.value);
+                if (!isNaN(qty) && qty >= 1) {
+                    element.quantity = qty;
+                }
+            }
         }
         // save size if provided
         const sizeInput = document.getElementById('editElemSize');
@@ -2984,6 +3543,19 @@
                             <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
                             <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
                         </select>
+                    </div>
+                    <div class="ml-4">
+                        <label class="block text-sm font-medium mb-2">Actions groupées</label>
+                        <div class="flex gap-2">
+                            <button onclick="bulkUpdateExtinguisherType()" 
+                                    class="px-3 py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-medium flex items-center gap-2">
+                                🧯 Modifier type extincteurs
+                            </button>
+                            <button onclick="exportCurrentZone()" 
+                                    class="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium flex items-center gap-2">
+                                📥 Exporter cette zone
+                            </button>
+                        </div>
                     </div>
                     <div class="flex gap-2 flex-shrink-0">
                         <button onclick="saveAndReturn()" 
