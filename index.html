@@ -202,6 +202,25 @@
         .left-panel.collapsed .collapse-strip {
             display: block;
         }
+        
+        /* Styles pour les sections repliables de critères */
+        details summary {
+            list-style: none;
+        }
+        details summary::-webkit-details-marker {
+            display: none;
+        }
+        details[open] > summary {
+            margin-bottom: 0;
+        }
+        
+        /* Animation douce pour les checkboxes */
+        input[type="checkbox"] {
+            transition: all 0.2s ease;
+        }
+        input[type="checkbox"]:checked {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="h-full bg-gray-50">
@@ -2651,13 +2670,35 @@
             const criteria = CRITERIA[type] || {};
             const enabledCriteria = currentZone.enabledCriteria[type] || [];
             
-            container.innerHTML = Object.entries(criteria).map(([key, label]) => `
-                <label class="flex items-center">
-                    <input type="checkbox" ${enabledCriteria.includes(key) ? 'checked' : ''}
-                        onchange="toggleElementCriterion('${type}', '${key}', this.checked)" class="mr-2">
-                    <span>${label}</span>
-                </label>
-            `).join('');
+            // Compter les critères activés
+            const enabledCount = Object.keys(criteria).filter(key => enabledCriteria.includes(key)).length;
+            const totalCount = Object.keys(criteria).length;
+            
+            container.innerHTML = `
+                <div class="mb-3 pb-2 border-b border-gray-200">
+                    <div class="flex items-center justify-between text-xs text-gray-600">
+                        <span class="font-medium">${enabledCount} / ${totalCount} critères activés</span>
+                        <div class="flex gap-2">
+                            <button onclick="selectAllCriteria('${type}', true)" class="text-blue-600 hover:text-blue-800 font-medium">Tout</button>
+                            <span class="text-gray-400">|</span>
+                            <button onclick="selectAllCriteria('${type}', false)" class="text-blue-600 hover:text-blue-800 font-medium">Aucun</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    ${Object.entries(criteria).map(([key, label]) => `
+                        <label class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 transition-colors cursor-pointer group">
+                            <input type="checkbox" ${enabledCriteria.includes(key) ? 'checked' : ''}
+                                onchange="toggleElementCriterion('${type}', '${key}', this.checked)" 
+                                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                            <span class="text-sm text-gray-700 group-hover:text-gray-900 flex-1">${label}</span>
+                            <span class="text-xs ${enabledCriteria.includes(key) ? 'text-green-600' : 'text-gray-400'}">
+                                ${enabledCriteria.includes(key) ? '✓' : '○'}
+                            </span>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
         });
     }
 
@@ -2668,18 +2709,65 @@
         currentZone.enabledCriteria = currentZone.enabledCriteria || {};
         currentZone.enabledCriteria.zone = currentZone.enabledCriteria.zone || {};
         
+        // Icônes pour chaque section
+        const sectionIcons = {
+            'eclairage_securite': '💡',
+            'signalisation': '🚸',
+            'desenfumage': '💨',
+            'compartimentage': '🧱',
+            'ssi': '🔔',
+            'registres': '📋'
+        };
+        
+        // Titres français pour chaque section
+        const sectionTitles = {
+            'eclairage_securite': 'Éclairage de Sécurité',
+            'signalisation': 'Signalisation',
+            'desenfumage': 'Désenfumage',
+            'compartimentage': 'Compartimentage',
+            'ssi': 'Système de Sécurité Incendie',
+            'registres': 'Registres & Documents'
+        };
+        
         container.innerHTML = Object.entries(ZONE_CRITERIA).map(([section, criteria]) => {
             const sectionValues = currentZone.enabledCriteria.zone[section] || [];
+            const enabledCount = Object.keys(criteria).filter(key => sectionValues.includes(key)).length;
+            const totalCount = Object.keys(criteria).length;
+            const icon = sectionIcons[section] || '📌';
+            const title = sectionTitles[section] || section.replace(/_/g, ' ');
+            
             return `
-                <div class="border border-gray-100 rounded p-2 space-y-1">
-                    <h5 class="text-xs font-semibold capitalize text-gray-700">${section.replace(/_/g, ' ')}</h5>
-                    ${Object.entries(criteria).map(([key, label]) => `
-                        <label class="flex items-center">
-                            <input type="checkbox" ${sectionValues.includes(key) ? 'checked' : ''}
-                                onchange="toggleZoneCriterion('${section}', '${key}', this.checked)" class="mr-1">
-                            <span class="text-xs">${label}</span>
-                        </label>
-                    `).join('')}
+                <div class="border border-gray-200 rounded-lg p-3 bg-gradient-to-br from-gray-50 to-white shadow-sm">
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                        <h5 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                            <span>${icon}</span>
+                            <span>${title}</span>
+                        </h5>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 font-medium">${enabledCount}/${totalCount}</span>
+                            <div class="flex gap-1.5">
+                                <button onclick="selectAllZoneCriteria('${section}', true)" 
+                                    class="text-xs text-blue-600 hover:text-blue-800 font-medium px-1" 
+                                    title="Tout sélectionner">✓</button>
+                                <button onclick="selectAllZoneCriteria('${section}', false)" 
+                                    class="text-xs text-gray-500 hover:text-gray-700 font-medium px-1" 
+                                    title="Tout désélectionner">✗</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${Object.entries(criteria).map(([key, label]) => `
+                            <label class="flex items-center gap-2 p-1.5 rounded hover:bg-blue-50 transition-colors cursor-pointer group">
+                                <input type="checkbox" ${sectionValues.includes(key) ? 'checked' : ''}
+                                    onchange="toggleZoneCriterion('${section}', '${key}', this.checked)" 
+                                    class="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                                <span class="text-xs text-gray-700 group-hover:text-gray-900 flex-1">${label}</span>
+                                <span class="text-xs ${sectionValues.includes(key) ? 'text-green-600 font-bold' : 'text-gray-300'}">
+                                    ${sectionValues.includes(key) ? '✓' : '○'}
+                                </span>
+                            </label>
+                        `).join('')}
+                    </div>
                 </div>
             `;
         }).join('');
@@ -2699,6 +2787,22 @@
         }
         saveZones();
         updateKPIs();
+        renderElementCriteriaConfig(); // Re-render pour mettre à jour le compteur
+    }
+
+    function selectAllCriteria(type, selectAll) {
+        if (!currentZone) return;
+        currentZone.enabledCriteria = currentZone.enabledCriteria || {};
+        
+        if (selectAll) {
+            currentZone.enabledCriteria[type] = Object.keys(CRITERIA[type] || {});
+        } else {
+            currentZone.enabledCriteria[type] = [];
+        }
+        
+        saveZones();
+        updateKPIs();
+        renderElementCriteriaConfig();
     }
 
     function toggleZoneCriterion(section, key, enabled) {
@@ -2714,6 +2818,23 @@
         }
         saveZones();
         updateKPIs();
+        renderZoneCriteriaConfig(); // Re-render pour mettre à jour le compteur
+    }
+
+    function selectAllZoneCriteria(section, selectAll) {
+        if (!currentZone) return;
+        currentZone.enabledCriteria = currentZone.enabledCriteria || {};
+        currentZone.enabledCriteria.zone = currentZone.enabledCriteria.zone || {};
+        
+        if (selectAll) {
+            currentZone.enabledCriteria.zone[section] = Object.keys(ZONE_CRITERIA[section] || {});
+        } else {
+            currentZone.enabledCriteria.zone[section] = [];
+        }
+        
+        saveZones();
+        updateKPIs();
+        renderZoneCriteriaConfig();
     }
 
     let adminElementEditForm = null;
@@ -2944,34 +3065,77 @@
                     </div>
                     
                     <div class="flex flex-col overflow-hidden">
-                        <h3 class="font-semibold mb-3">Éléments</h3>
-                        <div id="elementsList" class="space-y-2 mb-4 overflow-y-auto flex-1 border border-gray-200 rounded p-3">
+                        <!-- Éléments du plan -->
+                        <div class="mb-4">
+                            <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+                                <span>📍</span> Éléments
+                            </h3>
+                            <div id="elementsList" class="space-y-2 overflow-y-auto max-h-64 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            </div>
                         </div>
                         
-                        <h3 class="font-semibold mb-3">Configuration des Critères</h3>
-                        <div class="space-y-3 overflow-y-auto flex-1">
-                            <div class="border border-gray-200 rounded p-3">
-                                <h4 class="font-semibold text-sm mb-2">Critères Extincteurs</h4>
-                                <div id="extincteurCriteriaConfig" class="space-y-1 text-xs">
-                                </div>
-                            </div>
+                        <!-- Configuration des Critères -->
+                        <div class="flex-1 overflow-hidden flex flex-col">
+                            <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+                                <span>⚙️</span> Configuration des Critères
+                            </h3>
                             
-                            <div class="border border-gray-200 rounded p-3">
-                                <h4 class="font-semibold text-sm mb-2">Critères DM</h4>
-                                <div id="dmCriteriaConfig" class="space-y-1 text-xs">
-                                </div>
-                            </div>
-                            
-                            <div class="border border-gray-200 rounded p-3">
-                                <h4 class="font-semibold text-sm mb-2">Critères Sorties</h4>
-                                <div id="sortieCriteriaConfig" class="space-y-1 text-xs">
-                                </div>
-                            </div>
-                            
-                            <div class="border border-gray-200 rounded p-3">
-                                <h4 class="font-semibold text-sm mb-2">Critères Zone</h4>
-                                <div id="zoneCriteriaConfig" class="space-y-2 text-xs">
-                                </div>
+                            <div class="flex-1 overflow-y-auto space-y-2">
+                                <!-- Critères Extincteurs -->
+                                <details class="group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" open>
+                                    <summary class="cursor-pointer bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 px-4 py-3 font-semibold text-sm flex items-center justify-between transition-colors">
+                                        <span class="flex items-center gap-2">
+                                            <span class="text-red-600">🧯</span>
+                                            <span class="text-red-800">Extincteurs</span>
+                                        </span>
+                                        <span class="text-xs text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div class="p-4 bg-white">
+                                        <div id="extincteurCriteriaConfig" class="space-y-2"></div>
+                                    </div>
+                                </details>
+                                
+                                <!-- Critères DM -->
+                                <details class="group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" open>
+                                    <summary class="cursor-pointer bg-gradient-to-r from-yellow-50 to-yellow-100 hover:from-yellow-100 hover:to-yellow-200 px-4 py-3 font-semibold text-sm flex items-center justify-between transition-colors">
+                                        <span class="flex items-center gap-2">
+                                            <span class="text-yellow-600">🚨</span>
+                                            <span class="text-yellow-800">Déclencheurs Manuels</span>
+                                        </span>
+                                        <span class="text-xs text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div class="p-4 bg-white">
+                                        <div id="dmCriteriaConfig" class="space-y-2"></div>
+                                    </div>
+                                </details>
+                                
+                                <!-- Critères Sorties -->
+                                <details class="group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" open>
+                                    <summary class="cursor-pointer bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 px-4 py-3 font-semibold text-sm flex items-center justify-between transition-colors">
+                                        <span class="flex items-center gap-2">
+                                            <span class="text-green-600">🚪</span>
+                                            <span class="text-green-800">Sorties de Secours</span>
+                                        </span>
+                                        <span class="text-xs text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div class="p-4 bg-white">
+                                        <div id="sortieCriteriaConfig" class="space-y-2"></div>
+                                    </div>
+                                </details>
+                                
+                                <!-- Critères Zone -->
+                                <details class="group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" open>
+                                    <summary class="cursor-pointer bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 px-4 py-3 font-semibold text-sm flex items-center justify-between transition-colors">
+                                        <span class="flex items-center gap-2">
+                                            <span class="text-blue-600">🏢</span>
+                                            <span class="text-blue-800">Zone Globale</span>
+                                        </span>
+                                        <span class="text-xs text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div class="p-4 bg-white">
+                                        <div id="zoneCriteriaConfig" class="space-y-3"></div>
+                                    </div>
+                                </details>
                             </div>
                         </div>
                     </div>
