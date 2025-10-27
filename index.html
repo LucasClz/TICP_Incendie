@@ -423,7 +423,6 @@
                     'fixation': 'Fixation',
                     'goupille': 'Goupille',
                     'entretien': 'Entretien',
-                    'a_identifie': 'A identifié',
                     'cinq_s': '5S'
                 },
                 sortie: {
@@ -1956,6 +1955,78 @@
         alert(`ID de la zone mis à jour de "${oldId}" vers "${trimmedId}".\nPensez à renommer vos fichiers images selon le format: ${trimmedId}_NomEtage.png\nExemple: ${trimmedId}_${currentFloor?.name || 'RDC'}.png`);
     }
 
+    function bulkUpdateExtinguisherType() {
+        if (!currentZone) return;
+        
+        // Compter le nombre total d'extincteurs dans la zone
+        let totalExtinguishers = 0;
+        currentZone.floors.forEach(floor => {
+            if (floor.elements && floor.elements.extincteurs) {
+                totalExtinguishers += floor.elements.extincteurs.length;
+            }
+        });
+        
+        if (totalExtinguishers === 0) {
+            alert('Aucun extincteur trouvé dans cette zone.');
+            return;
+        }
+        
+        // Créer une modal pour choisir le nouveau type
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px;">
+                <h3 class="text-lg font-bold mb-4">Modifier le type de tous les extincteurs</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Cette action va modifier le type de <strong>${totalExtinguishers} extincteur(s)</strong> dans tous les étages de la zone.
+                </p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Nouveau type :</label>
+                    <select id="bulkExtType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        ${EXTINGUISHER_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="flex gap-2 justify-end">
+                    <button onclick="this.closest('.modal').remove()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                        Annuler
+                    </button>
+                    <button onclick="confirmBulkUpdateExtinguisherType()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Confirmer
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    function confirmBulkUpdateExtinguisherType() {
+        const newType = document.getElementById('bulkExtType').value;
+        if (!newType || !currentZone) return;
+        
+        let updatedCount = 0;
+        
+        // Parcourir tous les étages et tous les extincteurs
+        currentZone.floors.forEach(floor => {
+            if (floor.elements && floor.elements.extincteurs) {
+                floor.elements.extincteurs.forEach(ext => {
+                    ext.type = newType;
+                    updatedCount++;
+                });
+            }
+        });
+        
+        saveZones();
+        renderElementsList();
+        renderAdminElements();
+        
+        // Fermer la modal
+        document.querySelector('.modal')?.remove();
+        
+        alert(`${updatedCount} extincteur(s) mis à jour vers le type "${newType}".`);
+    }
+
     // Get element inspection
     function getElementInspection(type, elementData) {
         const key = getElementKey(type, elementData);
@@ -3414,6 +3485,13 @@
                             <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
                             <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
                         </select>
+                    </div>
+                    <div class="ml-4">
+                        <label class="block text-sm font-medium mb-2">Actions groupées</label>
+                        <button onclick="bulkUpdateExtinguisherType()" 
+                                class="px-3 py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-medium flex items-center gap-2">
+                            🧯 Modifier type extincteurs
+                        </button>
                     </div>
                     <div class="flex gap-2 flex-shrink-0">
                         <button onclick="saveAndReturn()" 
