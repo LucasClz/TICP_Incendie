@@ -292,19 +292,9 @@
                                 <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
                             </div>
                         </div>
-                        
-                        <div class="mt-3 text-sm">
-                            <div class="font-medium mb-1">Filtrer par catégorie</div>
-                            <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
-                            </div>
-                        </div>
 
                         <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
-                        <label class="flex items-center mt-2">
+                        <label class="flex items-center mt-3">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
                             <span class="text-sm">Afficher seulement les zones non conformes</span>
                         </label>
@@ -1700,9 +1690,6 @@
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        // Category filters
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-
         let filteredZones = zones.slice();
 
         // FILTRE PRINCIPAL : UNIQUEMENT LES ZONES MR
@@ -1712,17 +1699,9 @@
             return normalized === 'MR';
         });
 
+        // Filtre optionnel : zones non conformes
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
-        }
-
-        // Filtre supplémentaire par checkbox (optionnel, si les checkboxes sont cochées)
-        if (categoryChecks.length > 0) {
-            filteredZones = filteredZones.filter(z => {
-                const cat = z.category || '';
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return categoryChecks.includes(normalized);
-            });
         }
 
         // Default sorting by name A→Z
