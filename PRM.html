@@ -44,9 +44,74 @@
         .bg-gray-50 { background-color: var(--bg-secondary) !important; }
         .bg-gray-100 { background-color: var(--bg-tertiary) !important; }
         .text-gray-900 { color: var(--text-primary) !important; }
+        .text-gray-700 { color: var(--text-primary) !important; }
         .text-gray-600 { color: var(--text-secondary) !important; }
         .border-gray-200 { border-color: var(--border-color) !important; }
         .border-gray-300 { border-color: var(--border-color) !important; }
+        
+        /* Titres et textes en mode sombre */
+        .dark-mode h3 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-gray-500 {
+            color: var(--text-secondary) !important;
+        }
+        
+        .dark-mode .text-sm {
+            color: var(--text-primary);
+        }
+        
+        .dark-mode .text-red-700 {
+            color: #fca5a5 !important;
+        }
+        
+        .dark-mode .text-red-600 {
+            color: #fca5a5 !important;
+        }
+        
+        .dark-mode .text-gray-500 {
+            color: #9ca3af !important;
+        }
+        
+        .dark-mode .hover\:text-gray-700:hover {
+            color: #d1d5db !important;
+        }
+        
+        /* Cartes de non-conformités */
+        .dark-mode .bg-red-50 {
+            background-color: rgba(127, 29, 29, 0.2) !important;
+        }
+        
+        .dark-mode .border-red-200 {
+            border-color: #991b1b !important;
+        }
+        
+        .dark-mode strong {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-gray-800,
+        .dark-mode .text-sm {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .bg-gray-200 {
+            background-color: #4b5563 !important;
+        }
+        
+        /* Bandeaux d'information bleus */
+        .dark-mode .bg-blue-50 {
+            background-color: rgba(30, 64, 175, 0.2) !important;
+        }
+        
+        .dark-mode .border-blue-200 {
+            border-color: #3b82f6 !important;
+        }
+        
+        .dark-mode .text-blue-800 {
+            color: #93c5fd !important;
+        }
         
         .modal-content {
             background-color: var(--modal-bg) !important;
@@ -322,6 +387,12 @@
             overflow-y: auto;
         }
         
+        /* Mode sombre pour les modales */
+        .dark-mode .modal-content {
+            background: #1f2937;
+            color: #f3f4f6;
+        }
+        
         /* Collapsible left panel */
         .left-panel {
             transition: width 0.25s ease;
@@ -456,9 +527,11 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                            <div class="text-xs text-blue-800">
-                                <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
+                        
+                        <div class="mt-3 text-sm">
+                            <div class="font-medium mb-1">📌 Filtre actif : MR uniquement</div>
+                            <div class="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                                Seules les zones de catégorie MR sont affichées
                             </div>
                         </div>
 
@@ -560,13 +633,15 @@
                     </button>
                 </div>
 
+                <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <h3 class="font-semibold mb-2 text-sm text-blue-800">📌 Filtre actif : MR uniquement</h3>
+                    <div class="text-xs text-blue-700">
+                        Seules les zones de catégorie MR sont affichées et modifiables
+                    </div>
+                </div>
+
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Zones Existantes</h3>
-                    <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                        <div class="text-xs text-blue-800">
-                            <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
-                        </div>
-                    </div>
                     <div id="adminZoneList" class="space-y-2">
                         <!-- Admin zone list -->
                     </div>
@@ -951,8 +1026,12 @@
                 modal.innerHTML = `
                     <div class="modal-content" style="max-width: 1200px;">
                         <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-3xl font-bold">📊 Tableaux de Bord</h2>
+                            <h2 class="text-3xl font-bold">📊 Tableaux de Bord MR</h2>
                             <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        
+                        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                            <p class="text-sm text-blue-800">📌 <strong>Filtre MR actif</strong> : Statistiques uniquement pour les zones MR</p>
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1005,9 +1084,14 @@
             
             function generateNonConformitiesChart() {
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
+                
+                // Filtre MR : uniquement les zones MR
+                const mrZoneIds = zones.filter(z => z.categorie === 'MR').map(z => z.id);
+                
                 const data = campaigns.map(campaign => {
                     return inspections.filter(insp => 
                         insp.campaign === campaign && 
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1021,7 +1105,7 @@
                     data: {
                         labels: campaigns,
                         datasets: [{
-                            label: 'Non-Conformités',
+                            label: 'Non-Conformités MR',
                             data: data,
                             borderColor: '#ef4444',
                             backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -1044,10 +1128,18 @@
             
             function generateConformityEvolutionChart() {
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
+                
+                // Filtre MR : uniquement les zones MR
+                const mrZoneIds = zones.filter(z => z.categorie === 'MR').map(z => z.id);
+                
                 const conformityRates = campaigns.map(campaign => {
-                    const totalInspections = inspections.filter(insp => insp.campaign === campaign).length;
+                    const totalInspections = inspections.filter(insp => 
+                        insp.campaign === campaign && 
+                        mrZoneIds.includes(insp.zoneId)
+                    ).length;
                     const nonConformInspections = inspections.filter(insp => 
                         insp.campaign === campaign && 
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1098,12 +1190,10 @@
             }
             
             function generateCategoryChart() {
-                const categories = ['MR', 'SC', 'PRM', 'Administratif'];
+                // Filtre MR : afficher seulement les statistiques MR
+                const categories = ['MR'];
                 const stats = categories.map(category => {
-                    const categoryZones = zones.filter(zone => {
-                        const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                        return cat === category;
-                    });
+                    const categoryZones = zones.filter(zone => zone.categorie === 'MR');
                     
                     const zoneIds = categoryZones.map(z => z.id);
                     const totalInspections = inspections.filter(insp => 
@@ -1131,20 +1221,10 @@
                     data: {
                         labels: categories,
                         datasets: [{
-                            label: 'Taux de Conformité (%)',
+                            label: 'Taux de Conformité MR (%)',
                             data: stats,
-                            backgroundColor: [
-                                'rgba(59, 130, 246, 0.6)',
-                                'rgba(16, 185, 129, 0.6)',
-                                'rgba(245, 158, 11, 0.6)',
-                                'rgba(139, 92, 246, 0.6)'
-                            ],
-                            borderColor: [
-                                '#3b82f6',
-                                '#10b981',
-                                '#f59e0b',
-                                '#8b5cf6'
-                            ],
+                            backgroundColor: ['rgba(59, 130, 246, 0.6)'],
+                            borderColor: ['#3b82f6'],
                             borderWidth: 2
                         }]
                     },
@@ -1425,8 +1505,15 @@
                                 externalZones = [json];
                             }
                             
+                            // Filtre MR fixe : ne charger que les zones MR depuis TICP.json
+                            const beforeFilter = externalZones.length;
+                            externalZones = externalZones.filter(zone => zone.categorie === 'MR');
+                            if (beforeFilter > 0) {
+                                console.info(`🔍 Filtre MR appliqué : ${externalZones.length}/${beforeFilter} zones MR importées depuis TICP.json`);
+                            }
+                            
                             if (externalZones.length > 0) {
-                                console.info(`✅ ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
+                                console.info(`✅ ${externalZones.length} zone(s) MR trouvée(s) dans ${path}`);
                                 
                                 // Fusionner automatiquement avec gestion intelligente des éléments
                                 if (zones.length > 0) {
@@ -2452,12 +2539,8 @@
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        // Filtre FIXE : uniquement MR
-        let filteredZones = zones.filter(z => {
-            const cat = z.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
+        // Filtre MR fixe : afficher uniquement les zones MR
+        let filteredZones = zones.filter(zone => zone.categorie === 'MR');
 
         // Filtre optionnel : non-conformités
         if (filterChecked) {
@@ -3323,27 +3406,30 @@
 
     // Show export modal
     function showExportModal() {
-        // Filtre FIXE : uniquement MR
-        const deleteButtonText = 'Supprimer notations (MR)';
-        const deleteWarningText = '⚠️ Supprime les notations des zones <strong>MR</strong> pour la campagne actuelle. Cette action est irréversible !';
+        const deleteButtonText = 'Supprimer notations MR';
+        const deleteWarningText = '⚠️ Supprime <strong>TOUTES</strong> les notations MR pour la campagne actuelle. Cette action est irréversible !';
         
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Exporter les Données</h2>
+                    <h2 class="text-2xl font-bold text-gray-900">Exporter les Données MR</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <p class="text-sm text-blue-800">📌 <strong>Filtre MR actif</strong> : Seules les zones MR sont exportées</p>
                 </div>
                 
                 <div class="space-y-4">
                     <button onclick="exportInspections('json')" 
                             class="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Exporter Inspections (JSON)
+                        Exporter Inspections MR (JSON)
                     </button>
                     <button onclick="exportInspections('csv')" 
                             class="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700">
-                        Exporter Inspections (CSV)
+                        Exporter Inspections MR (CSV)
                     </button>
                     <button onclick="exportCurrentZone()" 
                             class="w-full px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700">
@@ -3365,7 +3451,7 @@
                 </div>
                 
                 <div class="mt-6">
-                    <h3 class="font-semibold mb-3">Importer Inspections</h3>
+                    <h3 class="font-semibold mb-3 text-gray-900">Importer Inspections</h3>
                     <input type="file" accept=".json" onchange="importInspections(event)" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     
@@ -3403,11 +3489,11 @@
         modal.innerHTML = `
             <div class="modal-content w-full max-w-4xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Rapport des Non-Conformités</h2>
+                    <h2 class="text-2xl font-bold text-gray-900">Rapport des Non-Conformités</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
-                <label class="flex items-center mb-4">
+                <label class="flex items-center mb-4 text-gray-700">
                     <input type="checkbox" id="filterZonesOnly" onchange="updateNonConformitiesView()" class="mr-2">
                     Afficher seulement les zones non conformes
                 </label>
@@ -3473,7 +3559,7 @@
                 Object.entries(zonesWithIssues).forEach(([zone, issues]) => {
                     content += `<div class="border border-red-200 bg-red-50 p-4 rounded"><h3 class="font-bold text-red-700">${zone} (${issues.length} non-conformité(s))</h3><ul class="mt-2 space-y-1">`;
                     issues.forEach(nc => {
-                        content += `<li class="text-sm">${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></li>`;
+                        content += `<li class="text-sm text-gray-800">${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></li>`;
                     });
                     content += '</ul></div>';
                 });
@@ -3484,7 +3570,7 @@
                 content = '<p class="text-gray-500">Aucune non-conformité trouvée.</p>';
             } else {
                 nonConformities.forEach(nc => {
-                    content += `<div class="border border-red-200 bg-red-50 p-3 rounded"><strong>${nc.zone}</strong>: ${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></div>`;
+                    content += `<div class="border border-red-200 bg-red-50 p-3 rounded text-gray-800"><strong>${nc.zone}</strong>: ${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></div>`;
                 });
             }
         }
@@ -3494,27 +3580,21 @@
 
     // Export inspections
     function exportInspections(format) {
-        // Filtre FIXE : uniquement MR
-        const filteredZones = zones.filter(zone => {
-            const cat = zone.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
-        const filteredZoneIds = filteredZones.map(z => z.id);
+        // Filtre MR fixe : exporter uniquement les zones MR
+        const mrZones = zones.filter(z => z.categorie === 'MR');
+        const filteredZoneIds = mrZones.map(z => z.id);
         
         const campaignInspections = inspections.filter(i => 
             i.campaign === currentCampaign && 
             filteredZoneIds.includes(i.zoneId)
         );
         
-        const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
-        
         if (format === 'json') {
             const data = JSON.stringify(campaignInspections, null, 2);
-            downloadFile(data, `inspections${categorySuffix}_${currentCampaign}.json`, 'application/json');
+            downloadFile(data, `inspections_MR_${currentCampaign}.json`, 'application/json');
         } else if (format === 'csv') {
             const csv = convertToCSV(campaignInspections);
-            downloadFile(csv, `inspections${categorySuffix}_${currentCampaign}.csv`, 'text/csv');
+            downloadFile(csv, `inspections_MR_${currentCampaign}.csv`, 'text/csv');
         }
     }
 
@@ -3594,12 +3674,8 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Filtre FIXE : uniquement MR
-        const filteredZones = zones.filter(zone => {
-            const cat = zone.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
+        // Filtre MR fixe : afficher uniquement les zones MR
+        const filteredZones = zones.filter(zone => zone.categorie === 'MR');
         
         // Tri par nom
         filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
@@ -3913,25 +3989,21 @@
     }
 
     function exportLibrary() {
-        // Filtre FIXE : uniquement MR
-        const zonesToExport = zones.filter(zone => {
-            const cat = zone.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
+        // Filtre MR fixe : exporter uniquement les zones MR
+        const zonesToExport = zones.filter(z => z.categorie === 'MR');
         
         // Export library in a format compatible with import
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
-            categories: ["MR"],
+            category: "MR",
             zones: zonesToExport
         };
         const data = JSON.stringify(exportData, null, 2);
-        const filename = `TICP_zones_library_MR_${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `TICP_zones_MR_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
         
-        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s) (catégorie: MR)\nFichier : ${filename}`);
+        alert(`Librairie MR exportée avec succès : ${zonesToExport.length} zone(s)\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
