@@ -1247,15 +1247,24 @@
             }
             
             function generateGlobalStats() {
-                const totalZones = zones.length;
-                const totalInspections = inspections.filter(i => i.campaign === currentCampaign).length;
+                // Filtre MR : statistiques uniquement pour les zones MR
+                const mrZones = zones.filter(z => z.categorie === 'MR');
+                const mrZoneIds = mrZones.map(z => z.id);
+                
+                const totalZones = mrZones.length;
+                const totalInspections = inspections.filter(i => 
+                    i.campaign === currentCampaign && 
+                    mrZoneIds.includes(i.zoneId)
+                ).length;
                 const nonConformities = inspections.filter(i => 
                     i.campaign === currentCampaign && 
+                    mrZoneIds.includes(i.zoneId) &&
                     i.criteria && 
                     Object.values(i.criteria).includes('non')
                 ).length;
                 const withPhotos = inspections.filter(i => 
                     i.campaign === currentCampaign && 
+                    mrZoneIds.includes(i.zoneId) &&
                     i.photos && i.photos.length > 0
                 ).length;
                 
@@ -1268,7 +1277,7 @@
                 
                 statsDiv.innerHTML = `
                     <div class="flex justify-between p-3 bg-blue-100 dark:bg-blue-800 rounded">
-                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones:</span>
+                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones MR:</span>
                         <span class="font-bold text-blue-900 dark:text-blue-50">${totalZones}</span>
                     </div>
                     <div class="flex justify-between p-3 bg-green-100 dark:bg-green-800 rounded">
@@ -1299,9 +1308,13 @@
                     'zone': 'Zones'
                 };
                 
+                // Filtre MR : uniquement les zones MR
+                const mrZoneIds = zones.filter(z => z.categorie === 'MR').map(z => z.id);
+                
                 const data = types.map(type => {
                     return inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.type === type &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
