@@ -2,9 +2,10 @@
 <html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tournées Incendie - Gestion des Inspections</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=0.5, maximum-scale=3.0">
+    <title>Tournées Incendie - Gestion des Inspections (MR)</title>
     <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
+    <!-- Version 1.2 - Stockage étendu : 500MB avec IndexedDB, 50MB localStorage (28/10/2025) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -38,6 +39,43 @@
             background-color: var(--bg-primary);
             color: var(--text-primary);
             transition: background-color 0.3s, color 0.3s;
+            min-width: 1024px;
+            overflow-x: auto;
+        }
+        
+        /* Assurer que la page s'affiche correctement à 100% */
+        html {
+            min-width: 1024px;
+            overflow-x: auto;
+        }
+        
+        /* Optimisation pour l'affichage 100% */
+        @media screen and (min-width: 1024px) {
+            .left-panel {
+                flex-shrink: 0;
+                width: 280px !important;
+            }
+            
+            .kpi-card {
+                white-space: nowrap;
+                overflow: visible;
+                font-size: 0.875rem;
+            }
+            
+            .kpi-card .text-base {
+                font-size: 0.875rem;
+                line-height: 1.2;
+            }
+            
+            .kpi-card .text-\[10px\] {
+                font-size: 0.625rem;
+                line-height: 1;
+            }
+            
+            /* Assurer que tous les indicateurs sont visibles */
+            .space-y-1\.5 > * + * {
+                margin-top: 0.375rem;
+            }
         }
         
         .bg-white { background-color: var(--card-bg) !important; }
@@ -319,16 +357,24 @@
         .kpi-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 0.375rem 0.25rem;
+            padding: 0.25rem 0.5rem;
             border-radius: 4px;
             text-align: center;
+            min-height: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0.875rem;
         }
         
         /* Ajout d'un style spécifique pour l'indicateur Bâtiment */
         .kpi-card.batiment {
             background: linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%);
-            border: 1.5px solid #2563eb;
+            border: 1px solid #2563eb;
             box-shadow: 0 2px 4px -1px rgba(59, 130, 246, 0.3);
+            min-height: 40px;
+            font-weight: 600;
         }
         
         .admin-element {
@@ -398,6 +444,9 @@
             transition: width 0.25s ease;
             min-width: 56px; /* allow compact collapsed state */
             position: relative;
+            width: 280px; /* largeur optimisée pour mode 100% */
+            max-height: calc(100vh - 80px); /* limiter la hauteur */
+            overflow-y: auto; /* scroll si nécessaire */
         }
         .left-panel.collapsed {
             width: 56px !important; /* collapsed width */
@@ -467,6 +516,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-4">
                     <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
+                    <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200">
+                        MR uniquement
+                    </span>
                     <!-- Indicateur de stockage -->
                     <div id="storageIndicator" class="text-xs" title="Utilisation du stockage local">
                         <div class="flex items-center gap-2">
@@ -507,7 +559,7 @@
         <!-- Main Content -->
         <div class="flex-1 flex overflow-hidden">
             <!-- Left Panel: KPIs only (modified to be collapsible) -->
-            <div id="leftPanel" class="left-panel w-72 bg-white border-r flex flex-col">
+            <div id="leftPanel" class="left-panel bg-white border-r flex flex-col">
                 <div class="p-3 border-b flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <button id="leftPanelToggleBtn" class="collapse-toggle" title="Réduire / Développer">
@@ -521,29 +573,29 @@
                 </div>
                 <div class="panel-details flex flex-col flex-1">
                     <!-- Zone Selection Dropdown -->
-                    <div class="p-4 border-b">
-                        <h2 class="text-lg font-semibold mb-3">Zone Sélectionnée</h2>
+                    <div class="p-3 border-b">
+                        <h2 class="text-base font-semibold mb-2">Zone Sélectionnée</h2>
                         <select id="zoneSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                        <div class="mt-1 p-1.5 bg-blue-50 border border-blue-200 rounded-md">
                             <div class="text-xs text-blue-800">
                                 <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
                             </div>
                         </div>
 
                         <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
-                        <label class="flex items-center mt-2">
+                        <label class="flex items-center mt-1.5">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
-                            <span class="text-sm">Afficher seulement les zones non conformes</span>
+                            <span class="text-xs">Afficher seulement les zones non conformes</span>
                         </label>
                     </div>
 
                     <!-- KPIs -->
-                    <div class="p-1 flex-1">
-                        <h2 class="text-sm font-semibold mb-1.5">Indicateurs</h2>
-                        <div class="space-y-1">
+                    <div class="p-2 flex-1 overflow-y-auto">
+                        <h2 class="text-sm font-semibold mb-2">Indicateurs</h2>
+                        <div class="space-y-1.5">
                             <div class="kpi-card">
                                 <div class="text-base font-bold" id="kpiExtincteurs">0%</div>
                                 <div class="text-[10px] opacity-90 leading-tight">Extincteurs</div>
@@ -609,7 +661,12 @@
     <div id="adminMode" class="hidden h-full bg-gray-50">
         <header class="bg-white shadow-sm border-b px-6 py-4">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
+                    <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200">
+                        MR uniquement
+                    </span>
+                </div>
                 <button id="exitAdminBtn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
                     Retour
                 </button>
@@ -1027,33 +1084,33 @@
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Graphique évolution des non-conformités -->
+                            <!-- Graphique évolution des non-conformités MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Évolution des Non-Conformités</h3>
+                                <h3 class="text-lg font-semibold mb-4">Évolution des Non-Conformités - MR</h3>
                                 <canvas id="nonConformitiesChart"></canvas>
                             </div>
                             
-                            <!-- Graphique évolution de la conformité -->
+                            <!-- Graphique évolution de la conformité MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Évolution de la Conformité (%)</h3>
+                                <h3 class="text-lg font-semibold mb-4">Évolution de la Conformité (%) - MR</h3>
                                 <canvas id="conformityEvolutionChart"></canvas>
                             </div>
                             
-                            <!-- Graphique taux de conformité par catégorie -->
+                            <!-- Graphique taux de conformité par catégorie MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Taux de Conformité par Catégorie</h3>
+                                <h3 class="text-lg font-semibold mb-4">Taux de Conformité - Catégorie MR</h3>
                                 <canvas id="categoryChart"></canvas>
                             </div>
                             
-                            <!-- Statistiques globales -->
+                            <!-- Statistiques globales MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Statistiques Globales</h3>
+                                <h3 class="text-lg font-semibold mb-4">Statistiques Globales - MR</h3>
                                 <div id="globalStats" class="space-y-2"></div>
                             </div>
                             
-                            <!-- Graphique répartition par type d'élément -->
+                            <!-- Graphique répartition par type d'élément MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow col-span-1 md:col-span-2">
-                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités par Type</h3>
+                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités par Type - MR</h3>
                                 <div class="flex justify-center">
                                     <canvas id="elementTypeChart" style="max-width: 400px;"></canvas>
                                 </div>
@@ -1075,10 +1132,17 @@
             }
             
             function generateNonConformitiesChart() {
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
+                    const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return cat === 'MR';
+                }).map(z => z.id);
+                
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 const data = campaigns.map(campaign => {
                     return inspections.filter(insp => 
                         insp.campaign === campaign && 
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1114,11 +1178,21 @@
             }
             
             function generateConformityEvolutionChart() {
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
+                    const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return cat === 'MR';
+                }).map(z => z.id);
+                
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 const conformityRates = campaigns.map(campaign => {
-                    const totalInspections = inspections.filter(insp => insp.campaign === campaign).length;
+                    const totalInspections = inspections.filter(insp => 
+                        insp.campaign === campaign && 
+                        mrZoneIds.includes(insp.zoneId)
+                    ).length;
                     const nonConformInspections = inspections.filter(insp => 
                         insp.campaign === campaign && 
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1169,7 +1243,8 @@
             }
             
             function generateCategoryChart() {
-                const categories = ['MR', 'SC', 'PRM', 'Administratif'];
+                // Filtrer uniquement la catégorie MR
+                const categories = ['MR'];
                 const stats = categories.map(category => {
                     const categoryZones = zones.filter(zone => {
                         const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
@@ -1238,15 +1313,26 @@
             }
             
             function generateGlobalStats() {
-                const totalZones = zones.length;
-                const totalInspections = inspections.filter(i => i.campaign === currentCampaign).length;
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
+                    const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return cat === 'MR';
+                }).map(z => z.id);
+                
+                const totalZones = mrZoneIds.length;
+                const totalInspections = inspections.filter(i => 
+                    i.campaign === currentCampaign && 
+                    mrZoneIds.includes(i.zoneId)
+                ).length;
                 const nonConformities = inspections.filter(i => 
                     i.campaign === currentCampaign && 
+                    mrZoneIds.includes(i.zoneId) &&
                     i.criteria && 
                     Object.values(i.criteria).includes('non')
                 ).length;
                 const withPhotos = inspections.filter(i => 
                     i.campaign === currentCampaign && 
+                    mrZoneIds.includes(i.zoneId) &&
                     i.photos && i.photos.length > 0
                 ).length;
                 
@@ -1282,6 +1368,12 @@
             }
             
             function generateElementTypeChart() {
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
+                    const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return cat === 'MR';
+                }).map(z => z.id);
+                
                 const types = ['extincteur', 'dm', 'sortie', 'zone'];
                 const typeLabels = {
                     'extincteur': 'Extincteurs',
@@ -1293,6 +1385,7 @@
                 const data = types.map(type => {
                     return inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.type === type &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
@@ -4038,10 +4131,10 @@
             currentZone 
                 ? `Exporter les notations :\n\n` +
                   `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
-                  `• Toutes les zones filtrées → Cliquez sur OK\n\n` +
+                  `• Toutes les zones MR → Cliquez sur OK\n\n` +
                   `Campagne : ${currentCampaign}\n` +
-                  (categoryChecks.length > 0 ? `Catégories : ${categoryChecks.join(', ')}` : 'Toutes catégories')
-                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones filtrées ?`
+                  `Catégories : MR uniquement`
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones MR ?`
         );
         
         let zoneInspections;
@@ -4162,29 +4255,21 @@
      * Demande une double confirmation pour éviter les suppressions accidentelles
      */
     function deleteAllNotations() {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
         
-        // Déterminer les zones filtrées
+        // Déterminer les zones MR uniquement
         let filteredZoneIds;
         let filterDescription;
         
-        if (categoryChecks.length > 0) {
-            // Des filtres sont actifs : utiliser les zones correspondantes
-            filteredZoneIds = zones
-                .filter(z => {
-                    const cat = z.category || '';
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return categoryChecks.includes(normalized);
-                })
-                .map(z => z.id);
-            
-            filterDescription = `Catégories : ${categoryChecks.join(', ')}`;
-        } else {
-            // Aucun filtre actif : toutes les zones
-            filteredZoneIds = zones.map(z => z.id);
-            filterDescription = 'Toutes les catégories';
-        }
+        // Filtrer uniquement les zones MR
+        filteredZoneIds = zones
+            .filter(z => {
+                const cat = z.category || '';
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return normalized === 'MR';
+            })
+            .map(z => z.id);
+        
+        filterDescription = `Catégories : MR uniquement`;
         
         // Trouver les inspections correspondantes
         const filteredInspections = inspections.filter(i => 
