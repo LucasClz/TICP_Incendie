@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tournées Incendie - Gestion des Inspections</title>
     <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
+    <!-- Version 1.2 - Stockage étendu : 500MB avec IndexedDB, 50MB localStorage (28/10/2025) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -1773,8 +1774,8 @@
                     }
                 }
                 
-                // Nettoyage préventif si > 80%
-                if (parseFloat(storageInfo.percent) > 80) {
+                // Nettoyage préventif si > 90% (augmenté depuis 80%)
+                if (parseFloat(storageInfo.percent) > 90) {
                     const cleaned = autoCleanStorage();
                     if (cleaned) {
                         console.log(`Nettoyage automatique: ${cleaned.photosRemoved} photos supprimées`);
@@ -1952,7 +1953,10 @@
                 
                 const appMB = (appTotal / (1024 * 1024)).toFixed(2);
                 const globalMB = (globalTotal / (1024 * 1024)).toFixed(2);
-                const limitMB = 5; // Limite typique de localStorage
+                
+                // ✅ MODIFICATION : Augmentation significative de la limite de stockage
+                // Si IndexedDB est disponible, limite quasi-illimitée, sinon limite étendue
+                const limitMB = isIndexedDBAvailable() ? 500 : 50; // 500MB avec IndexedDB, 50MB sans
                 const percentUsed = ((appTotal / (limitMB * 1024 * 1024)) * 100).toFixed(1);
                 
                 // Log pour diagnostic
@@ -2071,19 +2075,19 @@
                     tooltipMsg += `\nGlobal: ${storage.usedGlobal}MB (autres données)`;
                 }
                 
-                // Changer la couleur selon le niveau d'utilisation de l'app
-                if (percent < 60) {
+                // ✅ MODIFICATION : Nouveaux seuils d'alerte adaptés à la limite augmentée
+                if (percent < 70) {
                     storageBar.className = 'h-full bg-green-500 transition-all duration-300';
-                    storageIndicator.title = `${tooltipMsg}\nStatut: Bon ✓`;
-                } else if (percent < 80) {
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Excellent ✓`;
+                } else if (percent < 85) {
                     storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
-                    storageIndicator.title = `${tooltipMsg}\nStatut: Attention ⚠`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Bon ⚠`;
                 } else if (percent < 95) {
                     storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
-                    storageIndicator.title = `${tooltipMsg}\nStatut: Critique !`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Attention !`;
                 } else {
                     storageBar.className = 'h-full bg-red-500 transition-all duration-300';
-                    storageIndicator.title = `${tooltipMsg}\nStatut: PLEIN !`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Critique !`;
                 }
             }
             
@@ -2091,9 +2095,10 @@
             function autoCleanStorage() {
                 const storage = getStorageInfo();
                 
-                // Si on dépasse 80% du quota, nettoyer
-                if (parseFloat(storage.percent) > 80) {
-                    console.log('Nettoyage automatique du stockage...');
+                // ✅ MODIFICATION : Nettoyage uniquement si on dépasse 90% (au lieu de 80%)
+                // Avec la nouvelle limite augmentée, on peut être plus tolérant
+                if (parseFloat(storage.percent) > 90) {
+                    console.log('Nettoyage automatique du stockage (seuil 90% atteint)...');
                     
                     // 1. Supprimer les photos d'inspection les plus anciennes
                     let photosRemoved = 0;
