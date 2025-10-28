@@ -1086,7 +1086,7 @@
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 
                 // Filtre MR : uniquement les zones MR
-                const mrZoneIds = zones.filter(z => z.categorie === 'MR').map(z => z.id);
+                const mrZoneIds = zones.filter(z => z.category === 'MR').map(z => z.id);
                 
                 const data = campaigns.map(campaign => {
                     return inspections.filter(insp => 
@@ -1130,7 +1130,7 @@
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 
                 // Filtre MR : uniquement les zones MR
-                const mrZoneIds = zones.filter(z => z.categorie === 'MR').map(z => z.id);
+                const mrZoneIds = zones.filter(z => z.category === 'MR').map(z => z.id);
                 
                 const conformityRates = campaigns.map(campaign => {
                     const totalInspections = inspections.filter(insp => 
@@ -1193,7 +1193,7 @@
                 // Filtre MR : afficher seulement les statistiques MR
                 const categories = ['MR'];
                 const stats = categories.map(category => {
-                    const categoryZones = zones.filter(zone => zone.categorie === 'MR');
+                    const categoryZones = zones.filter(zone => zone.category === 'MR');
                     
                     const zoneIds = categoryZones.map(z => z.id);
                     const totalInspections = inspections.filter(insp => 
@@ -1309,7 +1309,7 @@
                 };
                 
                 // Filtre MR : uniquement les zones MR
-                const mrZoneIds = zones.filter(z => z.categorie === 'MR').map(z => z.id);
+                const mrZoneIds = zones.filter(z => z.category === 'MR').map(z => z.id);
                 
                 const data = types.map(type => {
                     return inspections.filter(insp => 
@@ -1520,7 +1520,7 @@
                             
                             // Filtre MR fixe : ne charger que les zones MR depuis TICP.json
                             const beforeFilter = externalZones.length;
-                            externalZones = externalZones.filter(zone => zone.categorie === 'MR');
+                            externalZones = externalZones.filter(zone => zone.category === 'MR');
                             if (beforeFilter > 0) {
                                 console.info(`🔍 Filtre MR appliqué : ${externalZones.length}/${beforeFilter} zones MR importées depuis TICP.json`);
                             }
@@ -2553,7 +2553,7 @@
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
         // Filtre MR fixe : afficher uniquement les zones MR
-        let filteredZones = zones.filter(zone => zone.categorie === 'MR');
+        let filteredZones = zones.filter(zone => zone.category === 'MR');
 
         // Filtre optionnel : non-conformités
         if (filterChecked) {
@@ -3594,7 +3594,7 @@
     // Export inspections
     function exportInspections(format) {
         // Filtre MR fixe : exporter uniquement les zones MR
-        const mrZones = zones.filter(z => z.categorie === 'MR');
+        const mrZones = zones.filter(z => z.category === 'MR');
         const filteredZoneIds = mrZones.map(z => z.id);
         
         const campaignInspections = inspections.filter(i => 
@@ -3688,7 +3688,7 @@
         if (!container) return;
 
         // Filtre MR fixe : afficher uniquement les zones MR
-        const filteredZones = zones.filter(zone => zone.categorie === 'MR');
+        const filteredZones = zones.filter(zone => zone.category === 'MR');
         
         // Tri par nom
         filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
@@ -4003,7 +4003,7 @@
 
     function exportLibrary() {
         // Filtre MR fixe : exporter uniquement les zones MR
-        const zonesToExport = zones.filter(z => z.categorie === 'MR');
+        const zonesToExport = zones.filter(z => z.category === 'MR');
         
         // Export library in a format compatible with import
         const exportData = {
