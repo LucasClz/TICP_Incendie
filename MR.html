@@ -6,9 +6,174 @@
     <title>Tournées Incendie - Gestion des Inspections</title>
     <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Mode sombre */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --modal-bg: #ffffff;
+            --input-bg: #ffffff;
+            --card-bg: #ffffff;
+        }
+        
+        .dark-mode {
+            --bg-primary: #1f2937;
+            --bg-secondary: #111827;
+            --bg-tertiary: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --border-color: #4b5563;
+            --modal-bg: #374151;
+            --input-bg: #1f2937;
+            --card-bg: #374151;
+        }
+        
         body {
             box-sizing: border-box;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .bg-white { background-color: var(--card-bg) !important; }
+        .bg-gray-50 { background-color: var(--bg-secondary) !important; }
+        .bg-gray-100 { background-color: var(--bg-tertiary) !important; }
+        .text-gray-900 { color: var(--text-primary) !important; }
+        .text-gray-600 { color: var(--text-secondary) !important; }
+        .border-gray-200 { border-color: var(--border-color) !important; }
+        .border-gray-300 { border-color: var(--border-color) !important; }
+        
+        .modal-content {
+            background-color: var(--modal-bg) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        input, textarea, select {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        .dark-mode input::placeholder,
+        .dark-mode textarea::placeholder {
+            color: var(--text-secondary);
+        }
+        
+        /* Visionneuse de photos */
+        .photo-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .photo-viewer-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .photo-viewer-image {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+        
+        .photo-viewer-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 30px;
+        }
+        
+        .photo-viewer-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        
+        .photo-viewer-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+        
+        .photo-viewer-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .photo-viewer-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .photo-viewer-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .photo-viewer-nav:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .photo-viewer-nav.prev {
+            left: 20px;
+        }
+        
+        .photo-viewer-nav.next {
+            right: 20px;
         }
         
         .hotspot {
@@ -249,6 +414,12 @@
                         <option value="2025Q3">2025 Q3</option>
                         <option value="2025Q4" selected>2025 Q4</option>
                     </select>
+                    <button id="darkModeToggle" class="px-3 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors" title="Basculer mode sombre/clair">
+                        <span id="darkModeIcon">🌙</span>
+                    </button>
+                    <button id="dashboardBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        📊 Tableaux de bord
+                    </button>
                     <button id="adminModeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         Mode Admin
                     </button>
@@ -285,8 +456,6 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        
-                        <!-- Indicateur de filtre MR actif -->
                         <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
                             <div class="text-xs text-blue-800">
                                 <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
@@ -294,7 +463,7 @@
                         </div>
 
                         <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
-                        <label class="flex items-center mt-3">
+                        <label class="flex items-center mt-2">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
                             <span class="text-sm">Afficher seulement les zones non conformes</span>
                         </label>
@@ -393,14 +562,11 @@
 
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Zones Existantes</h3>
-                    
-                    <!-- Indicateur de filtre MR actif en mode admin -->
                     <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
                         <div class="text-xs text-blue-800">
-                            <strong>📌 Filtre actif :</strong> Zones <strong>MR uniquement</strong>
+                            <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
                         </div>
                     </div>
-                    
                     <div id="adminZoneList" class="space-y-2">
                         <!-- Admin zone list -->
                     </div>
@@ -601,6 +767,10 @@
                 const adminModeBtn = document.getElementById('adminModeBtn');
                 if (adminModeBtn) adminModeBtn.addEventListener('click', () => toggleAdminMode(true));
 
+                // Dashboard button
+                const dashboardBtn = document.getElementById('dashboardBtn');
+                if (dashboardBtn) dashboardBtn.addEventListener('click', showDashboard);
+
                 // Export button
                 const exportBtn = document.getElementById('exportBtn');
                 if (exportBtn) exportBtn.addEventListener('click', showExportModal);
@@ -630,9 +800,601 @@
                 updateKPIs();
                 updateStorageIndicator(); // Afficher l'état du stockage
                 applyLeftPanelState(); // apply saved collapsed state
+                initDarkMode(); // Initialiser le mode sombre
                 
                 // Tenter de charger TICP.json si disponible (pour synchronisation)
                 await tryLoadTICPJson();
+            }
+            
+            // Mode sombre
+            function initDarkMode() {
+                const darkMode = localStorage.getItem('darkMode') === 'true';
+                if (darkMode) {
+                    document.body.classList.add('dark-mode');
+                    document.getElementById('darkModeIcon').textContent = '☀️';
+                }
+                
+                document.getElementById('darkModeToggle').addEventListener('click', () => {
+                    document.body.classList.toggle('dark-mode');
+                    const isDark = document.body.classList.contains('dark-mode');
+                    localStorage.setItem('darkMode', isDark);
+                    document.getElementById('darkModeIcon').textContent = isDark ? '☀️' : '🌙';
+                });
+            }
+            
+            // Visionneuse de photos
+            let photoViewerState = {
+                photos: [],
+                currentIndex: 0,
+                zoom: 1,
+                rotation: 0
+            };
+            
+            function openPhotoViewer(photos, startIndex = 0) {
+                photoViewerState.photos = photos;
+                photoViewerState.currentIndex = startIndex;
+                photoViewerState.zoom = 1;
+                photoViewerState.rotation = 0;
+                
+                const viewer = document.createElement('div');
+                viewer.className = 'photo-viewer';
+                viewer.id = 'photoViewer';
+                viewer.innerHTML = `
+                    <div class="photo-viewer-content">
+                        <button class="photo-viewer-close" onclick="closePhotoViewer()">×</button>
+                        ${photos.length > 1 ? `
+                            <button class="photo-viewer-nav prev" onclick="prevPhoto()">‹</button>
+                            <button class="photo-viewer-nav next" onclick="nextPhoto()">›</button>
+                        ` : ''}
+                        <img id="viewerImage" class="photo-viewer-image" src="${photos[startIndex]}" alt="Photo">
+                        <div class="photo-viewer-controls">
+                            <button class="photo-viewer-btn" onclick="zoomIn()" title="Zoom +">🔍+</button>
+                            <button class="photo-viewer-btn" onclick="zoomOut()" title="Zoom -">🔍-</button>
+                            <button class="photo-viewer-btn" onclick="rotateLeft()" title="Rotation ↶">↶</button>
+                            <button class="photo-viewer-btn" onclick="rotateRight()" title="Rotation ↷">↷</button>
+                            <button class="photo-viewer-btn" onclick="resetView()" title="Réinitialiser">⟲</button>
+                            ${photos.length > 1 ? `<span class="text-white mx-2">${startIndex + 1}/${photos.length}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(viewer);
+                updatePhotoTransform();
+                
+                // Fermer avec Echap
+                document.addEventListener('keydown', photoViewerKeyHandler);
+            }
+            
+            function closePhotoViewer() {
+                const viewer = document.getElementById('photoViewer');
+                if (viewer) {
+                    viewer.remove();
+                    document.removeEventListener('keydown', photoViewerKeyHandler);
+                }
+            }
+            
+            function photoViewerKeyHandler(e) {
+                if (e.key === 'Escape') closePhotoViewer();
+                if (e.key === 'ArrowLeft') prevPhoto();
+                if (e.key === 'ArrowRight') nextPhoto();
+            }
+            
+            function updatePhotoTransform() {
+                const img = document.getElementById('viewerImage');
+                if (img) {
+                    img.style.transform = `scale(${photoViewerState.zoom}) rotate(${photoViewerState.rotation}deg)`;
+                }
+            }
+            
+            function updatePhotoCounter() {
+                const viewer = document.getElementById('photoViewer');
+                if (viewer && photoViewerState.photos.length > 1) {
+                    const counter = viewer.querySelector('.photo-viewer-controls span');
+                    if (counter) {
+                        counter.textContent = `${photoViewerState.currentIndex + 1}/${photoViewerState.photos.length}`;
+                    }
+                }
+            }
+            
+            function prevPhoto() {
+                if (photoViewerState.currentIndex > 0) {
+                    photoViewerState.currentIndex--;
+                    photoViewerState.zoom = 1;
+                    photoViewerState.rotation = 0;
+                    document.getElementById('viewerImage').src = photoViewerState.photos[photoViewerState.currentIndex];
+                    updatePhotoTransform();
+                    updatePhotoCounter();
+                }
+            }
+            
+            function nextPhoto() {
+                if (photoViewerState.currentIndex < photoViewerState.photos.length - 1) {
+                    photoViewerState.currentIndex++;
+                    photoViewerState.zoom = 1;
+                    photoViewerState.rotation = 0;
+                    document.getElementById('viewerImage').src = photoViewerState.photos[photoViewerState.currentIndex];
+                    updatePhotoTransform();
+                    updatePhotoCounter();
+                }
+            }
+            
+            function zoomIn() {
+                photoViewerState.zoom = Math.min(photoViewerState.zoom + 0.25, 4);
+                updatePhotoTransform();
+            }
+            
+            function zoomOut() {
+                photoViewerState.zoom = Math.max(photoViewerState.zoom - 0.25, 0.5);
+                updatePhotoTransform();
+            }
+            
+            function rotateLeft() {
+                photoViewerState.rotation -= 90;
+                updatePhotoTransform();
+            }
+            
+            function rotateRight() {
+                photoViewerState.rotation += 90;
+                updatePhotoTransform();
+            }
+            
+            function resetView() {
+                photoViewerState.zoom = 1;
+                photoViewerState.rotation = 0;
+                updatePhotoTransform();
+            }
+            
+            // Tableau de bord avec graphiques
+            function showDashboard() {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 1200px;">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-3xl font-bold">📊 Tableaux de Bord</h2>
+                            <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Graphique évolution des non-conformités -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Évolution des Non-Conformités</h3>
+                                <canvas id="nonConformitiesChart"></canvas>
+                            </div>
+                            
+                            <!-- Graphique évolution de la conformité -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Évolution de la Conformité (%)</h3>
+                                <canvas id="conformityEvolutionChart"></canvas>
+                            </div>
+                            
+                            <!-- Graphique taux de conformité par catégorie -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Taux de Conformité par Catégorie</h3>
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                            
+                            <!-- Statistiques globales -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Statistiques Globales</h3>
+                                <div id="globalStats" class="space-y-2"></div>
+                            </div>
+                            
+                            <!-- Graphique répartition par type d'élément -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow col-span-1 md:col-span-2">
+                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités par Type</h3>
+                                <div class="flex justify-center">
+                                    <canvas id="elementTypeChart" style="max-width: 400px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Générer les graphiques
+                setTimeout(() => {
+                    generateNonConformitiesChart();
+                    generateConformityEvolutionChart();
+                    generateCategoryChart();
+                    generateGlobalStats();
+                    generateElementTypeChart();
+                }, 100);
+            }
+            
+            function generateNonConformitiesChart() {
+                const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
+                const data = campaigns.map(campaign => {
+                    return inspections.filter(insp => 
+                        insp.campaign === campaign && 
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                });
+                
+                const ctx = document.getElementById('nonConformitiesChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: campaigns,
+                        datasets: [{
+                            label: 'Non-Conformités',
+                            data: data,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true },
+                            title: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+            
+            function generateConformityEvolutionChart() {
+                const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
+                const conformityRates = campaigns.map(campaign => {
+                    const totalInspections = inspections.filter(insp => insp.campaign === campaign).length;
+                    const nonConformInspections = inspections.filter(insp => 
+                        insp.campaign === campaign && 
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                    
+                    return totalInspections > 0 
+                        ? Math.round(((totalInspections - nonConformInspections) / totalInspections) * 100)
+                        : 0;
+                });
+                
+                const ctx = document.getElementById('conformityEvolutionChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: campaigns,
+                        datasets: [{
+                            label: 'Taux de Conformité (%)',
+                            data: conformityRates,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true },
+                            title: { display: false }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: value => value + '%'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function generateCategoryChart() {
+                const categories = ['MR', 'SC', 'PRM', 'Administratif'];
+                const stats = categories.map(category => {
+                    const categoryZones = zones.filter(zone => {
+                        const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                        return cat === category;
+                    });
+                    
+                    const zoneIds = categoryZones.map(z => z.id);
+                    const totalInspections = inspections.filter(insp => 
+                        insp.campaign === currentCampaign && 
+                        zoneIds.includes(insp.zoneId)
+                    ).length;
+                    
+                    const nonConformInspections = inspections.filter(insp => 
+                        insp.campaign === currentCampaign && 
+                        zoneIds.includes(insp.zoneId) &&
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                    
+                    return totalInspections > 0 
+                        ? Math.round(((totalInspections - nonConformInspections) / totalInspections) * 100)
+                        : 0;
+                });
+                
+                const ctx = document.getElementById('categoryChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            label: 'Taux de Conformité (%)',
+                            data: stats,
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.6)',
+                                'rgba(16, 185, 129, 0.6)',
+                                'rgba(245, 158, 11, 0.6)',
+                                'rgba(139, 92, 246, 0.6)'
+                            ],
+                            borderColor: [
+                                '#3b82f6',
+                                '#10b981',
+                                '#f59e0b',
+                                '#8b5cf6'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: value => value + '%'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function generateGlobalStats() {
+                const totalZones = zones.length;
+                const totalInspections = inspections.filter(i => i.campaign === currentCampaign).length;
+                const nonConformities = inspections.filter(i => 
+                    i.campaign === currentCampaign && 
+                    i.criteria && 
+                    Object.values(i.criteria).includes('non')
+                ).length;
+                const withPhotos = inspections.filter(i => 
+                    i.campaign === currentCampaign && 
+                    i.photos && i.photos.length > 0
+                ).length;
+                
+                const conformityRate = totalInspections > 0 
+                    ? Math.round(((totalInspections - nonConformities) / totalInspections) * 100)
+                    : 0;
+                
+                const statsDiv = document.getElementById('globalStats');
+                if (!statsDiv) return;
+                
+                statsDiv.innerHTML = `
+                    <div class="flex justify-between p-3 bg-blue-100 dark:bg-blue-800 rounded">
+                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones:</span>
+                        <span class="font-bold text-blue-900 dark:text-blue-50">${totalZones}</span>
+                    </div>
+                    <div class="flex justify-between p-3 bg-green-100 dark:bg-green-800 rounded">
+                        <span class="font-medium text-green-900 dark:text-green-100">Inspections (${currentCampaign}):</span>
+                        <span class="font-bold text-green-900 dark:text-green-50">${totalInspections}</span>
+                    </div>
+                    <div class="flex justify-between p-3 bg-red-100 dark:bg-red-800 rounded">
+                        <span class="font-medium text-red-900 dark:text-red-100">Non-Conformités:</span>
+                        <span class="font-bold text-red-900 dark:text-red-50">${nonConformities}</span>
+                    </div>
+                    <div class="flex justify-between p-3 bg-purple-100 dark:bg-purple-800 rounded">
+                        <span class="font-medium text-purple-900 dark:text-purple-100">Avec Photos:</span>
+                        <span class="font-bold text-purple-900 dark:text-purple-50">${withPhotos}</span>
+                    </div>
+                    <div class="flex justify-between p-3 bg-yellow-100 dark:bg-yellow-800 rounded">
+                        <span class="font-medium text-yellow-900 dark:text-yellow-100">Taux de Conformité:</span>
+                        <span class="font-bold text-lg text-yellow-900 dark:text-yellow-50">${conformityRate}%</span>
+                    </div>
+                `;
+            }
+            
+            function generateElementTypeChart() {
+                const types = ['extincteur', 'dm', 'sortie', 'zone'];
+                const typeLabels = {
+                    'extincteur': 'Extincteurs',
+                    'dm': 'DM',
+                    'sortie': 'Sorties',
+                    'zone': 'Zones'
+                };
+                
+                const data = types.map(type => {
+                    return inspections.filter(insp => 
+                        insp.campaign === currentCampaign && 
+                        insp.type === type &&
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                });
+                
+                const ctx = document.getElementById('elementTypeChart');
+                if (!ctx) return;
+                
+                const chart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: types.map(t => typeLabels[t]),
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                'rgba(239, 68, 68, 0.6)',
+                                'rgba(245, 158, 11, 0.6)',
+                                'rgba(16, 185, 129, 0.6)',
+                                'rgba(59, 130, 246, 0.6)'
+                            ],
+                            borderColor: [
+                                '#ef4444',
+                                '#f59e0b',
+                                '#10b981',
+                                '#3b82f6'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { 
+                                position: 'bottom'
+                            }
+                        },
+                        onClick: (event, activeElements) => {
+                            if (activeElements.length > 0) {
+                                const index = activeElements[0].index;
+                                const type = types[index];
+                                showNonConformitiesByType(type, typeLabels[type]);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function showNonConformitiesByType(type, typeLabel) {
+                // Récupérer toutes les non-conformités pour ce type
+                const nonConformities = inspections.filter(insp => 
+                    insp.campaign === currentCampaign && 
+                    insp.type === type &&
+                    insp.criteria && 
+                    Object.values(insp.criteria).includes('non')
+                );
+                
+                if (nonConformities.length === 0) {
+                    alert(`Aucune non-conformité trouvée pour les ${typeLabel}.`);
+                    return;
+                }
+                
+                // Créer le modal avec les détails
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 800px;">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold">📋 Non-Conformités : ${typeLabel}</h2>
+                            <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        
+                        <div class="mb-4 p-3 bg-blue-100 dark:bg-blue-800 rounded">
+                            <p class="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                                Campagne : ${currentCampaign} • Total : ${nonConformities.length} non-conformité(s)
+                            </p>
+                        </div>
+                        
+                        <div class="space-y-4 max-h-96 overflow-y-auto">
+                            ${nonConformities.map((insp, idx) => {
+                                const zone = zones.find(z => z.id === insp.zoneId);
+                                const zoneName = zone ? zone.name : insp.zoneId;
+                                
+                                // Récupérer les critères non conformes
+                                const nonConformCriteria = Object.entries(insp.criteria || {})
+                                    .filter(([key, value]) => value === 'non')
+                                    .map(([key, value]) => {
+                                        if (type === 'zone') {
+                                            const [section, crit] = key.split('_');
+                                            return ZONE_CRITERIA[section] && ZONE_CRITERIA[section][crit] 
+                                                ? ZONE_CRITERIA[section][crit] 
+                                                : key;
+                                        } else {
+                                            return CRITERIA[type] && CRITERIA[type][key] 
+                                                ? CRITERIA[type][key] 
+                                                : key;
+                                        }
+                                    });
+                                
+                                // Identifier l'élément
+                                let elementId = '';
+                                if (type === 'extincteur') {
+                                    elementId = insp.elementData?.id || insp.elementKey || '';
+                                } else if (type === 'dm') {
+                                    elementId = insp.elementData?.id || insp.elementKey || '';
+                                } else if (type === 'sortie') {
+                                    elementId = insp.elementData?.id || insp.elementKey || '';
+                                }
+                                
+                                return `
+                                    <div class="p-4 bg-white dark:bg-gray-700 border-l-4 border-red-500 rounded shadow">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex-1">
+                                                <h3 class="font-bold text-lg text-gray-900 dark:text-gray-100">
+                                                    ${typeLabel === 'Zones' ? 'Zone' : typeLabel.slice(0, -1)} ${elementId}
+                                                </h3>
+                                                <p class="text-sm text-gray-600 dark:text-gray-300">
+                                                    📍 Zone : <span class="font-semibold">${zoneName}</span>
+                                                </p>
+                                            </div>
+                                            <span class="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 px-2 py-1 rounded">
+                                                #${idx + 1}
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="mt-3">
+                                            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                                                ⚠️ Critères non conformes :
+                                            </p>
+                                            <ul class="list-disc list-inside space-y-1 text-sm text-gray-800 dark:text-gray-200">
+                                                ${nonConformCriteria.map(crit => `<li>${crit}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                        
+                                        ${insp.comments ? `
+                                            <div class="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900 rounded">
+                                                <p class="text-xs font-semibold text-yellow-800 dark:text-yellow-100">💬 Commentaire :</p>
+                                                <p class="text-sm text-yellow-900 dark:text-yellow-50">${insp.comments}</p>
+                                            </div>
+                                        ` : ''}
+                                        
+                                        ${insp.photos && insp.photos.length > 0 ? `
+                                            <div class="mt-3">
+                                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">📸 Photos (${insp.photos.length}) :</p>
+                                                <div class="flex gap-2 overflow-x-auto">
+                                                    ${insp.photos.map((photo, pIdx) => `
+                                                        <img src="${photo}" 
+                                                             class="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80"
+                                                             onclick="openPhotoViewer(${JSON.stringify(insp.photos)}, ${pIdx})"
+                                                             title="Cliquez pour agrandir">
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        
+                                        <div class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                            🕒 ${new Date(insp.timestamp).toLocaleString('fr-FR')}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="this.closest('.modal').remove()" 
+                                    class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
             }
             
             // Fonction pour charger TICP.json en arrière-plan
@@ -1690,16 +2452,14 @@
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        let filteredZones = zones.slice();
-
-        // FILTRE PRINCIPAL : UNIQUEMENT LES ZONES MR
-        filteredZones = filteredZones.filter(z => {
+        // Filtre FIXE : uniquement MR
+        let filteredZones = zones.filter(z => {
             const cat = z.category || '';
             const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return normalized === 'MR';
         });
 
-        // Filtre optionnel : zones non conformes
+        // Filtre optionnel : non-conformités
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
         }
@@ -1994,10 +2754,11 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     <div id="photoPreview" class="mt-2 grid grid-cols-2 gap-2">
                         ${(inspection.photos || []).map((photo, index) => `
-                            <div class="relative">
-                                <img src="${photo}" class="w-full h-20 object-cover rounded border">
-                                <button onclick="removePhoto(${index})" 
-                                        class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
+                            <div class="relative cursor-pointer" onclick="openPhotoViewer(${JSON.stringify(inspection.photos)}, ${index})">
+                                <img src="${photo}" class="w-full h-20 object-cover rounded border hover:opacity-80 transition-opacity">
+                                <button onclick="event.stopPropagation(); removePhoto(${index})" 
+                                        class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs hover:bg-red-600">×</button>
+                                <div class="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">🔍</div>
                             </div>
                         `).join('')}
 
@@ -2562,20 +3323,9 @@
 
     // Show export modal
     function showExportModal() {
-        // Calculer le nombre d'inspections MR pour cette campagne
-        const mrZoneIds = zones
-            .filter(z => {
-                const cat = z.category || '';
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return normalized === 'MR';
-            })
-            .map(z => z.id);
-        
-        const mrInspectionsCount = inspections.filter(i => 
-            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
-        ).length;
-        
-        const mrZonesCount = mrZoneIds.length;
+        // Filtre FIXE : uniquement MR
+        const deleteButtonText = 'Supprimer notations (MR)';
+        const deleteWarningText = '⚠️ Supprime les notations des zones <strong>MR</strong> pour la campagne actuelle. Cette action est irréversible !';
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -2584,14 +3334,6 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold">Exporter les Données</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-                </div>
-                
-                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                    <div class="text-sm text-blue-800">
-                        <strong>📊 Périmètre d'export :</strong><br>
-                        • <strong>${mrZonesCount}</strong> zone(s) MR<br>
-                        • <strong>${mrInspectionsCount}</strong> inspection(s) pour la campagne ${currentCampaign}
-                    </div>
                 </div>
                 
                 <div class="space-y-4">
@@ -2633,6 +3375,17 @@
                             class="w-full px-3 py-2 border border-indigo-300 rounded-md bg-indigo-50">
                         <p class="text-xs text-gray-600 mt-2">
                             Importe les notations en les associant aux éléments correspondants (par ID/position)
+                        </p>
+                    </div>
+                    
+                    <div class="mt-4 border-t pt-4">
+                        <h3 class="font-semibold mb-3 text-sm text-red-700">🗑️ Gestion des Notations</h3>
+                        <button onclick="deleteAllNotations()" 
+                                class="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-2">
+                            <span>🗑️</span> ${deleteButtonText}
+                        </button>
+                        <p class="text-xs text-red-600 mt-2 font-medium">
+                            ${deleteWarningText}
                         </p>
                     </div>
                 </div>
@@ -2741,25 +3494,27 @@
 
     // Export inspections
     function exportInspections(format) {
-        // Filtrer par campagne ET par zones MR uniquement
-        const mrZoneIds = zones
-            .filter(z => {
-                const cat = z.category || '';
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return normalized === 'MR';
-            })
-            .map(z => z.id);
+        // Filtre FIXE : uniquement MR
+        const filteredZones = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
+        const filteredZoneIds = filteredZones.map(z => z.id);
         
         const campaignInspections = inspections.filter(i => 
-            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
+            i.campaign === currentCampaign && 
+            filteredZoneIds.includes(i.zoneId)
         );
+        
+        const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
         
         if (format === 'json') {
             const data = JSON.stringify(campaignInspections, null, 2);
-            downloadFile(data, `inspections_MR_${currentCampaign}.json`, 'application/json');
+            downloadFile(data, `inspections${categorySuffix}_${currentCampaign}.json`, 'application/json');
         } else if (format === 'csv') {
             const csv = convertToCSV(campaignInspections);
-            downloadFile(csv, `inspections_MR_${currentCampaign}.csv`, 'text/csv');
+            downloadFile(csv, `inspections${categorySuffix}_${currentCampaign}.csv`, 'text/csv');
         }
     }
 
@@ -2839,13 +3594,13 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Filtrer uniquement les zones MR
-        const filteredZones = zones.filter(z => {
-            const cat = z.category || '';
+        // Filtre FIXE : uniquement MR
+        const filteredZones = zones.filter(zone => {
+            const cat = zone.category || '';
             const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return normalized === 'MR';
         });
-
+        
         // Tri par nom
         filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
@@ -3158,23 +3913,25 @@
     }
 
     function exportLibrary() {
-        // Export library : uniquement les zones MR
-        const mrZones = zones.filter(z => {
-            const cat = z.category || '';
+        // Filtre FIXE : uniquement MR
+        const zonesToExport = zones.filter(zone => {
+            const cat = zone.category || '';
             const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return normalized === 'MR';
         });
         
+        // Export library in a format compatible with import
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
-            category: "MR",
-            zones: mrZones
+            categories: ["MR"],
+            zones: zonesToExport
         };
         const data = JSON.stringify(exportData, null, 2);
-        const filename = `TICP_zones_MR_library_${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `TICP_zones_library_MR_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
-        alert(`Librairie MR exportée avec succès : ${mrZones.length} zone(s)\nFichier : ${filename}`);
+        
+        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s) (catégorie: MR)\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
@@ -3202,14 +3959,18 @@
      * Inclut les critères, commentaires et photos
      */
     function exportNotations() {
-        // Demander si on veut exporter une seule zone ou toutes les zones MR
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        
+        // Demander si on veut exporter une seule zone ou toutes les zones
         const exportAll = !currentZone || confirm(
             currentZone 
                 ? `Exporter les notations :\n\n` +
                   `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
-                  `• Toutes les zones MR → Cliquez sur OK\n\n` +
-                  `Campagne : ${currentCampaign}`
-                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones MR ?`
+                  `• Toutes les zones filtrées → Cliquez sur OK\n\n` +
+                  `Campagne : ${currentCampaign}\n` +
+                  (categoryChecks.length > 0 ? `Catégories : ${categoryChecks.join(', ')}` : 'Toutes catégories')
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones filtrées ?`
         );
         
         let zoneInspections;
@@ -3217,20 +3978,25 @@
         let filename;
         
         if (exportAll) {
-            // Exporter toutes les zones MR uniquement
-            const mrZoneIds = zones
-                .filter(z => {
-                    const cat = z.category || '';
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return normalized === 'MR';
-                })
-                .map(z => z.id);
+            // Filtrer les zones selon les catégories actives
+            let filteredZones = zones;
+            if (categoryChecks.length > 0) {
+                filteredZones = zones.filter(zone => {
+                    // Normaliser la catégorie pour gérer "Administratif:xxx"
+                    const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return categoryChecks.includes(category);
+                });
+            }
             
+            const filteredZoneIds = filteredZones.map(z => z.id);
+            
+            // Exporter toutes les zones filtrées
             zoneInspections = inspections.filter(insp => 
-                insp.campaign === currentCampaign && mrZoneIds.includes(insp.zoneId)
+                insp.campaign === currentCampaign && 
+                filteredZoneIds.includes(insp.zoneId)
             );
             
-            // Obtenir la liste des zones MR uniques qui ont des inspections
+            // Obtenir la liste des zones uniques
             const zoneIds = [...new Set(zoneInspections.map(i => i.zoneId))];
             zones_exported = zoneIds.map(zoneId => {
                 const zone = zones.find(z => z.id === zoneId);
@@ -3241,11 +4007,13 @@
             });
             
             if (zoneInspections.length === 0) {
-                alert(`❌ Aucune notation trouvée pour les zones MR de la campagne ${currentCampaign}.`);
+                const categoriesText = categoryChecks.length > 0 ? ` (catégories: ${categoryChecks.join(', ')})` : '';
+                alert(`❌ Aucune notation trouvée pour la campagne ${currentCampaign}${categoriesText}.`);
                 return;
             }
             
-            filename = `Notations_MR_TOUTES_ZONES_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
+            const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
+            filename = `Notations_TOUTES_ZONES${categorySuffix}_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         } else {
             // Exporter uniquement la zone actuelle
             if (!currentZone) {
@@ -3317,6 +4085,119 @@
         alert(message);
     }
     
+    /**
+     * Supprime toutes les notations des zones filtrées pour la campagne actuelle
+     * Respecte les filtres de catégorie actifs (checkboxes cochées)
+     * Demande une double confirmation pour éviter les suppressions accidentelles
+     */
+    function deleteAllNotations() {
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        
+        // Déterminer les zones filtrées
+        let filteredZoneIds;
+        let filterDescription;
+        
+        if (categoryChecks.length > 0) {
+            // Des filtres sont actifs : utiliser les zones correspondantes
+            filteredZoneIds = zones
+                .filter(z => {
+                    const cat = z.category || '';
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return categoryChecks.includes(normalized);
+                })
+                .map(z => z.id);
+            
+            filterDescription = `Catégories : ${categoryChecks.join(', ')}`;
+        } else {
+            // Aucun filtre actif : toutes les zones
+            filteredZoneIds = zones.map(z => z.id);
+            filterDescription = 'Toutes les catégories';
+        }
+        
+        // Trouver les inspections correspondantes
+        const filteredInspections = inspections.filter(i => 
+            i.campaign === currentCampaign && filteredZoneIds.includes(i.zoneId)
+        );
+        
+        const count = filteredInspections.length;
+        
+        if (count === 0) {
+            const msg = categoryChecks.length > 0 
+                ? `Aucune notation à supprimer pour les zones ${categoryChecks.join(', ')} de la campagne ${currentCampaign}`
+                : `Aucune notation à supprimer pour la campagne ${currentCampaign}`;
+            alert('ℹ️ ' + msg);
+            return;
+        }
+        
+        // Liste des zones concernées
+        const affectedZones = [...new Set(filteredInspections.map(i => i.zoneId))];
+        const zoneNames = affectedZones.map(id => {
+            const z = zones.find(zone => zone.id === id);
+            return z ? z.name : id;
+        }).join(', ');
+        
+        // Première confirmation
+        const firstConfirm = confirm(
+            `⚠️ ATTENTION - Suppression de notations\n\n` +
+            `Vous êtes sur le point de supprimer :\n` +
+            `• ${count} notation(s)\n` +
+            `• Campagne : ${currentCampaign}\n` +
+            `• ${filterDescription}\n` +
+            `• Zones concernées (${affectedZones.length}) : ${affectedZones.length <= 5 ? zoneNames : affectedZones.length + ' zones'}\n\n` +
+            `Cette action est IRRÉVERSIBLE !\n\n` +
+            `Voulez-vous continuer ?`
+        );
+        
+        if (!firstConfirm) {
+            return;
+        }
+        
+        // Deuxième confirmation (sécurité)
+        const secondConfirm = confirm(
+            `🚨 DERNIÈRE CONFIRMATION\n\n` +
+            `Êtes-vous VRAIMENT sûr de vouloir supprimer ${count} notation(s) ?\n\n` +
+            `Conseil : Exportez d'abord vos notations avant de les supprimer !`
+        );
+        
+        if (!secondConfirm) {
+            alert('✅ Suppression annulée. Vos données sont conservées.');
+            return;
+        }
+        
+        // Effectuer la suppression
+        const beforeCount = inspections.length;
+        inspections = inspections.filter(i => 
+            !(i.campaign === currentCampaign && filteredZoneIds.includes(i.zoneId))
+        );
+        const afterCount = inspections.length;
+        const deleted = beforeCount - afterCount;
+        
+        // Sauvegarder
+        saveInspections();
+        
+        // Mettre à jour l'affichage
+        updateKPIs();
+        if (currentZone) {
+            addHotspots();
+            renderNotationPanel();
+        }
+        
+        // Fermer le modal d'export
+        const modal = document.querySelector('.modal');
+        if (modal) modal.remove();
+        
+        // Message de confirmation
+        alert(
+            `✅ Suppression effectuée avec succès !\n\n` +
+            `• ${deleted} notation(s) supprimée(s)\n` +
+            `• Campagne : ${currentCampaign}\n` +
+            `• ${filterDescription}\n` +
+            `• Zones : ${affectedZones.length}\n\n` +
+            `Les indicateurs ont été mis à jour.`
+        );
+    }
+
     /**
      * Importe les notations depuis un fichier JSON
      * Associe intelligemment les notations aux éléments existants
