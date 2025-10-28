@@ -322,6 +322,12 @@
             overflow-y: auto;
         }
         
+        /* Mode sombre pour les modales */
+        .dark-mode .modal-content {
+            background: #1f2937;
+            color: #f3f4f6;
+        }
+        
         /* Collapsible left panel */
         .left-panel {
             transition: width 0.25s ease;
@@ -399,11 +405,11 @@
                     <!-- Indicateur de stockage -->
                     <div id="storageIndicator" class="text-xs" title="Utilisation du stockage local">
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-600">💾</span>
-                            <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <span class="text-gray-600 dark:text-gray-300">💾</span>
+                            <div class="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div id="storageBar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
                             </div>
-                            <span id="storageText" class="text-gray-700 font-medium">0%</span>
+                            <span id="storageText" class="text-gray-700 dark:text-gray-200 font-medium">0%</span>
                         </div>
                     </div>
                 </div>
@@ -3332,8 +3338,8 @@
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Exporter les Données</h2>
-                    <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Exporter les Données</h2>
+                    <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">&times;</button>
                 </div>
                 
                 <div class="space-y-4">
@@ -3352,39 +3358,39 @@
                     
                     <hr class="my-4 border-gray-300">
                     
-                    <h3 class="font-semibold mb-3 text-sm text-gray-700">📝 Export / Import Notations</h3>
+                    <h3 class="font-semibold mb-3 text-sm text-gray-700 dark:text-gray-200">📝 Export / Import Notations</h3>
                     
                     <button onclick="exportNotations()" 
                             class="w-full px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2">
                         <span>📤</span> Exporter Notations de Zone
                     </button>
                     
-                    <p class="text-xs text-gray-600 mt-2 mb-3">
+                    <p class="text-xs text-gray-600 dark:text-gray-300 mt-2 mb-3">
                         Exporte uniquement les notations (critères + photos) des éléments de la zone actuelle
                     </p>
                 </div>
                 
                 <div class="mt-6">
-                    <h3 class="font-semibold mb-3">Importer Inspections</h3>
+                    <h3 class="font-semibold mb-3 text-gray-900 dark:text-gray-100">Importer Inspections</h3>
                     <input type="file" accept=".json" onchange="importInspections(event)" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-gray-200">
                     
                     <div class="mt-4 border-t pt-4">
-                        <h3 class="font-semibold mb-3 text-sm text-gray-700">📝 Importer Notations</h3>
+                        <h3 class="font-semibold mb-3 text-sm text-gray-700 dark:text-gray-200">📝 Importer Notations</h3>
                         <input type="file" accept=".json" onchange="importNotations(event)" 
-                            class="w-full px-3 py-2 border border-indigo-300 rounded-md bg-indigo-50">
-                        <p class="text-xs text-gray-600 mt-2">
+                            class="w-full px-3 py-2 border border-indigo-300 rounded-md bg-indigo-50 dark:bg-indigo-900 dark:border-indigo-600">
+                        <p class="text-xs text-gray-600 dark:text-gray-300 mt-2">
                             Importe les notations en les associant aux éléments correspondants (par ID/position)
                         </p>
                     </div>
                     
                     <div class="mt-4 border-t pt-4">
-                        <h3 class="font-semibold mb-3 text-sm text-red-700">🗑️ Gestion des Notations</h3>
+                        <h3 class="font-semibold mb-3 text-sm text-red-700 dark:text-red-400">🗑️ Gestion des Notations</h3>
                         <button onclick="deleteAllNotations()" 
                                 class="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-2">
                             <span>🗑️</span> ${deleteButtonText}
                         </button>
-                        <p class="text-xs text-red-600 mt-2 font-medium">
+                        <p class="text-xs text-red-600 dark:text-red-400 mt-2 font-medium">
                             ${deleteWarningText}
                         </p>
                     </div>
@@ -3401,13 +3407,13 @@
         modal.className = 'modal';
         
         modal.innerHTML = `
-            <div class="modal-content w-full max-w-4xl">
+            <div class="modal-content w-full max-w-4xl bg-white dark:bg-gray-800">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Rapport des Non-Conformités</h2>
-                    <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Rapport des Non-Conformités</h2>
+                    <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">&times;</button>
                 </div>
                 
-                <label class="flex items-center mb-4">
+                <label class="flex items-center mb-4 text-gray-700 dark:text-gray-300">
                     <input type="checkbox" id="filterZonesOnly" onchange="updateNonConformitiesView()" class="mr-2">
                     Afficher seulement les zones non conformes
                 </label>
@@ -3468,12 +3474,12 @@
             });
             
             if (Object.keys(zonesWithIssues).length === 0) {
-                content = '<p class="text-gray-500">Aucune zone non conforme trouvée.</p>';
+                content = '<p class="text-gray-500 dark:text-gray-400">Aucune zone non conforme trouvée.</p>';
             } else {
                 Object.entries(zonesWithIssues).forEach(([zone, issues]) => {
-                    content += `<div class="border border-red-200 bg-red-50 p-4 rounded"><h3 class="font-bold text-red-700">${zone} (${issues.length} non-conformité(s))</h3><ul class="mt-2 space-y-1">`;
+                    content += `<div class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 rounded"><h3 class="font-bold text-red-700 dark:text-red-400">${zone} (${issues.length} non-conformité(s))</h3><ul class="mt-2 space-y-1">`;
                     issues.forEach(nc => {
-                        content += `<li class="text-sm">${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></li>`;
+                        content += `<li class="text-sm text-gray-800 dark:text-gray-200">${nc.element} <small class="text-gray-500 dark:text-gray-400">(${new Date(nc.timestamp).toLocaleString()})</small></li>`;
                     });
                     content += '</ul></div>';
                 });
@@ -3481,10 +3487,10 @@
         } else {
             // List all
             if (nonConformities.length === 0) {
-                content = '<p class="text-gray-500">Aucune non-conformité trouvée.</p>';
+                content = '<p class="text-gray-500 dark:text-gray-400">Aucune non-conformité trouvée.</p>';
             } else {
                 nonConformities.forEach(nc => {
-                    content += `<div class="border border-red-200 bg-red-50 p-3 rounded"><strong>${nc.zone}</strong>: ${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></div>`;
+                    content += `<div class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 rounded text-gray-800 dark:text-gray-200"><strong>${nc.zone}</strong>: ${nc.element} <small class="text-gray-500 dark:text-gray-400">(${new Date(nc.timestamp).toLocaleString()})</small></div>`;
                 });
             }
         }
