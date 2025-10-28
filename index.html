@@ -6,9 +6,174 @@
     <title>Tournées Incendie - Gestion des Inspections</title>
     <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Mode sombre */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --modal-bg: #ffffff;
+            --input-bg: #ffffff;
+            --card-bg: #ffffff;
+        }
+        
+        .dark-mode {
+            --bg-primary: #1f2937;
+            --bg-secondary: #111827;
+            --bg-tertiary: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --border-color: #4b5563;
+            --modal-bg: #374151;
+            --input-bg: #1f2937;
+            --card-bg: #374151;
+        }
+        
         body {
             box-sizing: border-box;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .bg-white { background-color: var(--card-bg) !important; }
+        .bg-gray-50 { background-color: var(--bg-secondary) !important; }
+        .bg-gray-100 { background-color: var(--bg-tertiary) !important; }
+        .text-gray-900 { color: var(--text-primary) !important; }
+        .text-gray-600 { color: var(--text-secondary) !important; }
+        .border-gray-200 { border-color: var(--border-color) !important; }
+        .border-gray-300 { border-color: var(--border-color) !important; }
+        
+        .modal-content {
+            background-color: var(--modal-bg) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        input, textarea, select {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        .dark-mode input::placeholder,
+        .dark-mode textarea::placeholder {
+            color: var(--text-secondary);
+        }
+        
+        /* Visionneuse de photos */
+        .photo-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .photo-viewer-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .photo-viewer-image {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+        
+        .photo-viewer-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 30px;
+        }
+        
+        .photo-viewer-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        
+        .photo-viewer-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+        
+        .photo-viewer-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .photo-viewer-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .photo-viewer-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .photo-viewer-nav:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .photo-viewer-nav.prev {
+            left: 20px;
+        }
+        
+        .photo-viewer-nav.next {
+            right: 20px;
         }
         
         .hotspot {
@@ -249,6 +414,12 @@
                         <option value="2025Q3">2025 Q3</option>
                         <option value="2025Q4" selected>2025 Q4</option>
                     </select>
+                    <button id="darkModeToggle" class="px-3 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors" title="Basculer mode sombre/clair">
+                        <span id="darkModeIcon">🌙</span>
+                    </button>
+                    <button id="dashboardBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        📊 Tableaux de bord
+                    </button>
                     <button id="adminModeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         Mode Admin
                     </button>
@@ -595,6 +766,10 @@
                 const adminModeBtn = document.getElementById('adminModeBtn');
                 if (adminModeBtn) adminModeBtn.addEventListener('click', () => toggleAdminMode(true));
 
+                // Dashboard button
+                const dashboardBtn = document.getElementById('dashboardBtn');
+                if (dashboardBtn) dashboardBtn.addEventListener('click', showDashboard);
+
                 // Export button
                 const exportBtn = document.getElementById('exportBtn');
                 if (exportBtn) exportBtn.addEventListener('click', showExportModal);
@@ -624,9 +799,403 @@
                 updateKPIs();
                 updateStorageIndicator(); // Afficher l'état du stockage
                 applyLeftPanelState(); // apply saved collapsed state
+                initDarkMode(); // Initialiser le mode sombre
                 
                 // Tenter de charger TICP.json si disponible (pour synchronisation)
                 await tryLoadTICPJson();
+            }
+            
+            // Mode sombre
+            function initDarkMode() {
+                const darkMode = localStorage.getItem('darkMode') === 'true';
+                if (darkMode) {
+                    document.body.classList.add('dark-mode');
+                    document.getElementById('darkModeIcon').textContent = '☀️';
+                }
+                
+                document.getElementById('darkModeToggle').addEventListener('click', () => {
+                    document.body.classList.toggle('dark-mode');
+                    const isDark = document.body.classList.contains('dark-mode');
+                    localStorage.setItem('darkMode', isDark);
+                    document.getElementById('darkModeIcon').textContent = isDark ? '☀️' : '🌙';
+                });
+            }
+            
+            // Visionneuse de photos
+            let photoViewerState = {
+                photos: [],
+                currentIndex: 0,
+                zoom: 1,
+                rotation: 0
+            };
+            
+            function openPhotoViewer(photos, startIndex = 0) {
+                photoViewerState.photos = photos;
+                photoViewerState.currentIndex = startIndex;
+                photoViewerState.zoom = 1;
+                photoViewerState.rotation = 0;
+                
+                const viewer = document.createElement('div');
+                viewer.className = 'photo-viewer';
+                viewer.id = 'photoViewer';
+                viewer.innerHTML = `
+                    <div class="photo-viewer-content">
+                        <button class="photo-viewer-close" onclick="closePhotoViewer()">×</button>
+                        ${photos.length > 1 ? `
+                            <button class="photo-viewer-nav prev" onclick="prevPhoto()">‹</button>
+                            <button class="photo-viewer-nav next" onclick="nextPhoto()">›</button>
+                        ` : ''}
+                        <img id="viewerImage" class="photo-viewer-image" src="${photos[startIndex]}" alt="Photo">
+                        <div class="photo-viewer-controls">
+                            <button class="photo-viewer-btn" onclick="zoomIn()" title="Zoom +">🔍+</button>
+                            <button class="photo-viewer-btn" onclick="zoomOut()" title="Zoom -">🔍-</button>
+                            <button class="photo-viewer-btn" onclick="rotateLeft()" title="Rotation ↶">↶</button>
+                            <button class="photo-viewer-btn" onclick="rotateRight()" title="Rotation ↷">↷</button>
+                            <button class="photo-viewer-btn" onclick="resetView()" title="Réinitialiser">⟲</button>
+                            ${photos.length > 1 ? `<span class="text-white mx-2">${startIndex + 1}/${photos.length}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(viewer);
+                updatePhotoTransform();
+                
+                // Fermer avec Echap
+                document.addEventListener('keydown', photoViewerKeyHandler);
+            }
+            
+            function closePhotoViewer() {
+                const viewer = document.getElementById('photoViewer');
+                if (viewer) {
+                    viewer.remove();
+                    document.removeEventListener('keydown', photoViewerKeyHandler);
+                }
+            }
+            
+            function photoViewerKeyHandler(e) {
+                if (e.key === 'Escape') closePhotoViewer();
+                if (e.key === 'ArrowLeft') prevPhoto();
+                if (e.key === 'ArrowRight') nextPhoto();
+            }
+            
+            function updatePhotoTransform() {
+                const img = document.getElementById('viewerImage');
+                if (img) {
+                    img.style.transform = `scale(${photoViewerState.zoom}) rotate(${photoViewerState.rotation}deg)`;
+                }
+            }
+            
+            function updatePhotoCounter() {
+                const viewer = document.getElementById('photoViewer');
+                if (viewer && photoViewerState.photos.length > 1) {
+                    const counter = viewer.querySelector('.photo-viewer-controls span');
+                    if (counter) {
+                        counter.textContent = `${photoViewerState.currentIndex + 1}/${photoViewerState.photos.length}`;
+                    }
+                }
+            }
+            
+            function prevPhoto() {
+                if (photoViewerState.currentIndex > 0) {
+                    photoViewerState.currentIndex--;
+                    photoViewerState.zoom = 1;
+                    photoViewerState.rotation = 0;
+                    document.getElementById('viewerImage').src = photoViewerState.photos[photoViewerState.currentIndex];
+                    updatePhotoTransform();
+                    updatePhotoCounter();
+                }
+            }
+            
+            function nextPhoto() {
+                if (photoViewerState.currentIndex < photoViewerState.photos.length - 1) {
+                    photoViewerState.currentIndex++;
+                    photoViewerState.zoom = 1;
+                    photoViewerState.rotation = 0;
+                    document.getElementById('viewerImage').src = photoViewerState.photos[photoViewerState.currentIndex];
+                    updatePhotoTransform();
+                    updatePhotoCounter();
+                }
+            }
+            
+            function zoomIn() {
+                photoViewerState.zoom = Math.min(photoViewerState.zoom + 0.25, 4);
+                updatePhotoTransform();
+            }
+            
+            function zoomOut() {
+                photoViewerState.zoom = Math.max(photoViewerState.zoom - 0.25, 0.5);
+                updatePhotoTransform();
+            }
+            
+            function rotateLeft() {
+                photoViewerState.rotation -= 90;
+                updatePhotoTransform();
+            }
+            
+            function rotateRight() {
+                photoViewerState.rotation += 90;
+                updatePhotoTransform();
+            }
+            
+            function resetView() {
+                photoViewerState.zoom = 1;
+                photoViewerState.rotation = 0;
+                updatePhotoTransform();
+            }
+            
+            // Tableau de bord avec graphiques
+            function showDashboard() {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 1200px;">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-3xl font-bold">📊 Tableaux de Bord</h2>
+                            <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Graphique évolution des non-conformités -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Évolution des Non-Conformités</h3>
+                                <canvas id="nonConformitiesChart"></canvas>
+                            </div>
+                            
+                            <!-- Graphique taux de conformité par catégorie -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Taux de Conformité par Catégorie</h3>
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                            
+                            <!-- Statistiques globales -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Statistiques Globales</h3>
+                                <div id="globalStats" class="space-y-2"></div>
+                            </div>
+                            
+                            <!-- Graphique répartition par type d'élément -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités</h3>
+                                <canvas id="elementTypeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Générer les graphiques
+                setTimeout(() => {
+                    generateNonConformitiesChart();
+                    generateCategoryChart();
+                    generateGlobalStats();
+                    generateElementTypeChart();
+                }, 100);
+            }
+            
+            function generateNonConformitiesChart() {
+                const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
+                const data = campaigns.map(campaign => {
+                    return inspections.filter(insp => 
+                        insp.campaign === campaign && 
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                });
+                
+                const ctx = document.getElementById('nonConformitiesChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: campaigns,
+                        datasets: [{
+                            label: 'Non-Conformités',
+                            data: data,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true },
+                            title: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+            
+            function generateCategoryChart() {
+                const categories = ['MR', 'SC', 'PRM', 'Administratif'];
+                const stats = categories.map(category => {
+                    const categoryZones = zones.filter(zone => {
+                        const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                        return cat === category;
+                    });
+                    
+                    const zoneIds = categoryZones.map(z => z.id);
+                    const totalInspections = inspections.filter(insp => 
+                        insp.campaign === currentCampaign && 
+                        zoneIds.includes(insp.zoneId)
+                    ).length;
+                    
+                    const nonConformInspections = inspections.filter(insp => 
+                        insp.campaign === currentCampaign && 
+                        zoneIds.includes(insp.zoneId) &&
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                    
+                    return totalInspections > 0 
+                        ? Math.round(((totalInspections - nonConformInspections) / totalInspections) * 100)
+                        : 0;
+                });
+                
+                const ctx = document.getElementById('categoryChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            label: 'Taux de Conformité (%)',
+                            data: stats,
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.6)',
+                                'rgba(16, 185, 129, 0.6)',
+                                'rgba(245, 158, 11, 0.6)',
+                                'rgba(139, 92, 246, 0.6)'
+                            ],
+                            borderColor: [
+                                '#3b82f6',
+                                '#10b981',
+                                '#f59e0b',
+                                '#8b5cf6'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: value => value + '%'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function generateGlobalStats() {
+                const totalZones = zones.length;
+                const totalInspections = inspections.filter(i => i.campaign === currentCampaign).length;
+                const nonConformities = inspections.filter(i => 
+                    i.campaign === currentCampaign && 
+                    i.criteria && 
+                    Object.values(i.criteria).includes('non')
+                ).length;
+                const withPhotos = inspections.filter(i => 
+                    i.campaign === currentCampaign && 
+                    i.photos && i.photos.length > 0
+                ).length;
+                
+                const conformityRate = totalInspections > 0 
+                    ? Math.round(((totalInspections - nonConformities) / totalInspections) * 100)
+                    : 0;
+                
+                const statsDiv = document.getElementById('globalStats');
+                if (!statsDiv) return;
+                
+                statsDiv.innerHTML = `
+                    <div class="flex justify-between p-2 bg-blue-50 dark:bg-blue-900 rounded">
+                        <span class="font-medium">Total Zones:</span>
+                        <span class="font-bold">${totalZones}</span>
+                    </div>
+                    <div class="flex justify-between p-2 bg-green-50 dark:bg-green-900 rounded">
+                        <span class="font-medium">Inspections (${currentCampaign}):</span>
+                        <span class="font-bold">${totalInspections}</span>
+                    </div>
+                    <div class="flex justify-between p-2 bg-red-50 dark:bg-red-900 rounded">
+                        <span class="font-medium">Non-Conformités:</span>
+                        <span class="font-bold">${nonConformities}</span>
+                    </div>
+                    <div class="flex justify-between p-2 bg-purple-50 dark:bg-purple-900 rounded">
+                        <span class="font-medium">Avec Photos:</span>
+                        <span class="font-bold">${withPhotos}</span>
+                    </div>
+                    <div class="flex justify-between p-2 bg-yellow-50 dark:bg-yellow-900 rounded">
+                        <span class="font-medium">Taux de Conformité:</span>
+                        <span class="font-bold text-lg">${conformityRate}%</span>
+                    </div>
+                `;
+            }
+            
+            function generateElementTypeChart() {
+                const types = ['extincteur', 'dm', 'sortie', 'zone'];
+                const typeLabels = {
+                    'extincteur': 'Extincteurs',
+                    'dm': 'DM',
+                    'sortie': 'Sorties',
+                    'zone': 'Zones'
+                };
+                
+                const data = types.map(type => {
+                    return inspections.filter(insp => 
+                        insp.campaign === currentCampaign && 
+                        insp.type === type &&
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                });
+                
+                const ctx = document.getElementById('elementTypeChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: types.map(t => typeLabels[t]),
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                'rgba(239, 68, 68, 0.6)',
+                                'rgba(245, 158, 11, 0.6)',
+                                'rgba(16, 185, 129, 0.6)',
+                                'rgba(59, 130, 246, 0.6)'
+                            ],
+                            borderColor: [
+                                '#ef4444',
+                                '#f59e0b',
+                                '#10b981',
+                                '#3b82f6'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { 
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
             }
             
             // Fonction pour charger TICP.json en arrière-plan
@@ -1992,10 +2561,11 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     <div id="photoPreview" class="mt-2 grid grid-cols-2 gap-2">
                         ${(inspection.photos || []).map((photo, index) => `
-                            <div class="relative">
-                                <img src="${photo}" class="w-full h-20 object-cover rounded border">
-                                <button onclick="removePhoto(${index})" 
-                                        class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
+                            <div class="relative cursor-pointer" onclick="openPhotoViewer(${JSON.stringify(inspection.photos)}, ${index})">
+                                <img src="${photo}" class="w-full h-20 object-cover rounded border hover:opacity-80 transition-opacity">
+                                <button onclick="event.stopPropagation(); removePhoto(${index})" 
+                                        class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs hover:bg-red-600">×</button>
+                                <div class="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">🔍</div>
                             </div>
                         `).join('')}
 
