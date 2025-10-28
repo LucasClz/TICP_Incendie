@@ -636,6 +636,9 @@
                     <button id="exportLibraryBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         📤 Exporter Librairie
                     </button>
+                    <button id="compressAllImagesBtn" class="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700">
+                        🗜️ Optimiser Stockage
+                    </button>
                 </div>
 
                 <div class="mt-6">
@@ -1829,11 +1832,11 @@
                     }
                 }
                 
-                // Nettoyage préventif si > 80%
-                if (parseFloat(storageInfo.percent) > 80) {
+                // Nettoyage préventif dès 30% pour éviter les problèmes
+                if (parseFloat(storageInfo.percent) > 30) {
                     const cleaned = autoCleanStorage();
                     if (cleaned) {
-                        console.log(`Nettoyage automatique: ${cleaned.photosRemoved} photos supprimées`);
+                        console.log(`🧹 Nettoyage automatique préventif: ${cleaned.photosRemoved} photos supprimées`);
                     }
                 }
                 
@@ -1934,8 +1937,8 @@
             }
 
             // Compression / redimensionnement des images DataURL pour stocker dans localStorage
-            // Optimisation agressive pour économiser l'espace
-            function compressImage(dataUrl, maxWidth = 1200, quality = 0.65) {
+            // Optimisation ULTRA-AGRESSIVE pour économiser l'espace (divise par 2 l'utilisation)
+            function compressImage(dataUrl, maxWidth = 800, quality = 0.45) {
                 return new Promise(resolve => {
                     const img = new Image();
                     img.onload = () => {
@@ -1958,24 +1961,24 @@
                         ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Exporter en JPEG avec qualité réduite
+                        // Exporter en JPEG avec qualité ultra-réduite
                         let compressed = canvas.toDataURL('image/jpeg', quality);
                         
-                        // Si l'image est encore trop grande (>500KB), réduire davantage
-                        if (compressed.length > 500000) {
-                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        // Si l'image est encore trop grande (>300KB), réduire davantage
+                        if (compressed.length > 300000) {
+                            compressed = canvas.toDataURL('image/jpeg', 0.35);
                         }
                         
-                        // Si encore trop grande (>800KB), réduire la résolution
-                        if (compressed.length > 800000) {
-                            const smallerWidth = Math.round(width * 0.75);
-                            const smallerHeight = Math.round(height * 0.75);
+                        // Si encore trop grande (>500KB), réduire la résolution drastiquement
+                        if (compressed.length > 500000) {
+                            const smallerWidth = Math.round(width * 0.6);
+                            const smallerHeight = Math.round(height * 0.6);
                             canvas.width = smallerWidth;
                             canvas.height = smallerHeight;
                             ctx.imageSmoothingEnabled = true;
-                            ctx.imageSmoothingQuality = 'high';
+                            ctx.imageSmoothingQuality = 'medium';
                             ctx.drawImage(img, 0, 0, smallerWidth, smallerHeight);
-                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                            compressed = canvas.toDataURL('image/jpeg', 0.35);
                         }
                         
                         resolve(compressed);
@@ -2128,13 +2131,17 @@
                 }
                 
                 // Changer la couleur selon le niveau d'utilisation de l'app
-                if (percent < 60) {
+                // Seuils plus stricts pour alerter plus tôt
+                if (percent < 20) {
                     storageBar.className = 'h-full bg-green-500 transition-all duration-300';
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Excellent ✓`;
+                } else if (percent < 40) {
+                    storageBar.className = 'h-full bg-lime-500 transition-all duration-300';
                     storageIndicator.title = `${tooltipMsg}\nStatut: Bon ✓`;
-                } else if (percent < 80) {
+                } else if (percent < 60) {
                     storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
                     storageIndicator.title = `${tooltipMsg}\nStatut: Attention ⚠`;
-                } else if (percent < 95) {
+                } else if (percent < 80) {
                     storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
                     storageIndicator.title = `${tooltipMsg}\nStatut: Critique !`;
                 } else {
@@ -2144,12 +2151,14 @@
             }
             
             // Fonction pour nettoyer automatiquement l'espace
+            // Fonction pour nettoyer automatiquement l'espace
+            // Nettoyage précoce dès 40% pour éviter les problèmes
             function autoCleanStorage() {
                 const storage = getStorageInfo();
                 
-                // Si on dépasse 80% du quota, nettoyer
-                if (parseFloat(storage.percent) > 80) {
-                    console.log('Nettoyage automatique du stockage...');
+                // Si on dépasse 40% du quota, nettoyer (au lieu de 80%)
+                if (parseFloat(storage.percent) > 40) {
+                    console.log('🧹 Nettoyage automatique préventif du stockage...');
                     
                     // 1. Supprimer les photos d'inspection les plus anciennes
                     let photosRemoved = 0;
@@ -2160,12 +2169,12 @@
                         }
                     });
                     
-                    // 2. Re-compresser les images de plan si nécessaire
+                    // 2. Re-compresser agressivement les images de plan volumineuses
                     let plansCompressed = 0;
                     zones.forEach(z => {
                         if (z.floors) {
                             z.floors.forEach(floor => {
-                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 300000) {
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 200000) {
                                     // Marquer pour re-compression au prochain chargement
                                     plansCompressed++;
                                 }
@@ -2537,6 +2546,8 @@
             if (importBtn) importBtn.onclick = showImportModal;
             const exportLibraryBtn = document.getElementById('exportLibraryBtn');
             if (exportLibraryBtn) exportLibraryBtn.onclick = exportLibrary;
+            const compressAllImagesBtn = document.getElementById('compressAllImagesBtn');
+            if (compressAllImagesBtn) compressAllImagesBtn.onclick = compressAllImages;
             const exitBtn = document.getElementById('exitAdminBtn');
             if (exitBtn) exitBtn.onclick = () => toggleAdminMode(false);
         } else {
@@ -4065,6 +4076,64 @@
         downloadFile(data, filename, 'application/json');
         
         alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s)\nFichier : ${filename}`);
+    }
+
+    // Fonction pour compresser toutes les images existantes et réduire le stockage
+    async function compressAllImages() {
+        if (!confirm('🗜️ Cette opération va re-compresser TOUTES les images de plans pour économiser de l\'espace.\n\n⚠️ Cette opération peut prendre quelques secondes.\n\nContinuer ?')) {
+            return;
+        }
+        
+        const storageBeforeInfo = getStorageInfo();
+        const storageBefore = parseFloat(storageBeforeInfo.used);
+        let compressedCount = 0;
+        let totalProcessed = 0;
+        
+        // Afficher un message de progression
+        const progressDiv = document.createElement('div');
+        progressDiv.className = 'fixed top-4 right-4 bg-blue-600 text-white p-4 rounded-lg shadow-lg z-50';
+        progressDiv.innerHTML = '<div class="font-bold">🗜️ Compression en cours...</div><div id="compressProgress" class="text-sm mt-2">0%</div>';
+        document.body.appendChild(progressDiv);
+        
+        for (let z = 0; z < zones.length; z++) {
+            const zone = zones[z];
+            if (zone.floors) {
+                for (let f = 0; f < zone.floors.length; f++) {
+                    const floor = zone.floors[f];
+                    totalProcessed++;
+                    
+                    if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image')) {
+                        const originalSize = floor.plan.imageUrl.length;
+                        
+                        // Re-compresser l'image avec les nouveaux paramètres agressifs
+                        try {
+                            const compressed = await compressImage(floor.plan.imageUrl, 800, 0.45);
+                            floor.plan.imageUrl = compressed;
+                            compressedCount++;
+                            
+                            const progress = Math.round((totalProcessed / zones.reduce((sum, z) => sum + (z.floors?.length || 0), 0)) * 100);
+                            document.getElementById('compressProgress').textContent = `${progress}% (${compressedCount} images compressées)`;
+                        } catch (err) {
+                            console.error('Erreur compression image:', err);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Sauvegarder et calculer le gain
+        await saveZones();
+        
+        const storageAfterInfo = getStorageInfo();
+        const storageAfter = parseFloat(storageAfterInfo.used);
+        const saved = (storageBefore - storageAfter).toFixed(2);
+        const savedPercent = ((saved / storageBefore) * 100).toFixed(1);
+        
+        progressDiv.remove();
+        
+        alert(`✅ Compression terminée !\n\n📊 Résultats :\n• ${compressedCount} image(s) compressée(s)\n• Avant : ${storageBefore}MB\n• Après : ${storageAfter}MB\n• Gain : ${saved}MB (${savedPercent}%)\n\n💾 Stockage actuel : ${storageAfterInfo.percent}%`);
+        
+        updateStorageIndicator();
     }
 
     function exportCurrentZone() {
