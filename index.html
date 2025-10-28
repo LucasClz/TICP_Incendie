@@ -961,6 +961,12 @@
                                 <canvas id="nonConformitiesChart"></canvas>
                             </div>
                             
+                            <!-- Graphique évolution de la conformité -->
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Évolution de la Conformité (%)</h3>
+                                <canvas id="conformityEvolutionChart"></canvas>
+                            </div>
+                            
                             <!-- Graphique taux de conformité par catégorie -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
                                 <h3 class="text-lg font-semibold mb-4">Taux de Conformité par Catégorie</h3>
@@ -974,9 +980,11 @@
                             </div>
                             
                             <!-- Graphique répartition par type d'élément -->
-                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités</h3>
-                                <canvas id="elementTypeChart"></canvas>
+                            <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow col-span-1 md:col-span-2">
+                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités par Type</h3>
+                                <div class="flex justify-center">
+                                    <canvas id="elementTypeChart" style="max-width: 400px;"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -987,6 +995,7 @@
                 // Générer les graphiques
                 setTimeout(() => {
                     generateNonConformitiesChart();
+                    generateConformityEvolutionChart();
                     generateCategoryChart();
                     generateGlobalStats();
                     generateElementTypeChart();
@@ -1027,6 +1036,61 @@
                         },
                         scales: {
                             y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+            
+            function generateConformityEvolutionChart() {
+                const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
+                const conformityRates = campaigns.map(campaign => {
+                    const totalInspections = inspections.filter(insp => insp.campaign === campaign).length;
+                    const nonConformInspections = inspections.filter(insp => 
+                        insp.campaign === campaign && 
+                        insp.criteria && 
+                        Object.values(insp.criteria).includes('non')
+                    ).length;
+                    
+                    return totalInspections > 0 
+                        ? Math.round(((totalInspections - nonConformInspections) / totalInspections) * 100)
+                        : 0;
+                });
+                
+                const ctx = document.getElementById('conformityEvolutionChart');
+                if (!ctx) return;
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: campaigns,
+                        datasets: [{
+                            label: 'Taux de Conformité (%)',
+                            data: conformityRates,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true },
+                            title: { display: false }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: value => value + '%'
+                                }
+                            }
                         }
                     }
                 });
