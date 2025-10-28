@@ -636,9 +636,6 @@
                     <button id="exportLibraryBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         📤 Exporter Librairie
                     </button>
-                    <button id="compressAllImagesBtn" class="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700">
-                        🗜️ Optimiser Stockage
-                    </button>
                 </div>
 
                 <div class="mt-6">
@@ -878,8 +875,58 @@
                 applyLeftPanelState(); // apply saved collapsed state
                 initDarkMode(); // Initialiser le mode sombre
                 
+                // Compression automatique des images au démarrage (silencieuse)
+                await autoCompressImagesOnStartup();
+                
                 // Tenter de charger TICP.json si disponible (pour synchronisation)
                 await tryLoadTICPJson();
+            }
+            
+            // Compression automatique silencieuse au démarrage
+            async function autoCompressImagesOnStartup() {
+                const storageInfo = getStorageInfo();
+                let needsCompression = false;
+                let imagesToCompress = 0;
+                
+                // Vérifier s'il y a des images volumineuses à compresser
+                zones.forEach(z => {
+                    if (z.floors) {
+                        z.floors.forEach(floor => {
+                            if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image')) {
+                                // Si l'image fait plus de 400KB, elle mérite d'être compressée
+                                if (floor.plan.imageUrl.length > 400000) {
+                                    needsCompression = true;
+                                    imagesToCompress++;
+                                }
+                            }
+                        });
+                    }
+                });
+                
+                // Si compression nécessaire, la faire en arrière-plan
+                if (needsCompression && imagesToCompress > 0) {
+                    console.log(`🗜️ Compression automatique de ${imagesToCompress} image(s) volumineuse(s)...`);
+                    
+                    for (let z = 0; z < zones.length; z++) {
+                        const zone = zones[z];
+                        if (zone.floors) {
+                            for (let f = 0; f < zone.floors.length; f++) {
+                                const floor = zone.floors[f];
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image') && floor.plan.imageUrl.length > 400000) {
+                                    try {
+                                        floor.plan.imageUrl = await compressImage(floor.plan.imageUrl, 1000, 0.6);
+                                    } catch (err) {
+                                        console.error('Erreur compression auto:', err);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    await saveZones();
+                    updateStorageIndicator();
+                    console.log(`✅ Compression automatique terminée`);
+                }
             }
             
             // Mode sombre
@@ -1086,8 +1133,13 @@
             }
             
             function generateNonConformitiesChart() {
-                // Filtrer uniquement les zones MR
-                const mrZones = getFilteredZones(false);
+                // Filtrer uniquement les zones MR - avec vérification robuste
+                const mrZones = zones.filter(zone => {
+                    const cat = (zone.category || '').trim();
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                });
+                
                 const mrZoneIds = mrZones.map(z => z.id);
                 
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
@@ -1130,8 +1182,13 @@
             }
             
             function generateConformityEvolutionChart() {
-                // Filtrer uniquement les zones MR
-                const mrZones = getFilteredZones(false);
+                // Filtrer uniquement les zones MR - avec vérification robuste
+                const mrZones = zones.filter(zone => {
+                    const cat = (zone.category || '').trim();
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                });
+                
                 const mrZoneIds = mrZones.map(z => z.id);
                 
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
@@ -1192,15 +1249,19 @@
             }
             
             function generateCategoryChart() {
-                // Filtre MR uniquement
+                // Filtre MR uniquement - avec vérification robuste
+                const mrZones = zones.filter(zone => {
+                    const cat = (zone.category || '').trim();
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                });
+                
                 const categories = ['MR'];
                 const stats = categories.map(category => {
-                    const categoryZones = zones.filter(zone => {
-                        const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                        return cat === category;
-                    });
+                    const zoneIds = mrZones.map(z => z.id);
                     
-                    const zoneIds = categoryZones.map(z => z.id);
+                    if (zoneIds.length === 0) return 0;
+                    
                     const totalInspections = inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
                         zoneIds.includes(insp.zoneId)
@@ -1262,8 +1323,13 @@
             }
             
             function generateGlobalStats() {
-                // Filtrer uniquement les zones MR
-                const mrZones = getFilteredZones(false);
+                // Filtrer uniquement les zones MR - avec vérification robuste
+                const mrZones = zones.filter(zone => {
+                    const cat = (zone.category || '').trim();
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                });
+                
                 const totalZones = mrZones.length;
                 const mrZoneIds = mrZones.map(z => z.id);
                 
@@ -1314,8 +1380,13 @@
             }
             
             function generateElementTypeChart() {
-                // Filtrer uniquement les zones MR
-                const mrZones = getFilteredZones(false);
+                // Filtrer uniquement les zones MR - avec vérification robuste
+                const mrZones = zones.filter(zone => {
+                    const cat = (zone.category || '').trim();
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                });
+                
                 const mrZoneIds = mrZones.map(z => z.id);
                 
                 const types = ['extincteur', 'dm', 'sortie', 'zone'];
@@ -2546,8 +2617,6 @@
             if (importBtn) importBtn.onclick = showImportModal;
             const exportLibraryBtn = document.getElementById('exportLibraryBtn');
             if (exportLibraryBtn) exportLibraryBtn.onclick = exportLibrary;
-            const compressAllImagesBtn = document.getElementById('compressAllImagesBtn');
-            if (compressAllImagesBtn) compressAllImagesBtn.onclick = compressAllImages;
             const exitBtn = document.getElementById('exitAdminBtn');
             if (exitBtn) exitBtn.onclick = () => toggleAdminMode(false);
         } else {
