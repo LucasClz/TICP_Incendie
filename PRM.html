@@ -884,48 +884,58 @@
             
             // Compression automatique silencieuse au démarrage
             async function autoCompressImagesOnStartup() {
-                const storageInfo = getStorageInfo();
-                let needsCompression = false;
-                let imagesToCompress = 0;
-                
-                // Vérifier s'il y a des images volumineuses à compresser
-                zones.forEach(z => {
-                    if (z.floors) {
-                        z.floors.forEach(floor => {
-                            if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image')) {
-                                // Si l'image fait plus de 400KB, elle mérite d'être compressée
-                                if (floor.plan.imageUrl.length > 400000) {
-                                    needsCompression = true;
-                                    imagesToCompress++;
-                                }
-                            }
-                        });
-                    }
-                });
-                
-                // Si compression nécessaire, la faire en arrière-plan
-                if (needsCompression && imagesToCompress > 0) {
-                    console.log(`🗜️ Compression automatique de ${imagesToCompress} image(s) volumineuse(s)...`);
+                try {
+                    let imagesToCompress = 0;
+                    let compressedCount = 0;
                     
-                    for (let z = 0; z < zones.length; z++) {
-                        const zone = zones[z];
-                        if (zone.floors) {
-                            for (let f = 0; f < zone.floors.length; f++) {
-                                const floor = zone.floors[f];
-                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image') && floor.plan.imageUrl.length > 400000) {
-                                    try {
-                                        floor.plan.imageUrl = await compressImage(floor.plan.imageUrl, 1000, 0.6);
-                                    } catch (err) {
-                                        console.error('Erreur compression auto:', err);
+                    // Vérifier s'il y a des images volumineuses à compresser
+                    zones.forEach(z => {
+                        if (z.floors) {
+                            z.floors.forEach(floor => {
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image')) {
+                                    // Si l'image fait plus de 400KB, elle mérite d'être compressée
+                                    if (floor.plan.imageUrl.length > 400000) {
+                                        imagesToCompress++;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    // Si compression nécessaire, la faire en arrière-plan
+                    if (imagesToCompress > 0) {
+                        console.log(`🗜️ Compression automatique de ${imagesToCompress} image(s) volumineuse(s)...`);
+                        
+                        for (let z = 0; z < zones.length; z++) {
+                            const zone = zones[z];
+                            if (zone.floors) {
+                                for (let f = 0; f < zone.floors.length; f++) {
+                                    const floor = zone.floors[f];
+                                    if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.startsWith('data:image') && floor.plan.imageUrl.length > 400000) {
+                                        try {
+                                            const originalSize = (floor.plan.imageUrl.length / 1024).toFixed(0);
+                                            floor.plan.imageUrl = await compressImage(floor.plan.imageUrl, 1000, 0.6);
+                                            const newSize = (floor.plan.imageUrl.length / 1024).toFixed(0);
+                                            console.log(`  ✓ ${zone.name} (${floor.name}): ${originalSize}KB → ${newSize}KB`);
+                                            compressedCount++;
+                                        } catch (err) {
+                                            console.error('Erreur compression auto:', err);
+                                        }
                                     }
                                 }
                             }
                         }
+                        
+                        if (compressedCount > 0) {
+                            await saveZones();
+                            updateStorageIndicator();
+                            console.log(`✅ Compression automatique terminée: ${compressedCount} image(s) compressée(s)`);
+                        }
+                    } else {
+                        console.log('ℹ️ Aucune image à compresser');
                     }
-                    
-                    await saveZones();
-                    updateStorageIndicator();
-                    console.log(`✅ Compression automatique terminée`);
+                } catch (error) {
+                    console.error('Erreur lors de la compression automatique:', error);
                 }
             }
             
@@ -1073,15 +1083,9 @@
                 modal.className = 'modal';
                 modal.innerHTML = `
                     <div class="modal-content" style="max-width: 1200px;">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-3xl font-bold">📊 Tableaux de Bord (Zones MR)</h2>
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-3xl font-bold">📊 Tableaux de Bord</h2>
                             <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-                        </div>
-                        
-                        <div class="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-900 dark:border-blue-700">
-                            <div class="text-sm text-blue-800 dark:text-blue-100">
-                                <strong>📌 Filtre MR actif :</strong> Ces statistiques concernent uniquement les <strong>zones MR</strong>
-                            </div>
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1133,20 +1137,10 @@
             }
             
             function generateNonConformitiesChart() {
-                // Filtrer uniquement les zones MR - avec vérification robuste
-                const mrZones = zones.filter(zone => {
-                    const cat = (zone.category || '').trim();
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return normalized === 'MR';
-                });
-                
-                const mrZoneIds = mrZones.map(z => z.id);
-                
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 const data = campaigns.map(campaign => {
                     return inspections.filter(insp => 
                         insp.campaign === campaign && 
-                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1182,23 +1176,11 @@
             }
             
             function generateConformityEvolutionChart() {
-                // Filtrer uniquement les zones MR - avec vérification robuste
-                const mrZones = zones.filter(zone => {
-                    const cat = (zone.category || '').trim();
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return normalized === 'MR';
-                });
-                
-                const mrZoneIds = mrZones.map(z => z.id);
-                
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 const conformityRates = campaigns.map(campaign => {
-                    const totalInspections = inspections.filter(insp => 
-                        insp.campaign === campaign && mrZoneIds.includes(insp.zoneId)
-                    ).length;
+                    const totalInspections = inspections.filter(insp => insp.campaign === campaign).length;
                     const nonConformInspections = inspections.filter(insp => 
                         insp.campaign === campaign && 
-                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1249,19 +1231,14 @@
             }
             
             function generateCategoryChart() {
-                // Filtre MR uniquement - avec vérification robuste
-                const mrZones = zones.filter(zone => {
-                    const cat = (zone.category || '').trim();
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return normalized === 'MR';
-                });
-                
-                const categories = ['MR'];
+                const categories = ['MR', 'SC', 'PRM', 'Administratif'];
                 const stats = categories.map(category => {
-                    const zoneIds = mrZones.map(z => z.id);
+                    const categoryZones = zones.filter(zone => {
+                        const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                        return cat === category;
+                    });
                     
-                    if (zoneIds.length === 0) return 0;
-                    
+                    const zoneIds = categoryZones.map(z => z.id);
                     const totalInspections = inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
                         zoneIds.includes(insp.zoneId)
@@ -1323,28 +1300,15 @@
             }
             
             function generateGlobalStats() {
-                // Filtrer uniquement les zones MR - avec vérification robuste
-                const mrZones = zones.filter(zone => {
-                    const cat = (zone.category || '').trim();
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return normalized === 'MR';
-                });
-                
-                const totalZones = mrZones.length;
-                const mrZoneIds = mrZones.map(z => z.id);
-                
-                const totalInspections = inspections.filter(i => 
-                    i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
-                ).length;
+                const totalZones = zones.length;
+                const totalInspections = inspections.filter(i => i.campaign === currentCampaign).length;
                 const nonConformities = inspections.filter(i => 
                     i.campaign === currentCampaign && 
-                    mrZoneIds.includes(i.zoneId) &&
                     i.criteria && 
                     Object.values(i.criteria).includes('non')
                 ).length;
                 const withPhotos = inspections.filter(i => 
                     i.campaign === currentCampaign && 
-                    mrZoneIds.includes(i.zoneId) &&
                     i.photos && i.photos.length > 0
                 ).length;
                 
@@ -1357,7 +1321,7 @@
                 
                 statsDiv.innerHTML = `
                     <div class="flex justify-between p-3 bg-blue-100 dark:bg-blue-800 rounded">
-                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones MR:</span>
+                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones:</span>
                         <span class="font-bold text-blue-900 dark:text-blue-50">${totalZones}</span>
                     </div>
                     <div class="flex justify-between p-3 bg-green-100 dark:bg-green-800 rounded">
@@ -1380,15 +1344,6 @@
             }
             
             function generateElementTypeChart() {
-                // Filtrer uniquement les zones MR - avec vérification robuste
-                const mrZones = zones.filter(zone => {
-                    const cat = (zone.category || '').trim();
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return normalized === 'MR';
-                });
-                
-                const mrZoneIds = mrZones.map(z => z.id);
-                
                 const types = ['extincteur', 'dm', 'sortie', 'zone'];
                 const typeLabels = {
                     'extincteur': 'Extincteurs',
@@ -1400,7 +1355,6 @@
                 const data = types.map(type => {
                     return inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
-                        mrZoneIds.includes(insp.zoneId) &&
                         insp.type === type &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
