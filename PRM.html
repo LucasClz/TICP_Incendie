@@ -456,13 +456,9 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-3 text-sm">
-                            <div class="font-medium mb-1">Filtrer par catégorie</div>
-                            <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1" checked>MR</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
+                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                            <div class="text-xs text-blue-800">
+                                <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
                             </div>
                         </div>
 
@@ -564,18 +560,13 @@
                     </button>
                 </div>
 
-                <div class="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded">
-                    <h3 class="font-semibold mb-2 text-sm">Filtres de Catégorie</h3>
-                    <div class="flex gap-2 flex-wrap">
-                        <label class="inline-flex items-center text-sm"><input type="checkbox" value="MR" onchange="renderAdminZoneList()" class="mr-1" checked>MR</label>
-                        <label class="inline-flex items-center text-sm"><input type="checkbox" value="PRM" onchange="renderAdminZoneList()" class="mr-1">PRM</label>
-                        <label class="inline-flex items-center text-sm"><input type="checkbox" value="SC" onchange="renderAdminZoneList()" class="mr-1">SC</label>
-                        <label class="inline-flex items-center text-sm"><input type="checkbox" value="Administratif" onchange="renderAdminZoneList()" class="mr-1">Administratif</label>
-                    </div>
-                </div>
-
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Zones Existantes</h3>
+                    <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                        <div class="text-xs text-blue-800">
+                            <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
+                        </div>
+                    </div>
                     <div id="adminZoneList" class="space-y-2">
                         <!-- Admin zone list -->
                     </div>
@@ -2461,22 +2452,16 @@
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        // Category filters
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        // Filtre FIXE : uniquement MR
+        let filteredZones = zones.filter(z => {
+            const cat = z.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
 
-        let filteredZones = zones.slice();
-
+        // Filtre optionnel : non-conformités
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
-        }
-
-        if (categoryChecks.length > 0) {
-            filteredZones = filteredZones.filter(z => {
-                const cat = z.category || '';
-                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return categoryChecks.includes(normalized);
-            });
         }
 
         // Default sorting by name A→Z
@@ -3338,20 +3323,9 @@
 
     // Show export modal
     function showExportModal() {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-        
-        // Déterminer le texte du bouton selon les filtres
-        let deleteButtonText, deleteWarningText;
-        
-        if (categoryChecks.length > 0) {
-            const categoriesText = categoryChecks.join(', ');
-            deleteButtonText = `Supprimer notations (${categoriesText})`;
-            deleteWarningText = `⚠️ Supprime les notations des zones <strong>${categoriesText}</strong> pour la campagne actuelle. Cette action est irréversible !`;
-        } else {
-            deleteButtonText = 'Supprimer toutes les notations';
-            deleteWarningText = '⚠️ Supprime <strong>TOUTES</strong> les notations (toutes catégories) pour la campagne actuelle. Cette action est irréversible !';
-        }
+        // Filtre FIXE : uniquement MR
+        const deleteButtonText = 'Supprimer notations (MR)';
+        const deleteWarningText = '⚠️ Supprime les notations des zones <strong>MR</strong> pour la campagne actuelle. Cette action est irréversible !';
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -3520,19 +3494,13 @@
 
     // Export inspections
     function exportInspections(format) {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-        
-        // Filtrer les zones selon les catégories actives
-        let filteredZoneIds = zones.map(z => z.id);
-        if (categoryChecks.length > 0) {
-            const filteredZones = zones.filter(zone => {
-                // Normaliser la catégorie pour gérer "Administratif:xxx"
-                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                return categoryChecks.includes(category);
-            });
-            filteredZoneIds = filteredZones.map(z => z.id);
-        }
+        // Filtre FIXE : uniquement MR
+        const filteredZones = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
+        const filteredZoneIds = filteredZones.map(z => z.id);
         
         const campaignInspections = inspections.filter(i => 
             i.campaign === currentCampaign && 
@@ -3626,30 +3594,15 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Récupérer les filtres de catégorie actifs (vérifier les deux panneaux)
-        let categoryChecks = [];
+        // Filtre FIXE : uniquement MR
+        const filteredZones = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
         
-        // Si on est en mode admin, utiliser les checkboxes du panneau admin
-        if (isAdminMode) {
-            const adminCheckboxes = document.querySelectorAll('#adminMode input[type=checkbox][value]');
-            categoryChecks = Array.from(adminCheckboxes)
-                .filter(cb => cb.checked)
-                .map(cb => cb.value);
-        } else {
-            // Sinon, utiliser les checkboxes du panneau principal
-            categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked'))
-                .map(i => i.value);
-        }
-        
-        // Filtrer les zones selon les catégories actives
-        let filteredZones = zones;
-        if (categoryChecks.length > 0) {
-            filteredZones = zones.filter(zone => {
-                // Normaliser la catégorie pour gérer "Administratif:xxx"
-                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                return categoryChecks.includes(category);
-            });
-        }
+        // Tri par nom
+        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
         container.innerHTML = filteredZones.map(zone => {
             const cat = zone.category || '';
@@ -3960,33 +3913,25 @@
     }
 
     function exportLibrary() {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-        
-        // Filtrer les zones selon les catégories actives
-        let zonesToExport = zones;
-        if (categoryChecks.length > 0) {
-            zonesToExport = zones.filter(zone => {
-                // Normaliser la catégorie pour gérer "Administratif:xxx"
-                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                return categoryChecks.includes(category);
-            });
-        }
+        // Filtre FIXE : uniquement MR
+        const zonesToExport = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
         
         // Export library in a format compatible with import
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
-            categories: categoryChecks.length > 0 ? categoryChecks : ["Toutes"],
+            categories: ["MR"],
             zones: zonesToExport
         };
         const data = JSON.stringify(exportData, null, 2);
-        const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
-        const filename = `TICP_zones_library${categorySuffix}_${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `TICP_zones_library_MR_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
         
-        const categoriesText = categoryChecks.length > 0 ? ` (catégories: ${categoryChecks.join(', ')})` : '';
-        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s)${categoriesText}\nFichier : ${filename}`);
+        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s) (catégorie: MR)\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
