@@ -1846,11 +1846,12 @@
                     }
                 }
                 
-                // Nettoyage préventif si > 80%
-                if (parseFloat(storageInfo.percent) > 80) {
+                // Nettoyage préventif plus tôt sur Firefox (>70%) ou autres navigateurs (>80%)
+                const threshold = storageInfo.isFirefox ? 70 : 80;
+                if (parseFloat(storageInfo.percent) > threshold) {
                     const cleaned = autoCleanStorage();
                     if (cleaned) {
-                        console.log(`Nettoyage automatique: ${cleaned.photosRemoved} photos supprimées`);
+                        console.log(`🧹 Nettoyage automatique: ${cleaned.duplicatesRemoved} doublons, ${cleaned.photosRemoved} photos`);
                     }
                 }
                 
@@ -1859,7 +1860,7 @@
                     updateStorageIndicator(); // Mettre à jour l'indicateur après sauvegarde réussie
                 } catch (err) {
                     if (isQuotaExceeded(err)) {
-                        console.warn('Quota dépassé, tentative de libération d\'espace...');
+                        console.warn('⚠️ Quota dépassé, tentative de libération d\'espace...');
                         
                         // 1) tenter de libérer en supprimant photos d'inspection
                         const removedPhotos = removeAllInspectionPhotos();
@@ -1868,6 +1869,7 @@
                             localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
                             const newStorage = getStorageInfo();
                             alert(`✅ Espace libéré : ${removedPhotos} photo(s) supprimées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB (${newStorage.percent}%)`);
+                            updateStorageIndicator();
                             return;
                         } catch (err2) {
                             // 2) retirer les plans volumineux des floors (en dernier recours)
@@ -1894,12 +1896,13 @@
                                 localStorage.setItem('fireInspection_inspections', JSON.stringify(inspections));
                                 localStorage.setItem('fireInspection_zones', JSON.stringify(zones));
                                 const newStorage = getStorageInfo();
-                                alert(`⚠️ Espace critique : ${removedPlans} image(s) de plan retirées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB\n\nConseils:\n- Exportez vos données\n- Utilisez des images plus petites\n- Supprimez les anciennes zones`);
+                                alert(`⚠️ Espace critique : ${removedPlans} image(s) de plan retirées.\n\nStockage: ${newStorage.used}MB / ${newStorage.limit}MB\n\nConseils:\n- Exportez vos données\n- Utilisez des images plus petites\n- Supprimez les anciennes zones\n- Cliquez sur le bouton "🧹 Optimiser"`);
+                                updateStorageIndicator();
                                 return;
                             } catch (err3) {
                                 console.error('saveZones failed after cleanup', err3);
                                 const finalStorage = getStorageInfo();
-                                alert(`❌ Impossible de sauvegarder.\n\nStockage: ${finalStorage.used}MB / ${finalStorage.limit}MB (${finalStorage.percent}%)\n\n💡 Solutions:\n1. Exportez vos données (bouton Exporter)\n2. Supprimez des zones inutiles\n3. Videz le cache du navigateur\n4. Utilisez un autre navigateur`);
+                                alert(`❌ Impossible de sauvegarder.\n\nStockage: ${finalStorage.used}MB / ${finalStorage.limit}MB (${finalStorage.percent}%)\n\n💡 Solutions:\n1. Cliquez sur "🧹 Optimiser" pour libérer de l'espace\n2. Exportez vos données (bouton Exporter)\n3. Supprimez des zones inutiles\n4. Videz le cache du navigateur\n5. Utilisez Chrome/Edge pour plus d'espace`);
                             }
                         }
                     } else {
@@ -2043,6 +2046,7 @@
             
             // Fonction pour calculer l'utilisation du stockage (uniquement pour cette app)
             // Optimisée pour détecter les doublons et proposer un nettoyage intelligent
+            // CORRIGÉ pour Firefox qui a un quota différent
             function getStorageInfo() {
                 // Calculer uniquement l'espace utilisé par notre application
                 let appTotal = 0;
@@ -2052,7 +2056,8 @@
                 appKeys.forEach(key => {
                     const value = localStorage.getItem(key);
                     if (value) {
-                        const size = value.length + key.length;
+                        // Firefox compte en UTF-16 (2 bytes par caractère)
+                        const size = value.length * 2 + key.length * 2;
                         appTotal += size;
                         detailedSizes[key] = size;
                     }
@@ -2062,13 +2067,17 @@
                 let globalTotal = 0;
                 for (let key in localStorage) {
                     if (localStorage.hasOwnProperty(key)) {
-                        globalTotal += localStorage[key].length + key.length;
+                        globalTotal += (localStorage[key].length + key.length) * 2;
                     }
                 }
                 
                 const appMB = (appTotal / (1024 * 1024)).toFixed(2);
                 const globalMB = (globalTotal / (1024 * 1024)).toFixed(2);
-                const limitMB = 5; // Limite typique de localStorage
+                
+                // Détecter le navigateur et adapter la limite
+                const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+                const limitMB = isFirefox ? 10 : 5; // Firefox a une limite de ~10MB
+                
                 const percentUsed = ((appTotal / (limitMB * 1024 * 1024)) * 100).toFixed(1);
                 
                 // Analyse détaillée pour diagnostic
@@ -2076,10 +2085,11 @@
                 const inspectionsMB = ((detailedSizes['fireInspection_inspections'] || 0) / (1024 * 1024)).toFixed(2);
                 
                 // Log pour diagnostic amélioré
+                const browserInfo = isFirefox ? ' [Firefox]' : '';
                 if (parseFloat(globalMB) - parseFloat(appMB) > 0.5) {
-                    console.log(`ℹ️ Stockage: App=${appMB}MB (zones=${zonesMB}MB + inspections=${inspectionsMB}MB) | Global=${globalMB}MB (${(globalMB - appMB).toFixed(2)}MB autres)`);
+                    console.log(`ℹ️ Stockage${browserInfo}: App=${appMB}MB (zones=${zonesMB}MB + inspections=${inspectionsMB}MB) | Global=${globalMB}MB (${(globalMB - appMB).toFixed(2)}MB autres)`);
                 } else {
-                    console.log(`ℹ️ Stockage: App=${appMB}MB (zones=${zonesMB}MB + inspections=${inspectionsMB}MB)`);
+                    console.log(`ℹ️ Stockage${browserInfo}: App=${appMB}MB (zones=${zonesMB}MB + inspections=${inspectionsMB}MB)`);
                 }
                 
                 return {
@@ -2092,7 +2102,8 @@
                     details: {
                         zones: zonesMB,
                         inspections: inspectionsMB
-                    }
+                    },
+                    isFirefox: isFirefox
                 };
             }
             
@@ -2185,12 +2196,13 @@
                 storageBar.style.width = `${Math.min(100, percent)}%`;
                 storageText.textContent = `${storage.percent}%`;
                 
-                // Indiquer si IndexedDB est utilisé
+                // Indiquer si IndexedDB est utilisé et le navigateur
                 const usingIndexedDB = isIndexedDBAvailable();
                 const storageType = usingIndexedDB ? 'IndexedDB' : 'localStorage';
+                const browserName = storage.isFirefox ? 'Firefox' : 'Chrome/Edge';
                 
                 // Construire le message avec détails
-                let tooltipMsg = `App: ${storage.used}MB / ${storage.limit}MB (${storageType})`;
+                let tooltipMsg = `App: ${storage.used}MB / ${storage.limit}MB (${storageType})\nNavigateur: ${browserName}`;
                 
                 // Ajouter info sur le stockage global si différent
                 if (storage.usedGlobal && parseFloat(storage.usedGlobal) > parseFloat(storage.used) + 0.1) {
@@ -2201,15 +2213,15 @@
                 if (percent < 60) {
                     storageBar.className = 'h-full bg-green-500 transition-all duration-300';
                     storageIndicator.title = `${tooltipMsg}\nStatut: Bon ✓`;
-                } else if (percent < 80) {
+                } else if (percent < 75) {
                     storageBar.className = 'h-full bg-yellow-500 transition-all duration-300';
                     storageIndicator.title = `${tooltipMsg}\nStatut: Attention ⚠`;
-                } else if (percent < 95) {
+                } else if (percent < 90) {
                     storageBar.className = 'h-full bg-orange-500 transition-all duration-300';
-                    storageIndicator.title = `${tooltipMsg}\nStatut: Critique !`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: Critique ! Cliquez sur 🧹 Optimiser`;
                 } else {
                     storageBar.className = 'h-full bg-red-500 transition-all duration-300';
-                    storageIndicator.title = `${tooltipMsg}\nStatut: PLEIN !`;
+                    storageIndicator.title = `${tooltipMsg}\nStatut: PLEIN ! Cliquez sur 🧹 Optimiser MAINTENANT`;
                 }
             }
             
