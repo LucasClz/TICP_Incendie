@@ -285,14 +285,6 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        
-                        <!-- Indicateur de filtre MR actif -->
-                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                            <div class="text-xs text-blue-800">
-                                <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
-                            </div>
-                        </div>
-                        
                         <div class="mt-3 text-sm">
                             <div class="font-medium mb-1">Filtrer par catégorie</div>
                             <div id="categoryFilter" class="flex gap-2 flex-wrap">
@@ -403,14 +395,6 @@
 
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Zones Existantes</h3>
-                    
-                    <!-- Indicateur de filtre MR actif en mode admin -->
-                    <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                        <div class="text-xs text-blue-800">
-                            <strong>📌 Filtre actif :</strong> Zones <strong>MR uniquement</strong>
-                        </div>
-                    </div>
-                    
                     <div id="adminZoneList" class="space-y-2">
                         <!-- Admin zone list -->
                     </div>
@@ -1705,21 +1689,14 @@
 
         let filteredZones = zones.slice();
 
-        // FILTRE PRINCIPAL : UNIQUEMENT LES ZONES MR
-        filteredZones = filteredZones.filter(z => {
-            const cat = z.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
-
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
         }
 
-        // Filtre supplémentaire par checkbox (optionnel, si les checkboxes sont cochées)
         if (categoryChecks.length > 0) {
             filteredZones = filteredZones.filter(z => {
                 const cat = z.category || '';
+                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
                 const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
                 return categoryChecks.includes(normalized);
             });
@@ -2826,17 +2803,7 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Filtrer uniquement les zones MR
-        const filteredZones = zones.filter(z => {
-            const cat = z.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
-
-        // Tri par nom
-        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-
-        container.innerHTML = filteredZones.map(zone => {
+        container.innerHTML = zones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return `
