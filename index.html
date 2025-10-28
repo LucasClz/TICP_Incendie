@@ -44,9 +44,74 @@
         .bg-gray-50 { background-color: var(--bg-secondary) !important; }
         .bg-gray-100 { background-color: var(--bg-tertiary) !important; }
         .text-gray-900 { color: var(--text-primary) !important; }
+        .text-gray-700 { color: var(--text-primary) !important; }
         .text-gray-600 { color: var(--text-secondary) !important; }
         .border-gray-200 { border-color: var(--border-color) !important; }
         .border-gray-300 { border-color: var(--border-color) !important; }
+        
+        /* Titres et textes en mode sombre */
+        .dark-mode h3 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-gray-500 {
+            color: var(--text-secondary) !important;
+        }
+        
+        .dark-mode .text-sm {
+            color: var(--text-primary);
+        }
+        
+        .dark-mode .text-red-700 {
+            color: #fca5a5 !important;
+        }
+        
+        .dark-mode .text-red-600 {
+            color: #fca5a5 !important;
+        }
+        
+        .dark-mode .text-gray-500 {
+            color: #9ca3af !important;
+        }
+        
+        .dark-mode .hover\:text-gray-700:hover {
+            color: #d1d5db !important;
+        }
+        
+        /* Cartes de non-conformités */
+        .dark-mode .bg-red-50 {
+            background-color: rgba(127, 29, 29, 0.2) !important;
+        }
+        
+        .dark-mode .border-red-200 {
+            border-color: #991b1b !important;
+        }
+        
+        .dark-mode strong {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-gray-800,
+        .dark-mode .text-sm {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .bg-gray-200 {
+            background-color: #4b5563 !important;
+        }
+        
+        /* Bandeaux d'information bleus */
+        .dark-mode .bg-blue-50 {
+            background-color: rgba(30, 64, 175, 0.2) !important;
+        }
+        
+        .dark-mode .border-blue-200 {
+            border-color: #3b82f6 !important;
+        }
+        
+        .dark-mode .text-blue-800 {
+            color: #93c5fd !important;
+        }
         
         .modal-content {
             background-color: var(--modal-bg) !important;
@@ -322,6 +387,12 @@
             overflow-y: auto;
         }
         
+        /* Mode sombre pour les modales */
+        .dark-mode .modal-content {
+            background: #1f2937;
+            color: #f3f4f6;
+        }
+        
         /* Collapsible left panel */
         .left-panel {
             transition: width 0.25s ease;
@@ -456,15 +527,6 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-3 text-sm">
-                            <div class="font-medium mb-1">Filtrer par catégorie</div>
-                            <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
-                            </div>
-                        </div>
 
                         <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
                         <label class="flex items-center mt-2">
@@ -2451,22 +2513,11 @@
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        // Category filters
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-
         let filteredZones = zones.slice();
 
+        // Filtre optionnel : non-conformités
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
-        }
-
-        if (categoryChecks.length > 0) {
-            filteredZones = filteredZones.filter(z => {
-                const cat = z.category || '';
-                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return categoryChecks.includes(normalized);
-            });
         }
 
         // Default sorting by name A→Z
@@ -3328,27 +3379,15 @@
 
     // Show export modal
     function showExportModal() {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-        
-        // Déterminer le texte du bouton selon les filtres
-        let deleteButtonText, deleteWarningText;
-        
-        if (categoryChecks.length > 0) {
-            const categoriesText = categoryChecks.join(', ');
-            deleteButtonText = `Supprimer notations (${categoriesText})`;
-            deleteWarningText = `⚠️ Supprime les notations des zones <strong>${categoriesText}</strong> pour la campagne actuelle. Cette action est irréversible !`;
-        } else {
-            deleteButtonText = 'Supprimer toutes les notations';
-            deleteWarningText = '⚠️ Supprime <strong>TOUTES</strong> les notations (toutes catégories) pour la campagne actuelle. Cette action est irréversible !';
-        }
+        const deleteButtonText = 'Supprimer toutes les notations';
+        const deleteWarningText = '⚠️ Supprime <strong>TOUTES</strong> les notations pour la campagne actuelle. Cette action est irréversible !';
         
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Exporter les Données</h2>
+                    <h2 class="text-2xl font-bold text-gray-900">Exporter les Données</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
@@ -3381,7 +3420,7 @@
                 </div>
                 
                 <div class="mt-6">
-                    <h3 class="font-semibold mb-3">Importer Inspections</h3>
+                    <h3 class="font-semibold mb-3 text-gray-900">Importer Inspections</h3>
                     <input type="file" accept=".json" onchange="importInspections(event)" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     
@@ -3419,11 +3458,11 @@
         modal.innerHTML = `
             <div class="modal-content w-full max-w-4xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Rapport des Non-Conformités</h2>
+                    <h2 class="text-2xl font-bold text-gray-900">Rapport des Non-Conformités</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
-                <label class="flex items-center mb-4">
+                <label class="flex items-center mb-4 text-gray-700">
                     <input type="checkbox" id="filterZonesOnly" onchange="updateNonConformitiesView()" class="mr-2">
                     Afficher seulement les zones non conformes
                 </label>
@@ -3489,7 +3528,7 @@
                 Object.entries(zonesWithIssues).forEach(([zone, issues]) => {
                     content += `<div class="border border-red-200 bg-red-50 p-4 rounded"><h3 class="font-bold text-red-700">${zone} (${issues.length} non-conformité(s))</h3><ul class="mt-2 space-y-1">`;
                     issues.forEach(nc => {
-                        content += `<li class="text-sm">${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></li>`;
+                        content += `<li class="text-sm text-gray-800">${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></li>`;
                     });
                     content += '</ul></div>';
                 });
@@ -3500,7 +3539,7 @@
                 content = '<p class="text-gray-500">Aucune non-conformité trouvée.</p>';
             } else {
                 nonConformities.forEach(nc => {
-                    content += `<div class="border border-red-200 bg-red-50 p-3 rounded"><strong>${nc.zone}</strong>: ${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></div>`;
+                    content += `<div class="border border-red-200 bg-red-50 p-3 rounded text-gray-800"><strong>${nc.zone}</strong>: ${nc.element} <small class="text-gray-500">(${new Date(nc.timestamp).toLocaleString()})</small></div>`;
                 });
             }
         }
@@ -3510,19 +3549,8 @@
 
     // Export inspections
     function exportInspections(format) {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-        
-        // Filtrer les zones selon les catégories actives
-        let filteredZoneIds = zones.map(z => z.id);
-        if (categoryChecks.length > 0) {
-            const filteredZones = zones.filter(zone => {
-                // Normaliser la catégorie pour gérer "Administratif:xxx"
-                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                return categoryChecks.includes(category);
-            });
-            filteredZoneIds = filteredZones.map(z => z.id);
-        }
+        // Exporter toutes les zones
+        const filteredZoneIds = zones.map(z => z.id);
         
         const campaignInspections = inspections.filter(i => 
             i.campaign === currentCampaign && 
@@ -3616,7 +3644,13 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        container.innerHTML = zones.map(zone => {
+        // Afficher toutes les zones
+        const filteredZones = zones.slice();
+        
+        // Tri par nom
+        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+        container.innerHTML = filteredZones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return `
@@ -3925,33 +3959,20 @@
     }
 
     function exportLibrary() {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
-        
-        // Filtrer les zones selon les catégories actives
-        let zonesToExport = zones;
-        if (categoryChecks.length > 0) {
-            zonesToExport = zones.filter(zone => {
-                // Normaliser la catégorie pour gérer "Administratif:xxx"
-                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                return categoryChecks.includes(category);
-            });
-        }
+        // Exporter toutes les zones
+        const zonesToExport = zones.slice();
         
         // Export library in a format compatible with import
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
-            categories: categoryChecks.length > 0 ? categoryChecks : ["Toutes"],
             zones: zonesToExport
         };
         const data = JSON.stringify(exportData, null, 2);
-        const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
-        const filename = `TICP_zones_library${categorySuffix}_${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `TICP_zones_library_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
         
-        const categoriesText = categoryChecks.length > 0 ? ` (catégories: ${categoryChecks.join(', ')})` : '';
-        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s)${categoriesText}\nFichier : ${filename}`);
+        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s)\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
