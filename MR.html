@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tournées Incendie - Gestion des Inspections</title>
-    <!-- Version 1.2 - Export/Import Notations MR uniquement (28/10/2025) -->
+    <!-- Version 1.3 - FILTRE MR UNIQUEMENT (28/10/2025) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -1673,7 +1673,7 @@
 
     function hasNonConformities(zone) {
         return inspections.some(inspection => 
-            inspection.campaign === currentCampaign && 
+            inspection.campaign === 'MR' && 
             inspection.zoneId === zone.id && 
             inspection.criteria && 
             Object.values(inspection.criteria).includes('non')
@@ -2128,7 +2128,7 @@
     function getElementInspection(type, elementData) {
         const key = getElementKey(type, elementData);
         return inspections.find(i => 
-            i.campaign === currentCampaign && 
+            i.campaign === 'MR' && 
             i.zoneId === currentZone.id && 
             i.floorId === (currentFloor?.id || null) &&
             i.elementKey === key
@@ -2140,7 +2140,7 @@
         const key = getElementKey(type, elementData);
         const inspection = {
             timestamp: new Date().toISOString(),
-            campaign: currentCampaign,
+            campaign: 'MR',
             zoneId: currentZone.id,
             floorId: currentFloor?.id || null,
             elementKey: key,
@@ -2265,7 +2265,7 @@
                 
                 // Mettre à jour la clé de l'inspection si elle existe
                 const inspection = inspections.find(i => 
-                    i.campaign === currentCampaign && 
+                    i.campaign === 'MR' && 
                     i.zoneId === currentZone.id && 
                     i.floorId === (currentFloor?.id || null) &&
                     i.elementKey === oldKey
@@ -2485,7 +2485,7 @@
     // Get zone inspection
     function getZoneInspection() {
         return inspections.find(i => 
-            i.campaign === currentCampaign && 
+            i.campaign === 'MR' && 
             i.zoneId === currentZone.id && 
             i.type === 'zone'
         );
@@ -2495,7 +2495,7 @@
     function createZoneInspection() {
         const inspection = {
             timestamp: new Date().toISOString(),
-            campaign: currentCampaign,
+            campaign: 'MR',
             zoneId: currentZone.id,
             type: 'zone',
             criteria: {},
@@ -2650,7 +2650,7 @@
         const nonConformities = [];
         
         inspections.forEach(inspection => {
-            if (inspection.campaign === currentCampaign && inspection.criteria) {
+            if (inspection.campaign === 'MR' && inspection.criteria) {
                 const zone = zones.find(z => z.id === inspection.zoneId);
                 const zoneName = zone ? zone.name : inspection.zoneId;
                 
@@ -2716,14 +2716,14 @@
 
     // Export inspections
     function exportInspections(format) {
-        const campaignInspections = inspections.filter(i => i.campaign === currentCampaign);
+        const campaignInspections = inspections.filter(i => i.campaign === 'MR');
         
         if (format === 'json') {
             const data = JSON.stringify(campaignInspections, null, 2);
-            downloadFile(data, `inspections_${currentCampaign}.json`, 'application/json');
+            downloadFile(data, `inspections_MR.json`, 'application/json');
         } else if (format === 'csv') {
             const csv = convertToCSV(campaignInspections);
-            downloadFile(csv, `inspections_${currentCampaign}.csv`, 'text/csv');
+            downloadFile(csv, `inspections_MR.csv`, 'text/csv');
         }
     }
 
