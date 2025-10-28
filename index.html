@@ -2560,6 +2560,21 @@
 
     // Show export modal
     function showExportModal() {
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        
+        // Déterminer le texte du bouton selon les filtres
+        let deleteButtonText, deleteWarningText;
+        
+        if (categoryChecks.length > 0) {
+            const categoriesText = categoryChecks.join(', ');
+            deleteButtonText = `Supprimer notations (${categoriesText})`;
+            deleteWarningText = `⚠️ Supprime les notations des zones <strong>${categoriesText}</strong> pour la campagne actuelle. Cette action est irréversible !`;
+        } else {
+            deleteButtonText = 'Supprimer toutes les notations';
+            deleteWarningText = '⚠️ Supprime <strong>TOUTES</strong> les notations (toutes catégories) pour la campagne actuelle. Cette action est irréversible !';
+        }
+        
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.innerHTML = `
@@ -2615,10 +2630,10 @@
                         <h3 class="font-semibold mb-3 text-sm text-red-700">🗑️ Gestion des Notations</h3>
                         <button onclick="deleteAllNotations()" 
                                 class="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-2">
-                            <span>🗑️</span> Supprimer toutes les notations MR
+                            <span>🗑️</span> ${deleteButtonText}
                         </button>
                         <p class="text-xs text-red-600 mt-2 font-medium">
-                            ⚠️ Supprime toutes les notations des zones MR pour la campagne actuelle. Cette action est irréversible !
+                            ${deleteWarningText}
                         </p>
                     </div>
                 </div>
@@ -2727,14 +2742,33 @@
 
     // Export inspections
     function exportInspections(format) {
-        const campaignInspections = inspections.filter(i => i.campaign === currentCampaign);
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        
+        // Filtrer les zones selon les catégories actives
+        let filteredZoneIds = zones.map(z => z.id);
+        if (categoryChecks.length > 0) {
+            const filteredZones = zones.filter(zone => {
+                // Normaliser la catégorie pour gérer "Administratif:xxx"
+                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                return categoryChecks.includes(category);
+            });
+            filteredZoneIds = filteredZones.map(z => z.id);
+        }
+        
+        const campaignInspections = inspections.filter(i => 
+            i.campaign === currentCampaign && 
+            filteredZoneIds.includes(i.zoneId)
+        );
+        
+        const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
         
         if (format === 'json') {
             const data = JSON.stringify(campaignInspections, null, 2);
-            downloadFile(data, `inspections_${currentCampaign}.json`, 'application/json');
+            downloadFile(data, `inspections${categorySuffix}_${currentCampaign}.json`, 'application/json');
         } else if (format === 'csv') {
             const csv = convertToCSV(campaignInspections);
-            downloadFile(csv, `inspections_${currentCampaign}.csv`, 'text/csv');
+            downloadFile(csv, `inspections${categorySuffix}_${currentCampaign}.csv`, 'text/csv');
         }
     }
 
@@ -3123,16 +3157,33 @@
     }
 
     function exportLibrary() {
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        
+        // Filtrer les zones selon les catégories actives
+        let zonesToExport = zones;
+        if (categoryChecks.length > 0) {
+            zonesToExport = zones.filter(zone => {
+                // Normaliser la catégorie pour gérer "Administratif:xxx"
+                const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                return categoryChecks.includes(category);
+            });
+        }
+        
         // Export library in a format compatible with import
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
-            zones: zones
+            categories: categoryChecks.length > 0 ? categoryChecks : ["Toutes"],
+            zones: zonesToExport
         };
         const data = JSON.stringify(exportData, null, 2);
-        const filename = `TICP_zones_library_${new Date().toISOString().split('T')[0]}.json`;
+        const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
+        const filename = `TICP_zones_library${categorySuffix}_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
-        alert(`Librairie exportée avec succès : ${zones.length} zone(s)\nFichier : ${filename}`);
+        
+        const categoriesText = categoryChecks.length > 0 ? ` (catégories: ${categoryChecks.join(', ')})` : '';
+        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s)${categoriesText}\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
@@ -3160,14 +3211,18 @@
      * Inclut les critères, commentaires et photos
      */
     function exportNotations() {
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        
         // Demander si on veut exporter une seule zone ou toutes les zones
         const exportAll = !currentZone || confirm(
             currentZone 
                 ? `Exporter les notations :\n\n` +
                   `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
-                  `• Toutes les zones → Cliquez sur OK\n\n` +
-                  `Campagne : ${currentCampaign}`
-                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones ?`
+                  `• Toutes les zones filtrées → Cliquez sur OK\n\n` +
+                  `Campagne : ${currentCampaign}\n` +
+                  (categoryChecks.length > 0 ? `Catégories : ${categoryChecks.join(', ')}` : 'Toutes catégories')
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones filtrées ?`
         );
         
         let zoneInspections;
@@ -3175,8 +3230,23 @@
         let filename;
         
         if (exportAll) {
-            // Exporter toutes les zones
-            zoneInspections = inspections.filter(insp => insp.campaign === currentCampaign);
+            // Filtrer les zones selon les catégories actives
+            let filteredZones = zones;
+            if (categoryChecks.length > 0) {
+                filteredZones = zones.filter(zone => {
+                    // Normaliser la catégorie pour gérer "Administratif:xxx"
+                    const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return categoryChecks.includes(category);
+                });
+            }
+            
+            const filteredZoneIds = filteredZones.map(z => z.id);
+            
+            // Exporter toutes les zones filtrées
+            zoneInspections = inspections.filter(insp => 
+                insp.campaign === currentCampaign && 
+                filteredZoneIds.includes(insp.zoneId)
+            );
             
             // Obtenir la liste des zones uniques
             const zoneIds = [...new Set(zoneInspections.map(i => i.zoneId))];
@@ -3189,11 +3259,13 @@
             });
             
             if (zoneInspections.length === 0) {
-                alert(`❌ Aucune notation trouvée pour la campagne ${currentCampaign}.`);
+                const categoriesText = categoryChecks.length > 0 ? ` (catégories: ${categoryChecks.join(', ')})` : '';
+                alert(`❌ Aucune notation trouvée pour la campagne ${currentCampaign}${categoriesText}.`);
                 return;
             }
             
-            filename = `Notations_TOUTES_ZONES_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
+            const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
+            filename = `Notations_TOUTES_ZONES${categorySuffix}_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         } else {
             // Exporter uniquement la zone actuelle
             if (!currentZone) {
@@ -3266,32 +3338,52 @@
     }
     
     /**
-     * Supprime toutes les notations des zones MR pour la campagne actuelle
+     * Supprime toutes les notations des zones filtrées pour la campagne actuelle
+     * Respecte les filtres de catégorie actifs (checkboxes cochées)
      * Demande une double confirmation pour éviter les suppressions accidentelles
      */
     function deleteAllNotations() {
-        // Calculer le nombre d'inspections MR pour la campagne actuelle
-        const mrZoneIds = zones
-            .filter(z => {
-                const cat = z.category || '';
-                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return normalized === 'MR';
-            })
-            .map(z => z.id);
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
         
-        const mrInspections = inspections.filter(i => 
-            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
+        // Déterminer les zones filtrées
+        let filteredZoneIds;
+        let filterDescription;
+        
+        if (categoryChecks.length > 0) {
+            // Des filtres sont actifs : utiliser les zones correspondantes
+            filteredZoneIds = zones
+                .filter(z => {
+                    const cat = z.category || '';
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return categoryChecks.includes(normalized);
+                })
+                .map(z => z.id);
+            
+            filterDescription = `Catégories : ${categoryChecks.join(', ')}`;
+        } else {
+            // Aucun filtre actif : toutes les zones
+            filteredZoneIds = zones.map(z => z.id);
+            filterDescription = 'Toutes les catégories';
+        }
+        
+        // Trouver les inspections correspondantes
+        const filteredInspections = inspections.filter(i => 
+            i.campaign === currentCampaign && filteredZoneIds.includes(i.zoneId)
         );
         
-        const count = mrInspections.length;
+        const count = filteredInspections.length;
         
         if (count === 0) {
-            alert('ℹ️ Aucune notation à supprimer pour les zones MR de la campagne ' + currentCampaign);
+            const msg = categoryChecks.length > 0 
+                ? `Aucune notation à supprimer pour les zones ${categoryChecks.join(', ')} de la campagne ${currentCampaign}`
+                : `Aucune notation à supprimer pour la campagne ${currentCampaign}`;
+            alert('ℹ️ ' + msg);
             return;
         }
         
         // Liste des zones concernées
-        const affectedZones = [...new Set(mrInspections.map(i => i.zoneId))];
+        const affectedZones = [...new Set(filteredInspections.map(i => i.zoneId))];
         const zoneNames = affectedZones.map(id => {
             const z = zones.find(zone => zone.id === id);
             return z ? z.name : id;
@@ -3303,7 +3395,8 @@
             `Vous êtes sur le point de supprimer :\n` +
             `• ${count} notation(s)\n` +
             `• Campagne : ${currentCampaign}\n` +
-            `• Zones MR concernées (${affectedZones.length}) : ${zoneNames}\n\n` +
+            `• ${filterDescription}\n` +
+            `• Zones concernées (${affectedZones.length}) : ${affectedZones.length <= 5 ? zoneNames : affectedZones.length + ' zones'}\n\n` +
             `Cette action est IRRÉVERSIBLE !\n\n` +
             `Voulez-vous continuer ?`
         );
@@ -3327,7 +3420,7 @@
         // Effectuer la suppression
         const beforeCount = inspections.length;
         inspections = inspections.filter(i => 
-            !(i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId))
+            !(i.campaign === currentCampaign && filteredZoneIds.includes(i.zoneId))
         );
         const afterCount = inspections.length;
         const deleted = beforeCount - afterCount;
@@ -3351,7 +3444,8 @@
             `✅ Suppression effectuée avec succès !\n\n` +
             `• ${deleted} notation(s) supprimée(s)\n` +
             `• Campagne : ${currentCampaign}\n` +
-            `• Zones MR : ${affectedZones.length}\n\n` +
+            `• ${filterDescription}\n` +
+            `• Zones : ${affectedZones.length}\n\n` +
             `Les indicateurs ont été mis à jour.`
         );
     }
