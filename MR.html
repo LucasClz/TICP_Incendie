@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tournées Incendie - Gestion des Inspections</title>
+    <!-- Version 1.2 - Export/Import Notations MR uniquement (28/10/2025) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -284,9 +285,13 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
-                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                            <div class="text-xs text-blue-800">
-                                <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
+                        <div class="mt-3 text-sm">
+                            <div class="font-medium mb-1">Filtrer par catégorie</div>
+                            <div id="categoryFilter" class="flex gap-2 flex-wrap">
+                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
                             </div>
                         </div>
 
@@ -1675,35 +1680,27 @@
         );
     }
 
-    // Fonction de filtrage globale pour afficher uniquement les zones MR
-    function getFilteredZones(includeNonCompliantFilter = false) {
-        let filteredZones = zones.slice();
-        
-        // Filtre principal : UNIQUEMENT les zones MR
-        filteredZones = filteredZones.filter(z => {
-            const cat = z.category || '';
-            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-            return normalized === 'MR';
-        });
-        
-        // Filtre optionnel des non-conformités (mode inspection uniquement)
-        if (includeNonCompliantFilter) {
-            const filterChecked = document.getElementById('filterNonCompliant')?.checked;
-            if (filterChecked) {
-                filteredZones = filteredZones.filter(hasNonConformities);
-            }
-        }
-        
-        return filteredZones;
-    }
-
     function renderZoneList() {
         const container = document.getElementById('zoneSelect');
+        const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        let filteredZones = getFilteredZones(true);
+        // Category filters
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
 
-        // Default sorting by name A→Z
-        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+        let filteredZones = zones.slice();
+
+        if (filterChecked) {
+            filteredZones = filteredZones.filter(hasNonConformities);
+        }
+
+        if (categoryChecks.length > 0) {
+            filteredZones = filteredZones.filter(z => {
+                const cat = z.category || '';
+                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return categoryChecks.includes(normalized);
+            });
+        }
 
         // Default sorting by name A→Z
         filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
@@ -2585,12 +2582,34 @@
                             class="w-full px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         Exporter Zone Actuelle (JSON)
                     </button>
+                    
+                    <hr class="my-4 border-gray-300">
+                    
+                    <h3 class="font-semibold mb-3 text-sm text-gray-700">📝 Export / Import Notations</h3>
+                    
+                    <button onclick="exportNotations()" 
+                            class="w-full px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2">
+                        <span>📤</span> Exporter Notations de Zone
+                    </button>
+                    
+                    <p class="text-xs text-gray-600 mt-2 mb-3">
+                        Exporte uniquement les notations (critères + photos) des éléments de la zone actuelle
+                    </p>
                 </div>
                 
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Importer Inspections</h3>
                     <input type="file" accept=".json" onchange="importInspections(event)" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    
+                    <div class="mt-4 border-t pt-4">
+                        <h3 class="font-semibold mb-3 text-sm text-gray-700">📝 Importer Notations</h3>
+                        <input type="file" accept=".json" onchange="importNotations(event)" 
+                            class="w-full px-3 py-2 border border-indigo-300 rounded-md bg-indigo-50">
+                        <p class="text-xs text-gray-600 mt-2">
+                            Importe les notations en les associant aux éléments correspondants (par ID/position)
+                        </p>
+                    </div>
                 </div>
             </div>
         `;
@@ -2784,13 +2803,7 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Utiliser le même filtre que le mode inspection : uniquement zones MR
-        const filteredZones = getFilteredZones(false);
-        
-        // Tri par nom
-        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-
-        container.innerHTML = filteredZones.map(zone => {
+        container.innerHTML = zones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return `
@@ -3128,6 +3141,322 @@
         downloadFile(data, filename, 'application/json');
         alert(`Zone "${currentZone.name}" exportée avec succès !\nFichier : ${filename}`);
     }
+
+    // ===== EXPORT / IMPORT NOTATIONS =====
+    
+    /**
+     * Exporte uniquement les notations (inspections) de la zone actuelle ou de toutes les zones
+     * Inclut les critères, commentaires et photos
+     * FILTRE : Campagne MR uniquement
+     */
+    function exportNotations() {
+        // Demander si on veut exporter une seule zone ou toutes les zones
+        const exportAll = !currentZone || confirm(
+            currentZone 
+                ? `Exporter les notations MR :\n\n` +
+                  `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
+                  `• Toutes les zones → Cliquez sur OK\n\n` +
+                  `⚠️ Seules les notations de campagne "MR" seront exportées.`
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations MR de TOUTES les zones ?\n\n⚠️ Seules les notations de campagne "MR" seront exportées.`
+        );
+        
+        let zoneInspections;
+        let zones_exported = [];
+        let filename;
+        
+        if (exportAll) {
+            // Exporter toutes les zones - FILTRE MR UNIQUEMENT
+            zoneInspections = inspections.filter(insp => insp.campaign === 'MR');
+            
+            // Obtenir la liste des zones uniques
+            const zoneIds = [...new Set(zoneInspections.map(i => i.zoneId))];
+            zones_exported = zoneIds.map(zoneId => {
+                const zone = zones.find(z => z.id === zoneId);
+                return {
+                    id: zoneId,
+                    name: zone ? zone.name : zoneId
+                };
+            });
+            
+            if (zoneInspections.length === 0) {
+                alert(`❌ Aucune notation MR trouvée.\n\nAssurez-vous qu'il existe des notations de campagne "MR".`);
+                return;
+            }
+            
+            filename = `Notations_MR_TOUTES_ZONES_${new Date().toISOString().split('T')[0]}.json`;
+        } else {
+            // Exporter uniquement la zone actuelle - FILTRE MR UNIQUEMENT
+            if (!currentZone) {
+                alert('⚠️ Aucune zone sélectionnée.\nVeuillez sélectionner une zone avant d\'exporter ses notations.');
+                return;
+            }
+            
+            zoneInspections = inspections.filter(insp => 
+                insp.zoneId === currentZone.id && 
+                insp.campaign === 'MR'
+            );
+            
+            zones_exported = [{
+                id: currentZone.id,
+                name: currentZone.name
+            }];
+            
+            if (zoneInspections.length === 0) {
+                alert(
+                    `❌ Aucune notation MR trouvée pour la zone "${currentZone.name}".\n\n` +
+                    `Assurez-vous qu'il existe des notations de campagne "MR" pour cette zone.`
+                );
+                return;
+            }
+            
+            filename = `Notations_MR_${currentZone.id}_${new Date().toISOString().split('T')[0]}.json`;
+        }
+        
+        // Créer le fichier d'export avec métadonnées
+        const exportData = {
+            version: "1.0",
+            exportType: "notations",
+            exportDate: new Date().toISOString(),
+            campaign: 'MR',
+            zones: zones_exported,
+            inspections: zoneInspections,
+            stats: {
+                total: zoneInspections.length,
+                zonesCount: zones_exported.length,
+                withPhotos: zoneInspections.filter(i => i.photos && i.photos.length > 0).length,
+                nonConformities: zoneInspections.filter(i => 
+                    i.criteria && Object.values(i.criteria).includes('non')
+                ).length
+            }
+        };
+        
+        const data = JSON.stringify(exportData, null, 2);
+        downloadFile(data, filename, 'application/json');
+        
+        // Message détaillé
+        let message = `✅ Export des notations MR réussi !\n\n`;
+        if (exportAll) {
+            message += `Zones : ${zones_exported.length} zone(s)\n`;
+            if (zones_exported.length <= 5) {
+                zones_exported.forEach(z => message += `  • ${z.name} (${z.id})\n`);
+            } else {
+                zones_exported.slice(0, 3).forEach(z => message += `  • ${z.name} (${z.id})\n`);
+                message += `  ... et ${zones_exported.length - 3} autre(s)\n`;
+            }
+        } else {
+            message += `Zone : ${zones_exported[0].name} (${zones_exported[0].id})\n`;
+        }
+        message += `Campagne : MR (Mise en Route)\n` +
+            `Notations exportées : ${exportData.stats.total}\n` +
+            `Avec photos : ${exportData.stats.withPhotos}\n` +
+            `Non-conformités : ${exportData.stats.nonConformities}\n\n` +
+            `Fichier : ${filename}`;
+        
+        alert(message);
+    }
+    
+    /**
+     * Importe les notations depuis un fichier JSON
+     * Associe intelligemment les notations aux éléments existants
+     * Support import multi-zones
+     */
+    function importNotations(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                
+                // Vérifier le format
+                if (!importedData.exportType || importedData.exportType !== 'notations') {
+                    const continueAnyway = confirm(
+                        '⚠️ Ce fichier ne semble pas être un export de notations.\n\n' +
+                        'Voulez-vous quand même essayer de l\'importer ?'
+                    );
+                    if (!continueAnyway) return;
+                }
+                
+                const importedInspections = importedData.inspections || [];
+                
+                if (importedInspections.length === 0) {
+                    alert('❌ Aucune notation trouvée dans le fichier.');
+                    return;
+                }
+                
+                // Statistiques d'import globales
+                let added = 0;
+                let updated = 0;
+                let skipped = 0;
+                const notFound = [];
+                const zonesProcessed = new Set();
+                
+                // Parcourir les notations importées
+                importedInspections.forEach(importedInsp => {
+                    // Vérifier que la zone existe
+                    const zone = zones.find(z => z.id === importedInsp.zoneId);
+                    if (!zone) {
+                        if (!notFound.some(item => item.startsWith(`Zone ${importedInsp.zoneId}`))) {
+                            notFound.push(`Zone ${importedInsp.zoneId} (n'existe pas)`);
+                        }
+                        skipped++;
+                        return;
+                    }
+                    
+                    // Marquer la zone comme traitée
+                    zonesProcessed.add(importedInsp.zoneId);
+                    
+                    // Trouver le floor correspondant
+                    let targetFloor = null;
+                    if (importedInsp.floorId) {
+                        targetFloor = zone.floors?.find(f => f.id === importedInsp.floorId);
+                    }
+                    if (!targetFloor && zone.floors && zone.floors.length > 0) {
+                        targetFloor = zone.floors[0]; // Fallback sur le premier étage
+                    }
+                    
+                    if (!targetFloor) {
+                        notFound.push(`Étage ${importedInsp.floorId} dans zone ${importedInsp.zoneId}`);
+                        skipped++;
+                        return;
+                    }
+                    
+                    // Vérifier que l'élément existe dans la zone
+                    let elementExists = false;
+                    
+                    if (importedInsp.type === 'zone') {
+                        // Notation de zone : toujours valide
+                        elementExists = true;
+                    } else {
+                        // Notation d'élément : vérifier l'existence
+                        const collectionKey = importedInsp.type === 'extincteur' ? 'extincteurs' :
+                                            importedInsp.type === 'dm' ? 'dm' :
+                                            importedInsp.type === 'sortie' ? 'sorties' : null;
+                        
+                        if (collectionKey && targetFloor.elements) {
+                            const collection = targetFloor.elements[collectionKey] || [];
+                            
+                            // Recherche par ID exact (pour extincteurs et DM)
+                            if (importedInsp.elementData?.id) {
+                                elementExists = collection.some(el => el.id === importedInsp.elementData.id);
+                            }
+                            
+                            // Recherche par position (pour sorties et éléments sans ID)
+                            if (!elementExists && importedInsp.elementData?.x !== undefined && importedInsp.elementData?.y !== undefined) {
+                                const tolerance = 0.02; // 2% de tolérance sur la position
+                                elementExists = collection.some(el => 
+                                    Math.abs(el.x - importedInsp.elementData.x) < tolerance &&
+                                    Math.abs(el.y - importedInsp.elementData.y) < tolerance
+                                );
+                            }
+                        }
+                    }
+                    
+                    if (!elementExists) {
+                        const elementDesc = importedInsp.type === 'zone' ? 
+                            'Zone globale' : 
+                            `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
+                        notFound.push(`[${zone.name}] ${elementDesc}`);
+                        skipped++;
+                        return;
+                    }
+                    
+                    // Chercher si une inspection existe déjà
+                    const existingInspIndex = inspections.findIndex(insp =>
+                        insp.campaign === importedInsp.campaign &&
+                        insp.zoneId === importedInsp.zoneId &&
+                        insp.floorId === importedInsp.floorId &&
+                        insp.elementKey === importedInsp.elementKey &&
+                        insp.type === importedInsp.type
+                    );
+                    
+                    if (existingInspIndex !== -1) {
+                        // Mettre à jour l'inspection existante
+                        inspections[existingInspIndex] = {
+                            ...inspections[existingInspIndex],
+                            ...importedInsp,
+                            timestamp: new Date().toISOString() // Mise à jour du timestamp
+                        };
+                        updated++;
+                    } else {
+                        // Ajouter la nouvelle inspection
+                        inspections.push({
+                            ...importedInsp,
+                            timestamp: new Date().toISOString()
+                        });
+                        added++;
+                    }
+                });
+                
+                // Sauvegarder
+                if (added > 0 || updated > 0) {
+                    saveInspections();
+                    updateKPIs();
+                    
+                    // Rafraîchir l'affichage si on est dans une zone concernée
+                    if (currentZone && zonesProcessed.has(currentZone.id)) {
+                        addHotspots();
+                        renderNotationPanel();
+                    }
+                }
+                
+                // Message détaillé
+                let message = '✅ Import terminé !\n\n';
+                
+                // Info sur les zones
+                if (zonesProcessed.size > 0) {
+                    message += `� Zones traitées : ${zonesProcessed.size}\n`;
+                    const zoneNames = Array.from(zonesProcessed).map(zoneId => {
+                        const zone = zones.find(z => z.id === zoneId);
+                        return zone ? zone.name : zoneId;
+                    });
+                    if (zoneNames.length <= 5) {
+                        zoneNames.forEach(name => message += `  • ${name}\n`);
+                    } else {
+                        zoneNames.slice(0, 3).forEach(name => message += `  • ${name}\n`);
+                        message += `  ... et ${zoneNames.length - 3} autre(s)\n`;
+                    }
+                    message += '\n';
+                }
+                
+                message += `�📥 Ajoutées : ${added}\n`;
+                message += `🔄 Mises à jour : ${updated}\n`;
+                if (skipped > 0) {
+                    message += `⚠️ Ignorées : ${skipped}\n`;
+                }
+                
+                if (notFound.length > 0) {
+                    message += `\n❌ Éléments non trouvés :\n`;
+                    // Afficher max 10 éléments non trouvés
+                    const displayList = notFound.slice(0, 10);
+                    displayList.forEach(item => {
+                        message += `  • ${item}\n`;
+                    });
+                    if (notFound.length > 10) {
+                        message += `  ... et ${notFound.length - 10} autre(s)\n`;
+                    }
+                    message += `\n💡 Astuce : Assurez-vous que les zones et éléments existent avant d'importer les notations.`;
+                }
+                
+                alert(message);
+                
+                // Réinitialiser l'input file
+                event.target.value = '';
+                
+            } catch (error) {
+                console.error('Import notations error:', error);
+                alert(`❌ Erreur lors de l'import des notations :\n\n${error.message}\n\nVérifiez que le fichier est au bon format.`);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // ===== FIN EXPORT / IMPORT NOTATIONS =====
+    
+    // Rendre les fonctions disponibles globalement (pour compatibilité onclick)
+    window.exportNotations = exportNotations;
+    window.importNotations = importNotations;
 
     const ELEMENT_COLLECTION_MAP = { extincteur: 'extincteurs', dm: 'dm', sortie: 'sorties' };
     const EXTINGUISHER_TYPES = ['Eau', 'Mousse', 'Poudre', 'CO2', 'Lithium', 'A identifié'];
