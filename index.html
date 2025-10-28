@@ -2610,6 +2610,17 @@
                             Importe les notations en les associant aux éléments correspondants (par ID/position)
                         </p>
                     </div>
+                    
+                    <div class="mt-4 border-t pt-4">
+                        <h3 class="font-semibold mb-3 text-sm text-red-700">🗑️ Gestion des Notations</h3>
+                        <button onclick="deleteAllNotations()" 
+                                class="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center gap-2">
+                            <span>🗑️</span> Supprimer toutes les notations MR
+                        </button>
+                        <p class="text-xs text-red-600 mt-2 font-medium">
+                            ⚠️ Supprime toutes les notations des zones MR pour la campagne actuelle. Cette action est irréversible !
+                        </p>
+                    </div>
                 </div>
             </div>
         `;
@@ -3254,6 +3265,97 @@
         alert(message);
     }
     
+    /**
+     * Supprime toutes les notations des zones MR pour la campagne actuelle
+     * Demande une double confirmation pour éviter les suppressions accidentelles
+     */
+    function deleteAllNotations() {
+        // Calculer le nombre d'inspections MR pour la campagne actuelle
+        const mrZoneIds = zones
+            .filter(z => {
+                const cat = z.category || '';
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return normalized === 'MR';
+            })
+            .map(z => z.id);
+        
+        const mrInspections = inspections.filter(i => 
+            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
+        );
+        
+        const count = mrInspections.length;
+        
+        if (count === 0) {
+            alert('ℹ️ Aucune notation à supprimer pour les zones MR de la campagne ' + currentCampaign);
+            return;
+        }
+        
+        // Liste des zones concernées
+        const affectedZones = [...new Set(mrInspections.map(i => i.zoneId))];
+        const zoneNames = affectedZones.map(id => {
+            const z = zones.find(zone => zone.id === id);
+            return z ? z.name : id;
+        }).join(', ');
+        
+        // Première confirmation
+        const firstConfirm = confirm(
+            `⚠️ ATTENTION - Suppression de notations\n\n` +
+            `Vous êtes sur le point de supprimer :\n` +
+            `• ${count} notation(s)\n` +
+            `• Campagne : ${currentCampaign}\n` +
+            `• Zones MR concernées (${affectedZones.length}) : ${zoneNames}\n\n` +
+            `Cette action est IRRÉVERSIBLE !\n\n` +
+            `Voulez-vous continuer ?`
+        );
+        
+        if (!firstConfirm) {
+            return;
+        }
+        
+        // Deuxième confirmation (sécurité)
+        const secondConfirm = confirm(
+            `🚨 DERNIÈRE CONFIRMATION\n\n` +
+            `Êtes-vous VRAIMENT sûr de vouloir supprimer ${count} notation(s) ?\n\n` +
+            `Conseil : Exportez d'abord vos notations avant de les supprimer !`
+        );
+        
+        if (!secondConfirm) {
+            alert('✅ Suppression annulée. Vos données sont conservées.');
+            return;
+        }
+        
+        // Effectuer la suppression
+        const beforeCount = inspections.length;
+        inspections = inspections.filter(i => 
+            !(i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId))
+        );
+        const afterCount = inspections.length;
+        const deleted = beforeCount - afterCount;
+        
+        // Sauvegarder
+        saveInspections();
+        
+        // Mettre à jour l'affichage
+        updateKPIs();
+        if (currentZone) {
+            addHotspots();
+            renderNotationPanel();
+        }
+        
+        // Fermer le modal d'export
+        const modal = document.querySelector('.modal');
+        if (modal) modal.remove();
+        
+        // Message de confirmation
+        alert(
+            `✅ Suppression effectuée avec succès !\n\n` +
+            `• ${deleted} notation(s) supprimée(s)\n` +
+            `• Campagne : ${currentCampaign}\n` +
+            `• Zones MR : ${affectedZones.length}\n\n` +
+            `Les indicateurs ont été mis à jour.`
+        );
+    }
+
     /**
      * Importe les notations depuis un fichier JSON
      * Associe intelligemment les notations aux éléments existants
