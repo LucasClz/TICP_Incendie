@@ -3145,27 +3145,70 @@
     // ===== EXPORT / IMPORT NOTATIONS =====
     
     /**
-     * Exporte uniquement les notations (inspections) de la zone actuelle
+     * Exporte uniquement les notations (inspections) de la zone actuelle ou de toutes les zones
      * Inclut les critères, commentaires et photos
      */
     function exportNotations() {
-        if (!currentZone) {
-            alert('⚠️ Aucune zone sélectionnée.\nVeuillez sélectionner une zone avant d\'exporter ses notations.');
-            return;
-        }
-        
-        // Filtrer les inspections de la zone actuelle pour la campagne courante
-        const zoneInspections = inspections.filter(insp => 
-            insp.zoneId === currentZone.id && 
-            insp.campaign === currentCampaign
+        // Demander si on veut exporter une seule zone ou toutes les zones
+        const exportAll = !currentZone || confirm(
+            currentZone 
+                ? `Exporter les notations :\n\n` +
+                  `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
+                  `• Toutes les zones → Cliquez sur OK\n\n` +
+                  `Campagne : ${currentCampaign}`
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones ?`
         );
         
-        if (zoneInspections.length === 0) {
-            const confirmExport = confirm(
-                `⚠️ Aucune notation trouvée pour la zone "${currentZone.name}" (campagne ${currentCampaign}).\n\n` +
-                `Voulez-vous quand même créer un fichier vide ?`
+        let zoneInspections;
+        let zones_exported = [];
+        let filename;
+        
+        if (exportAll) {
+            // Exporter toutes les zones
+            zoneInspections = inspections.filter(insp => insp.campaign === currentCampaign);
+            
+            // Obtenir la liste des zones uniques
+            const zoneIds = [...new Set(zoneInspections.map(i => i.zoneId))];
+            zones_exported = zoneIds.map(zoneId => {
+                const zone = zones.find(z => z.id === zoneId);
+                return {
+                    id: zoneId,
+                    name: zone ? zone.name : zoneId
+                };
+            });
+            
+            if (zoneInspections.length === 0) {
+                alert(`❌ Aucune notation trouvée pour la campagne ${currentCampaign}.`);
+                return;
+            }
+            
+            filename = `Notations_TOUTES_ZONES_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
+        } else {
+            // Exporter uniquement la zone actuelle
+            if (!currentZone) {
+                alert('⚠️ Aucune zone sélectionnée.\nVeuillez sélectionner une zone avant d\'exporter ses notations.');
+                return;
+            }
+            
+            zoneInspections = inspections.filter(insp => 
+                insp.zoneId === currentZone.id && 
+                insp.campaign === currentCampaign
             );
-            if (!confirmExport) return;
+            
+            zones_exported = [{
+                id: currentZone.id,
+                name: currentZone.name
+            }];
+            
+            if (zoneInspections.length === 0) {
+                const confirmExport = confirm(
+                    `⚠️ Aucune notation trouvée pour la zone "${currentZone.name}" (campagne ${currentCampaign}).\n\n` +
+                    `Voulez-vous quand même créer un fichier vide ?`
+                );
+                if (!confirmExport) return;
+            }
+            
+            filename = `Notations_${currentZone.id}_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         }
         
         // Créer le fichier d'export avec métadonnées
@@ -3174,13 +3217,11 @@
             exportType: "notations",
             exportDate: new Date().toISOString(),
             campaign: currentCampaign,
-            zone: {
-                id: currentZone.id,
-                name: currentZone.name
-            },
+            zones: zones_exported,
             inspections: zoneInspections,
             stats: {
                 total: zoneInspections.length,
+                zonesCount: zones_exported.length,
                 withPhotos: zoneInspections.filter(i => i.photos && i.photos.length > 0).length,
                 nonConformities: zoneInspections.filter(i => 
                     i.criteria && Object.values(i.criteria).includes('non')
@@ -3189,13 +3230,22 @@
         };
         
         const data = JSON.stringify(exportData, null, 2);
-        const filename = `Notations_${currentZone.id}_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
         
         // Message détaillé
-        const message = `✅ Export réussi !\n\n` +
-            `Zone : ${currentZone.name} (${currentZone.id})\n` +
-            `Campagne : ${currentCampaign}\n` +
+        let message = `✅ Export réussi !\n\n`;
+        if (exportAll) {
+            message += `Zones : ${zones_exported.length} zone(s)\n`;
+            if (zones_exported.length <= 5) {
+                zones_exported.forEach(z => message += `  • ${z.name} (${z.id})\n`);
+            } else {
+                zones_exported.slice(0, 3).forEach(z => message += `  • ${z.name} (${z.id})\n`);
+                message += `  ... et ${zones_exported.length - 3} autre(s)\n`;
+            }
+        } else {
+            message += `Zone : ${zones_exported[0].name} (${zones_exported[0].id})\n`;
+        }
+        message += `Campagne : ${currentCampaign}\n` +
             `Notations exportées : ${exportData.stats.total}\n` +
             `Avec photos : ${exportData.stats.withPhotos}\n` +
             `Non-conformités : ${exportData.stats.nonConformities}\n\n` +
@@ -3207,6 +3257,7 @@
     /**
      * Importe les notations depuis un fichier JSON
      * Associe intelligemment les notations aux éléments existants
+     * Support import multi-zones
      */
     function importNotations(event) {
         const file = event.target.files[0];
@@ -3233,21 +3284,27 @@
                     return;
                 }
                 
-                // Statistiques d'import
+                // Statistiques d'import globales
                 let added = 0;
                 let updated = 0;
                 let skipped = 0;
                 const notFound = [];
+                const zonesProcessed = new Set();
                 
                 // Parcourir les notations importées
                 importedInspections.forEach(importedInsp => {
                     // Vérifier que la zone existe
                     const zone = zones.find(z => z.id === importedInsp.zoneId);
                     if (!zone) {
-                        notFound.push(`Zone ${importedInsp.zoneId}`);
+                        if (!notFound.some(item => item.startsWith(`Zone ${importedInsp.zoneId}`))) {
+                            notFound.push(`Zone ${importedInsp.zoneId} (n'existe pas)`);
+                        }
                         skipped++;
                         return;
                     }
+                    
+                    // Marquer la zone comme traitée
+                    zonesProcessed.add(importedInsp.zoneId);
                     
                     // Trouver le floor correspondant
                     let targetFloor = null;
@@ -3299,7 +3356,7 @@
                         const elementDesc = importedInsp.type === 'zone' ? 
                             'Zone globale' : 
                             `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
-                        notFound.push(elementDesc);
+                        notFound.push(`[${zone.name}] ${elementDesc}`);
                         skipped++;
                         return;
                     }
@@ -3336,8 +3393,8 @@
                     saveInspections();
                     updateKPIs();
                     
-                    // Rafraîchir l'affichage si on est dans la zone concernée
-                    if (currentZone && importedData.zone && currentZone.id === importedData.zone.id) {
+                    // Rafraîchir l'affichage si on est dans une zone concernée
+                    if (currentZone && zonesProcessed.has(currentZone.id)) {
                         addHotspots();
                         renderNotationPanel();
                     }
@@ -3345,7 +3402,24 @@
                 
                 // Message détaillé
                 let message = '✅ Import terminé !\n\n';
-                message += `📥 Ajoutées : ${added}\n`;
+                
+                // Info sur les zones
+                if (zonesProcessed.size > 0) {
+                    message += `� Zones traitées : ${zonesProcessed.size}\n`;
+                    const zoneNames = Array.from(zonesProcessed).map(zoneId => {
+                        const zone = zones.find(z => z.id === zoneId);
+                        return zone ? zone.name : zoneId;
+                    });
+                    if (zoneNames.length <= 5) {
+                        zoneNames.forEach(name => message += `  • ${name}\n`);
+                    } else {
+                        zoneNames.slice(0, 3).forEach(name => message += `  • ${name}\n`);
+                        message += `  ... et ${zoneNames.length - 3} autre(s)\n`;
+                    }
+                    message += '\n';
+                }
+                
+                message += `�📥 Ajoutées : ${added}\n`;
                 message += `🔄 Mises à jour : ${updated}\n`;
                 if (skipped > 0) {
                     message += `⚠️ Ignorées : ${skipped}\n`;
@@ -3361,7 +3435,7 @@
                     if (notFound.length > 10) {
                         message += `  ... et ${notFound.length - 10} autre(s)\n`;
                     }
-                    message += `\n💡 Astuce : Assurez-vous que les éléments existent dans la zone avant d'importer les notations.`;
+                    message += `\n💡 Astuce : Assurez-vous que les zones et éléments existent avant d'importer les notations.`;
                 }
                 
                 alert(message);
