@@ -663,6 +663,92 @@
             let inspections = [];
             let isAdminMode = false;
 
+            // ==================== OPTIMISATION STOCKAGE ====================
+            
+            // Configuration de compression
+            const STORAGE_CONFIG = {
+                compressPhotos: true,        // Compresser les photos base64
+                photoQuality: 0.7,            // Qualité JPEG (0-1)
+                maxPhotoWidth: 1200,          // Largeur max des photos
+                maxPhotoHeight: 1200,         // Hauteur max des photos
+                cleanOldCampaigns: true,      // Supprimer anciennes campagnes
+                keepCampaignsCount: 2         // Nombre de campagnes à conserver
+            };
+
+            // Fonction de compression d'image
+            function compressImage(base64, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        // Calculer nouvelles dimensions en gardant le ratio
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = Math.floor(width * ratio);
+                            height = Math.floor(height * ratio);
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Compresser en JPEG
+                        const compressed = canvas.toDataURL('image/jpeg', quality);
+                        resolve(compressed);
+                    };
+                    img.onerror = () => resolve(base64); // En cas d'erreur, retourner l'original
+                    img.src = base64;
+                });
+            }
+
+            // Nettoyer les anciennes campagnes
+            function cleanOldCampaigns() {
+                if (!STORAGE_CONFIG.cleanOldCampaigns) return;
+
+                // Obtenir toutes les campagnes uniques
+                const campaigns = [...new Set(inspections.map(i => i.campaign))].sort().reverse();
+                
+                // Si plus de campagnes que la limite
+                if (campaigns.length > STORAGE_CONFIG.keepCampaignsCount) {
+                    const campaignsToKeep = campaigns.slice(0, STORAGE_CONFIG.keepCampaignsCount);
+                    const beforeCount = inspections.length;
+                    inspections = inspections.filter(i => campaignsToKeep.includes(i.campaign));
+                    const deletedCount = beforeCount - inspections.length;
+                    
+                    if (deletedCount > 0) {
+                        console.info(`🗑️ Nettoyage stockage : ${deletedCount} anciennes inspections supprimées`);
+                        saveInspections();
+                    }
+                }
+            }
+
+            // Supprimer les données en double (même zone, même élément, même campagne)
+            function deduplicateInspections() {
+                const seen = new Set();
+                const beforeCount = inspections.length;
+                
+                inspections = inspections.filter(inspection => {
+                    const key = `${inspection.campaign}_${inspection.zoneId}_${inspection.elementKey}`;
+                    if (seen.has(key)) {
+                        return false; // Doublon trouvé
+                    }
+                    seen.add(key);
+                    return true;
+                });
+                
+                const duplicatesRemoved = beforeCount - inspections.length;
+                if (duplicatesRemoved > 0) {
+                    console.info(`🗑️ ${duplicatesRemoved} doublons supprimés`);
+                    saveInspections();
+                }
+            }
+
+            // ==================== FIN OPTIMISATION STOCKAGE ====================
+
             // Criteria definitions
             const CRITERIA = {
                 extincteur: {
@@ -1876,6 +1962,10 @@
             }
 
             async function saveInspections() {
+                // Nettoyage automatique avant sauvegarde
+                deduplicateInspections();
+                cleanOldCampaigns();
+                
                 // Essayer d'abord IndexedDB si disponible
                 if (isIndexedDBAvailable()) {
                     try {
@@ -3170,27 +3260,40 @@
     }
 
     // Handle photo upload (compress before storing)
-    function handlePhotoUpload(event) {
+    async function handlePhotoUpload(event) {
         if (!currentElement) return;
 
         const files = Array.from(event.target.files);
         const inspection = getElementInspection(currentElement.type, currentElement.data);
         if (!inspection) return;
 
-        files.forEach(file => {
+        for (const file of files) {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                // compress image before storing
-                compressImage(e.target.result, 1200, 0.65).then(compressed => {
-                    inspection.photos = inspection.photos || [];
-                    inspection.photos.push(compressed);
-                    inspection.timestamp = new Date().toISOString();
-                    saveInspections();
-                    renderNotationPanel(); // Refresh to show new photos
-                });
+            reader.onload = async (e) => {
+                // Compression optimisée selon configuration
+                const compressed = await compressImage(
+                    e.target.result, 
+                    STORAGE_CONFIG.maxPhotoWidth, 
+                    STORAGE_CONFIG.maxPhotoHeight, 
+                    STORAGE_CONFIG.photoQuality
+                );
+                
+                inspection.photos = inspection.photos || [];
+                inspection.photos.push(compressed);
+                inspection.timestamp = new Date().toISOString();
+                
+                // Calculer la réduction de taille
+                const originalSize = e.target.result.length;
+                const compressedSize = compressed.length;
+                const reduction = Math.round((1 - compressedSize / originalSize) * 100);
+                
+                console.info(`📸 Photo compressée : -${reduction}% (${(originalSize/1024).toFixed(0)}KB → ${(compressedSize/1024).toFixed(0)}KB)`);
+                
+                saveInspections();
+                renderNotationPanel(); // Refresh to show new photos
             };
             reader.readAsDataURL(file);
-        });
+        }
     }
 
     // Update zone plan (compress before storing, robust save)
@@ -3485,6 +3588,17 @@
                         </button>
                         <p class="text-xs text-red-600 mt-2 font-medium">
                             ${deleteWarningText}
+                        </p>
+                    </div>
+                    
+                    <div class="mt-4 border-t pt-4">
+                        <h3 class="font-semibold mb-3 text-sm text-orange-700">🧹 Optimisation Stockage</h3>
+                        <button onclick="optimizeStorage()" 
+                                class="w-full px-4 py-3 bg-orange-600 text-white rounded-md hover:bg-orange-700 flex items-center justify-center gap-2">
+                            <span>🧹</span> Nettoyer & Optimiser
+                        </button>
+                        <p class="text-xs text-orange-600 mt-2">
+                            Supprime les doublons, anciennes campagnes et optimise les photos
                         </p>
                     </div>
                 </div>
@@ -4176,36 +4290,126 @@
      * Demande une double confirmation pour éviter les suppressions accidentelles
      */
     function deleteAllNotations() {
-        // Récupérer les filtres de catégorie actifs
-        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
+        // Filtre MR fixe
+        const mrZoneIds = zones.filter(z => z.category === 'MR').map(z => z.id);
         
-        // Déterminer les zones filtrées
-        let filteredZoneIds;
-        let filterDescription;
-        
-        if (categoryChecks.length > 0) {
-            // Des filtres sont actifs : utiliser les zones correspondantes
-            filteredZoneIds = zones
-                .filter(z => {
-                    const cat = z.category || '';
-                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                    return categoryChecks.includes(normalized);
-                })
-                .map(z => z.id);
-            
-            filterDescription = `Catégories : ${categoryChecks.join(', ')}`;
-        } else {
-            // Aucun filtre actif : toutes les zones
-            filteredZoneIds = zones.map(z => z.id);
-            filterDescription = 'Toutes les catégories';
-        }
-        
-        // Trouver les inspections correspondantes
+        // Trouver les inspections MR correspondantes
         const filteredInspections = inspections.filter(i => 
-            i.campaign === currentCampaign && filteredZoneIds.includes(i.zoneId)
+            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
         );
         
         const count = filteredInspections.length;
+        
+        if (count === 0) {
+            alert('Aucune notation MR à supprimer pour cette campagne.');
+            return;
+        }
+        
+        const confirmMessage = `⚠️ Êtes-vous sûr de vouloir supprimer TOUTES les ${count} notations MR de la campagne ${currentCampaign} ?\n\nCette action est IRRÉVERSIBLE.`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        // Suppression
+        const beforeLength = inspections.length;
+        inspections = inspections.filter(i => 
+            !(i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId))
+        );
+        
+        const deletedCount = beforeLength - inspections.length;
+        
+        saveInspections();
+        alert(`✅ ${deletedCount} notation(s) MR supprimée(s) avec succès.`);
+        
+        // Fermer la modal et rafraîchir
+        document.querySelector('.modal')?.remove();
+        renderZoneList();
+        updateKPIs();
+    }
+
+    // Fonction d'optimisation complète du stockage
+    async function optimizeStorage() {
+        const storageBeforeInfo = getStorageInfo();
+        const storageBeforeMB = storageBeforeInfo.used;
+        
+        if (!confirm(`🧹 Optimisation du stockage\n\nActions effectuées :\n• Suppression des doublons\n• Suppression des anciennes campagnes (garde ${STORAGE_CONFIG.keepCampaignsCount} dernières)\n• Recompression des photos\n\nStockage actuel : ${storageBeforeMB}MB (${storageBeforeInfo.percent}%)\n\nContinuer ?`)) {
+            return;
+        }
+        
+        let report = {
+            duplicatesRemoved: 0,
+            oldInspectionsRemoved: 0,
+            photosRecompressed: 0,
+            photoSpaceSaved: 0
+        };
+        
+        // 1. Supprimer les doublons
+        const seen = new Set();
+        const beforeDuplicates = inspections.length;
+        inspections = inspections.filter(inspection => {
+            const key = `${inspection.campaign}_${inspection.zoneId}_${inspection.elementKey}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        report.duplicatesRemoved = beforeDuplicates - inspections.length;
+        
+        // 2. Supprimer anciennes campagnes
+        const campaigns = [...new Set(inspections.map(i => i.campaign))].sort().reverse();
+        if (campaigns.length > STORAGE_CONFIG.keepCampaignsCount) {
+            const campaignsToKeep = campaigns.slice(0, STORAGE_CONFIG.keepCampaignsCount);
+            const beforeOldCampaigns = inspections.length;
+            inspections = inspections.filter(i => campaignsToKeep.includes(i.campaign));
+            report.oldInspectionsRemoved = beforeOldCampaigns - inspections.length;
+        }
+        
+        // 3. Recompresser toutes les photos
+        for (const inspection of inspections) {
+            if (inspection.photos && inspection.photos.length > 0) {
+                const newPhotos = [];
+                for (const photo of inspection.photos) {
+                    const sizeBefore = photo.length;
+                    const recompressed = await compressImage(
+                        photo,
+                        STORAGE_CONFIG.maxPhotoWidth,
+                        STORAGE_CONFIG.maxPhotoHeight,
+                        STORAGE_CONFIG.photoQuality
+                    );
+                    const sizeAfter = recompressed.length;
+                    
+                    if (sizeAfter < sizeBefore) {
+                        newPhotos.push(recompressed);
+                        report.photoSpaceSaved += (sizeBefore - sizeAfter);
+                        report.photosRecompressed++;
+                    } else {
+                        newPhotos.push(photo);
+                    }
+                }
+                inspection.photos = newPhotos;
+            }
+        }
+        
+        // Sauvegarder
+        await saveInspections();
+        
+        const storageAfterInfo = getStorageInfo();
+        const storageSavedMB = (storageBeforeMB - storageAfterInfo.used).toFixed(2);
+        const photoSpaceSavedMB = (report.photoSpaceSaved / (1024 * 1024)).toFixed(2);
+        
+        alert(`✅ Optimisation terminée !\n\n` +
+              `📊 Résultats :\n` +
+              `• ${report.duplicatesRemoved} doublon(s) supprimé(s)\n` +
+              `• ${report.oldInspectionsRemoved} ancienne(s) inspection(s) supprimée(s)\n` +
+              `• ${report.photosRecompressed} photo(s) recompressée(s)\n` +
+              `• Espace photos libéré : ${photoSpaceSavedMB} MB\n\n` +
+              `💾 Stockage :\n` +
+              `Avant : ${storageBeforeMB} MB (${storageBeforeInfo.percent}%)\n` +
+              `Après : ${storageAfterInfo.used} MB (${storageAfterInfo.percent}%)\n` +
+              `Économisé : ${storageSavedMB} MB`);
+        
+        // Fermer la modal et rafraîchir
+        document.querySelector('.modal')?.remove();
+        updateKPIs();
+    }
         
         if (count === 0) {
             const msg = categoryChecks.length > 0 
@@ -4281,6 +4485,91 @@
             `• Zones : ${affectedZones.length}\n\n` +
             `Les indicateurs ont été mis à jour.`
         );
+    }
+
+    // Fonction d'optimisation complète du stockage
+    async function optimizeStorage() {
+        const storageBeforeInfo = getStorageInfo();
+        const storageBeforeMB = storageBeforeInfo.used;
+        
+        if (!confirm(`🧹 Optimisation du stockage\n\nActions effectuées :\n• Suppression des doublons\n• Suppression des anciennes campagnes (garde ${STORAGE_CONFIG.keepCampaignsCount} dernières)\n• Recompression des photos\n\nStockage actuel : ${storageBeforeMB}MB (${storageBeforeInfo.percent}%)\n\nContinuer ?`)) {
+            return;
+        }
+        
+        let report = {
+            duplicatesRemoved: 0,
+            oldInspectionsRemoved: 0,
+            photosRecompressed: 0,
+            photoSpaceSaved: 0
+        };
+        
+        // 1. Supprimer les doublons
+        const seen = new Set();
+        const beforeDuplicates = inspections.length;
+        inspections = inspections.filter(inspection => {
+            const key = `${inspection.campaign}_${inspection.zoneId}_${inspection.elementKey}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        report.duplicatesRemoved = beforeDuplicates - inspections.length;
+        
+        // 2. Supprimer anciennes campagnes
+        const campaigns = [...new Set(inspections.map(i => i.campaign))].sort().reverse();
+        if (campaigns.length > STORAGE_CONFIG.keepCampaignsCount) {
+            const campaignsToKeep = campaigns.slice(0, STORAGE_CONFIG.keepCampaignsCount);
+            const beforeOldCampaigns = inspections.length;
+            inspections = inspections.filter(i => campaignsToKeep.includes(i.campaign));
+            report.oldInspectionsRemoved = beforeOldCampaigns - inspections.length;
+        }
+        
+        // 3. Recompresser toutes les photos
+        for (const inspection of inspections) {
+            if (inspection.photos && inspection.photos.length > 0) {
+                const newPhotos = [];
+                for (const photo of inspection.photos) {
+                    const sizeBefore = photo.length;
+                    const recompressed = await compressImage(
+                        photo,
+                        STORAGE_CONFIG.maxPhotoWidth,
+                        STORAGE_CONFIG.maxPhotoHeight,
+                        STORAGE_CONFIG.photoQuality
+                    );
+                    const sizeAfter = recompressed.length;
+                    
+                    if (sizeAfter < sizeBefore) {
+                        newPhotos.push(recompressed);
+                        report.photoSpaceSaved += (sizeBefore - sizeAfter);
+                        report.photosRecompressed++;
+                    } else {
+                        newPhotos.push(photo);
+                    }
+                }
+                inspection.photos = newPhotos;
+            }
+        }
+        
+        // Sauvegarder
+        await saveInspections();
+        
+        const storageAfterInfo = getStorageInfo();
+        const storageSavedMB = (storageBeforeMB - storageAfterInfo.used).toFixed(2);
+        const photoSpaceSavedMB = (report.photoSpaceSaved / (1024 * 1024)).toFixed(2);
+        
+        alert(`✅ Optimisation terminée !\n\n` +
+              `📊 Résultats :\n` +
+              `• ${report.duplicatesRemoved} doublon(s) supprimé(s)\n` +
+              `• ${report.oldInspectionsRemoved} ancienne(s) inspection(s) supprimée(s)\n` +
+              `• ${report.photosRecompressed} photo(s) recompressée(s)\n` +
+              `• Espace photos libéré : ${photoSpaceSavedMB} MB\n\n` +
+              `💾 Stockage :\n` +
+              `Avant : ${storageBeforeMB} MB (${storageBeforeInfo.percent}%)\n` +
+              `Après : ${storageAfterInfo.used} MB (${storageAfterInfo.percent}%)\n` +
+              `Économisé : ${storageSavedMB} MB`);
+        
+        // Fermer la modal et rafraîchir
+        document.querySelector('.modal')?.remove();
+        updateKPIs();
     }
 
     /**
