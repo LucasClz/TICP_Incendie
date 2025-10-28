@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tournées Incendie - Gestion des Inspections</title>
-    <!-- Version 1.3 - FILTRE MR UNIQUEMENT (28/10/2025) -->
+    <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -285,6 +285,14 @@
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
+                        
+                        <!-- Indicateur de filtre MR actif -->
+                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                            <div class="text-xs text-blue-800">
+                                <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
+                            </div>
+                        </div>
+                        
                         <div class="mt-3 text-sm">
                             <div class="font-medium mb-1">Filtrer par catégorie</div>
                             <div id="categoryFilter" class="flex gap-2 flex-wrap">
@@ -395,6 +403,14 @@
 
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Zones Existantes</h3>
+                    
+                    <!-- Indicateur de filtre MR actif en mode admin -->
+                    <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                        <div class="text-xs text-blue-800">
+                            <strong>📌 Filtre actif :</strong> Zones <strong>MR uniquement</strong>
+                        </div>
+                    </div>
+                    
                     <div id="adminZoneList" class="space-y-2">
                         <!-- Admin zone list -->
                     </div>
@@ -1673,7 +1689,7 @@
 
     function hasNonConformities(zone) {
         return inspections.some(inspection => 
-            inspection.campaign === 'MR' && 
+            inspection.campaign === currentCampaign && 
             inspection.zoneId === zone.id && 
             inspection.criteria && 
             Object.values(inspection.criteria).includes('non')
@@ -1689,14 +1705,21 @@
 
         let filteredZones = zones.slice();
 
+        // FILTRE PRINCIPAL : UNIQUEMENT LES ZONES MR
+        filteredZones = filteredZones.filter(z => {
+            const cat = z.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
+
         if (filterChecked) {
             filteredZones = filteredZones.filter(hasNonConformities);
         }
 
+        // Filtre supplémentaire par checkbox (optionnel, si les checkboxes sont cochées)
         if (categoryChecks.length > 0) {
             filteredZones = filteredZones.filter(z => {
                 const cat = z.category || '';
-                // Treat legacy values like 'Administratif:Vestiaire' as 'Administratif'
                 const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
                 return categoryChecks.includes(normalized);
             });
@@ -2128,7 +2151,7 @@
     function getElementInspection(type, elementData) {
         const key = getElementKey(type, elementData);
         return inspections.find(i => 
-            i.campaign === 'MR' && 
+            i.campaign === currentCampaign && 
             i.zoneId === currentZone.id && 
             i.floorId === (currentFloor?.id || null) &&
             i.elementKey === key
@@ -2140,7 +2163,7 @@
         const key = getElementKey(type, elementData);
         const inspection = {
             timestamp: new Date().toISOString(),
-            campaign: 'MR',
+            campaign: currentCampaign,
             zoneId: currentZone.id,
             floorId: currentFloor?.id || null,
             elementKey: key,
@@ -2265,7 +2288,7 @@
                 
                 // Mettre à jour la clé de l'inspection si elle existe
                 const inspection = inspections.find(i => 
-                    i.campaign === 'MR' && 
+                    i.campaign === currentCampaign && 
                     i.zoneId === currentZone.id && 
                     i.floorId === (currentFloor?.id || null) &&
                     i.elementKey === oldKey
@@ -2485,7 +2508,7 @@
     // Get zone inspection
     function getZoneInspection() {
         return inspections.find(i => 
-            i.campaign === 'MR' && 
+            i.campaign === currentCampaign && 
             i.zoneId === currentZone.id && 
             i.type === 'zone'
         );
@@ -2495,7 +2518,7 @@
     function createZoneInspection() {
         const inspection = {
             timestamp: new Date().toISOString(),
-            campaign: 'MR',
+            campaign: currentCampaign,
             zoneId: currentZone.id,
             type: 'zone',
             criteria: {},
@@ -2650,7 +2673,7 @@
         const nonConformities = [];
         
         inspections.forEach(inspection => {
-            if (inspection.campaign === 'MR' && inspection.criteria) {
+            if (inspection.campaign === currentCampaign && inspection.criteria) {
                 const zone = zones.find(z => z.id === inspection.zoneId);
                 const zoneName = zone ? zone.name : inspection.zoneId;
                 
@@ -2716,14 +2739,14 @@
 
     // Export inspections
     function exportInspections(format) {
-        const campaignInspections = inspections.filter(i => i.campaign === 'MR');
+        const campaignInspections = inspections.filter(i => i.campaign === currentCampaign);
         
         if (format === 'json') {
             const data = JSON.stringify(campaignInspections, null, 2);
-            downloadFile(data, `inspections_MR.json`, 'application/json');
+            downloadFile(data, `inspections_${currentCampaign}.json`, 'application/json');
         } else if (format === 'csv') {
             const csv = convertToCSV(campaignInspections);
-            downloadFile(csv, `inspections_MR.csv`, 'text/csv');
+            downloadFile(csv, `inspections_${currentCampaign}.csv`, 'text/csv');
         }
     }
 
@@ -2803,7 +2826,17 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        container.innerHTML = zones.map(zone => {
+        // Filtrer uniquement les zones MR
+        const filteredZones = zones.filter(z => {
+            const cat = z.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
+
+        // Tri par nom
+        filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+        container.innerHTML = filteredZones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
             return `
@@ -3147,17 +3180,16 @@
     /**
      * Exporte uniquement les notations (inspections) de la zone actuelle ou de toutes les zones
      * Inclut les critères, commentaires et photos
-     * FILTRE : Campagne MR uniquement
      */
     function exportNotations() {
         // Demander si on veut exporter une seule zone ou toutes les zones
         const exportAll = !currentZone || confirm(
             currentZone 
-                ? `Exporter les notations MR :\n\n` +
+                ? `Exporter les notations :\n\n` +
                   `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
                   `• Toutes les zones → Cliquez sur OK\n\n` +
-                  `⚠️ Seules les notations de campagne "MR" seront exportées.`
-                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations MR de TOUTES les zones ?\n\n⚠️ Seules les notations de campagne "MR" seront exportées.`
+                  `Campagne : ${currentCampaign}`
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones ?`
         );
         
         let zoneInspections;
@@ -3165,8 +3197,8 @@
         let filename;
         
         if (exportAll) {
-            // Exporter toutes les zones - FILTRE MR UNIQUEMENT
-            zoneInspections = inspections.filter(insp => insp.campaign === 'MR');
+            // Exporter toutes les zones
+            zoneInspections = inspections.filter(insp => insp.campaign === currentCampaign);
             
             // Obtenir la liste des zones uniques
             const zoneIds = [...new Set(zoneInspections.map(i => i.zoneId))];
@@ -3179,13 +3211,13 @@
             });
             
             if (zoneInspections.length === 0) {
-                alert(`❌ Aucune notation MR trouvée.\n\nAssurez-vous qu'il existe des notations de campagne "MR".`);
+                alert(`❌ Aucune notation trouvée pour la campagne ${currentCampaign}.`);
                 return;
             }
             
-            filename = `Notations_MR_TOUTES_ZONES_${new Date().toISOString().split('T')[0]}.json`;
+            filename = `Notations_TOUTES_ZONES_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         } else {
-            // Exporter uniquement la zone actuelle - FILTRE MR UNIQUEMENT
+            // Exporter uniquement la zone actuelle
             if (!currentZone) {
                 alert('⚠️ Aucune zone sélectionnée.\nVeuillez sélectionner une zone avant d\'exporter ses notations.');
                 return;
@@ -3193,7 +3225,7 @@
             
             zoneInspections = inspections.filter(insp => 
                 insp.zoneId === currentZone.id && 
-                insp.campaign === 'MR'
+                insp.campaign === currentCampaign
             );
             
             zones_exported = [{
@@ -3202,14 +3234,14 @@
             }];
             
             if (zoneInspections.length === 0) {
-                alert(
-                    `❌ Aucune notation MR trouvée pour la zone "${currentZone.name}".\n\n` +
-                    `Assurez-vous qu'il existe des notations de campagne "MR" pour cette zone.`
+                const confirmExport = confirm(
+                    `⚠️ Aucune notation trouvée pour la zone "${currentZone.name}" (campagne ${currentCampaign}).\n\n` +
+                    `Voulez-vous quand même créer un fichier vide ?`
                 );
-                return;
+                if (!confirmExport) return;
             }
             
-            filename = `Notations_MR_${currentZone.id}_${new Date().toISOString().split('T')[0]}.json`;
+            filename = `Notations_${currentZone.id}_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         }
         
         // Créer le fichier d'export avec métadonnées
@@ -3217,7 +3249,7 @@
             version: "1.0",
             exportType: "notations",
             exportDate: new Date().toISOString(),
-            campaign: 'MR',
+            campaign: currentCampaign,
             zones: zones_exported,
             inspections: zoneInspections,
             stats: {
@@ -3234,7 +3266,7 @@
         downloadFile(data, filename, 'application/json');
         
         // Message détaillé
-        let message = `✅ Export des notations MR réussi !\n\n`;
+        let message = `✅ Export réussi !\n\n`;
         if (exportAll) {
             message += `Zones : ${zones_exported.length} zone(s)\n`;
             if (zones_exported.length <= 5) {
@@ -3246,7 +3278,7 @@
         } else {
             message += `Zone : ${zones_exported[0].name} (${zones_exported[0].id})\n`;
         }
-        message += `Campagne : MR (Mise en Route)\n` +
+        message += `Campagne : ${currentCampaign}\n` +
             `Notations exportées : ${exportData.stats.total}\n` +
             `Avec photos : ${exportData.stats.withPhotos}\n` +
             `Non-conformités : ${exportData.stats.nonConformities}\n\n` +
