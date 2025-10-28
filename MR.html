@@ -2562,6 +2562,21 @@
 
     // Show export modal
     function showExportModal() {
+        // Calculer le nombre d'inspections MR pour cette campagne
+        const mrZoneIds = zones
+            .filter(z => {
+                const cat = z.category || '';
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return normalized === 'MR';
+            })
+            .map(z => z.id);
+        
+        const mrInspectionsCount = inspections.filter(i => 
+            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
+        ).length;
+        
+        const mrZonesCount = mrZoneIds.length;
+        
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.innerHTML = `
@@ -2569,6 +2584,14 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold">Exporter les Données</h2>
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div class="text-sm text-blue-800">
+                        <strong>📊 Périmètre d'export :</strong><br>
+                        • <strong>${mrZonesCount}</strong> zone(s) MR<br>
+                        • <strong>${mrInspectionsCount}</strong> inspection(s) pour la campagne ${currentCampaign}
+                    </div>
                 </div>
                 
                 <div class="space-y-4">
@@ -2718,14 +2741,25 @@
 
     // Export inspections
     function exportInspections(format) {
-        const campaignInspections = inspections.filter(i => i.campaign === currentCampaign);
+        // Filtrer par campagne ET par zones MR uniquement
+        const mrZoneIds = zones
+            .filter(z => {
+                const cat = z.category || '';
+                const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                return normalized === 'MR';
+            })
+            .map(z => z.id);
+        
+        const campaignInspections = inspections.filter(i => 
+            i.campaign === currentCampaign && mrZoneIds.includes(i.zoneId)
+        );
         
         if (format === 'json') {
             const data = JSON.stringify(campaignInspections, null, 2);
-            downloadFile(data, `inspections_${currentCampaign}.json`, 'application/json');
+            downloadFile(data, `inspections_MR_${currentCampaign}.json`, 'application/json');
         } else if (format === 'csv') {
             const csv = convertToCSV(campaignInspections);
-            downloadFile(csv, `inspections_${currentCampaign}.csv`, 'text/csv');
+            downloadFile(csv, `inspections_MR_${currentCampaign}.csv`, 'text/csv');
         }
     }
 
@@ -3124,16 +3158,23 @@
     }
 
     function exportLibrary() {
-        // Export library in a format compatible with import
+        // Export library : uniquement les zones MR
+        const mrZones = zones.filter(z => {
+            const cat = z.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
+        
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
-            zones: zones
+            category: "MR",
+            zones: mrZones
         };
         const data = JSON.stringify(exportData, null, 2);
-        const filename = `TICP_zones_library_${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `TICP_zones_MR_library_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
-        alert(`Librairie exportée avec succès : ${zones.length} zone(s)\nFichier : ${filename}`);
+        alert(`Librairie MR exportée avec succès : ${mrZones.length} zone(s)\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
@@ -3161,14 +3202,14 @@
      * Inclut les critères, commentaires et photos
      */
     function exportNotations() {
-        // Demander si on veut exporter une seule zone ou toutes les zones
+        // Demander si on veut exporter une seule zone ou toutes les zones MR
         const exportAll = !currentZone || confirm(
             currentZone 
                 ? `Exporter les notations :\n\n` +
                   `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
-                  `• Toutes les zones → Cliquez sur OK\n\n` +
+                  `• Toutes les zones MR → Cliquez sur OK\n\n` +
                   `Campagne : ${currentCampaign}`
-                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones ?`
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones MR ?`
         );
         
         let zoneInspections;
@@ -3176,10 +3217,20 @@
         let filename;
         
         if (exportAll) {
-            // Exporter toutes les zones
-            zoneInspections = inspections.filter(insp => insp.campaign === currentCampaign);
+            // Exporter toutes les zones MR uniquement
+            const mrZoneIds = zones
+                .filter(z => {
+                    const cat = z.category || '';
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                })
+                .map(z => z.id);
             
-            // Obtenir la liste des zones uniques
+            zoneInspections = inspections.filter(insp => 
+                insp.campaign === currentCampaign && mrZoneIds.includes(insp.zoneId)
+            );
+            
+            // Obtenir la liste des zones MR uniques qui ont des inspections
             const zoneIds = [...new Set(zoneInspections.map(i => i.zoneId))];
             zones_exported = zoneIds.map(zoneId => {
                 const zone = zones.find(z => z.id === zoneId);
@@ -3190,11 +3241,11 @@
             });
             
             if (zoneInspections.length === 0) {
-                alert(`❌ Aucune notation trouvée pour la campagne ${currentCampaign}.`);
+                alert(`❌ Aucune notation trouvée pour les zones MR de la campagne ${currentCampaign}.`);
                 return;
             }
             
-            filename = `Notations_TOUTES_ZONES_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
+            filename = `Notations_MR_TOUTES_ZONES_${currentCampaign}_${new Date().toISOString().split('T')[0]}.json`;
         } else {
             // Exporter uniquement la zone actuelle
             if (!currentZone) {
