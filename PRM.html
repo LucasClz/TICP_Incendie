@@ -8,18 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Mode MR-only: lecture seule pour notation et admin */
-        .mr-readonly input[type="radio"],
-        .mr-readonly input[type="checkbox"],
-        .mr-readonly input[type="text"],
-        .mr-readonly input[type="number"],
-        .mr-readonly textarea,
-        .mr-readonly select,
-        .mr-readonly button:not(.mr-allowed) {
-            pointer-events: none !important;
-            opacity: 0.6 !important;
-        }
-        
         /* Mode sombre */
         :root {
             --bg-primary: #ffffff;
@@ -497,19 +485,22 @@
                         <option value="2025Q3">2025 Q3</option>
                         <option value="2025Q4" selected>2025 Q4</option>
                     </select>
+                    <button id="optimizeStorageBtn" class="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm" title="Optimiser l'espace de stockage">
+                        🧹 Optimiser
+                    </button>
                     <button id="darkModeToggle" class="px-3 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors" title="Basculer mode sombre/clair">
                         <span id="darkModeIcon">🌙</span>
                     </button>
-                    <button id="dashboardBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 mr-readonly">
+                    <button id="dashboardBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                         📊 Tableaux de bord
                     </button>
-                    <button id="adminModeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-readonly" disabled>
-                        🔒 Mode Admin (MR)
+                    <button id="adminModeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                        Mode Admin
                     </button>
-                    <button id="nonConformitesBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 mr-allowed">
+                    <button id="nonConformitesBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
                         Non-Conformités
                     </button>
-                    <button id="exportBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 mr-readonly">
+                    <button id="exportBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                         Exporter
                     </button>
                 </div>
@@ -543,13 +534,10 @@
                         <div class="mt-3 text-sm">
                             <div class="font-medium mb-1">Filtrer par catégorie</div>
                             <div id="categoryFilter" class="flex gap-2 flex-wrap">
-                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="toggleMRFilter(this)" class="mr-1" checked>MR</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1" disabled>PRM</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1" disabled>SC</label>
-                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1" disabled>Administratif</label>
-                            </div>
-                            <div class="text-xs text-orange-600 font-semibold mt-2" id="mrOnlyIndicator">
-                                🔒 Mode MR uniquement actif (lecture seule)
+                                <label class="inline-flex items-center"><input type="checkbox" value="MR" onchange="renderZoneList()" class="mr-1">MR</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="PRM" onchange="renderZoneList()" class="mr-1">PRM</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="SC" onchange="renderZoneList()" class="mr-1">SC</label>
+                                <label class="inline-flex items-center"><input type="checkbox" value="Administratif" onchange="renderZoneList()" class="mr-1">Administratif</label>
                             </div>
                         </div>
 
@@ -683,7 +671,6 @@
             let zones = [];
             let inspections = [];
             let isAdminMode = false;
-            let isMROnlyMode = true; // Mode MR uniquement activé par défaut
 
             // Criteria definitions
             const CRITERIA = {
@@ -887,26 +874,15 @@
                 // Left panel toggle
                 const leftPanelToggleBtn = document.getElementById('leftPanelToggleBtn');
                 if (leftPanelToggleBtn) leftPanelToggleBtn.addEventListener('click', toggleLeftPanel);
+                
+                // Optimize storage button
+                const optimizeStorageBtn = document.getElementById('optimizeStorageBtn');
+                if (optimizeStorageBtn) optimizeStorageBtn.addEventListener('click', showOptimizeStorageModal);
             }
 
             // Initialize application
             async function init() {
                 await loadData();
-                
-                // Charger la préférence du mode MR
-                const savedMRMode = localStorage.getItem('fireInspection_mrOnlyMode');
-                if (savedMRMode === '1' || savedMRMode === null) {
-                    // Mode MR activé par défaut si aucune préférence ou si explicitement activé
-                    isMROnlyMode = true;
-                    const mrCheckbox = document.querySelector('#categoryFilter input[value="MR"]');
-                    if (mrCheckbox) {
-                        mrCheckbox.checked = true;
-                        toggleMRFilter(mrCheckbox);
-                    }
-                } else {
-                    isMROnlyMode = false;
-                }
-                
                 setupEventListeners();
                 renderZoneList();
                 updateKPIs();
@@ -914,37 +890,8 @@
                 applyLeftPanelState(); // apply saved collapsed state
                 initDarkMode(); // Initialiser le mode sombre
                 
-                // Appliquer le style MR readonly si nécessaire
-                applyMRReadonlyMode();
-                
                 // Tenter de charger TICP.json si disponible (pour synchronisation)
                 await tryLoadTICPJson();
-            }
-            
-            // Appliquer le mode readonly MR à l'interface
-            function applyMRReadonlyMode() {
-                if (!isMROnlyMode) return;
-                
-                const appElement = document.getElementById('app');
-                const notationPanel = document.getElementById('notationPanel');
-                const adminBtn = document.getElementById('adminModeBtn');
-                const exportBtn = document.getElementById('exportBtn');
-                const indicator = document.getElementById('mrOnlyIndicator');
-                
-                if (appElement) appElement.classList.add('mr-readonly');
-                if (notationPanel) notationPanel.classList.add('mr-readonly');
-                if (adminBtn) {
-                    adminBtn.disabled = true;
-                    adminBtn.title = 'Mode admin désactivé en mode MR';
-                }
-                if (exportBtn) {
-                    exportBtn.classList.add('mr-readonly');
-                }
-                if (indicator) {
-                    indicator.style.display = 'block';
-                }
-                
-                console.log('🔒 Mode MR uniquement appliqué au démarrage (lecture seule)');
             }
             
             // Mode sombre
@@ -1566,11 +1513,15 @@
                                 externalZones = [json];
                             }
                             
-                            // 🔒 FILTRE MR NATIF : Extraire uniquement les zones MR pour économiser du stockage
-                            if (isMROnlyMode) {
+                            // Smart filtering: check for default category filters in UI
+                            const checkboxes = document.querySelectorAll('#categoryFilter input[type="checkbox"][checked]');
+                            const defaultCategories = Array.from(checkboxes).map(cb => cb.value);
+                            
+                            if (defaultCategories.length > 0) {
+                                // Filter zones based on default categories
                                 const filteredCount = externalZones.length;
-                                externalZones = externalZones.filter(zone => zone.categorie === 'MR' || zone.category === 'MR');
-                                console.info(`� Mode MR actif: ${externalZones.length}/${filteredCount} zones MR extraites du fichier TICP.json (économie de stockage)`);
+                                externalZones = externalZones.filter(zone => defaultCategories.includes(zone.categorie));
+                                console.info(`🔍 Filtre natif détecté: ${defaultCategories.join(', ')} - ${externalZones.length}/${filteredCount} zones correspondantes`);
                             }
                             
                             if (externalZones.length > 0) {
@@ -1728,6 +1679,7 @@
                 }
 
                 // Data migration: convert legacy zone.plan + zone.elements into zone.floors
+                let needsSave = false;
                 if (Array.isArray(zones) && zones.length > 0) {
                     zones = zones.map(z => {
                         if (!z.floors && (z.plan || z.elements)) {
@@ -1741,11 +1693,45 @@
                             // keep legacy fields for backward inspection if needed, but remove to avoid confusion
                             delete z.plan;
                             delete z.elements;
+                            needsSave = true;
                         }
                         return z;
                     });
-                    // persist migration result
-                    saveZones();
+                    
+                    // Optimisation automatique des images volumineuses (>500KB) en arrière-plan
+                    const optimizeImages = async () => {
+                        let optimized = 0;
+                        for (const z of zones) {
+                            if (z.floors) {
+                                for (const floor of z.floors) {
+                                    if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 500000) {
+                                        console.log(`🔧 Optimisation de l'image de plan ${z.name} (${floor.name})...`);
+                                        try {
+                                            const compressed = await compressImage(floor.plan.imageUrl, 1200, 0.6);
+                                            const reduction = ((1 - compressed.length / floor.plan.imageUrl.length) * 100).toFixed(1);
+                                            console.log(`✅ Réduction de ${reduction}% pour ${z.name} (${floor.name})`);
+                                            floor.plan.imageUrl = compressed;
+                                            optimized++;
+                                        } catch (e) {
+                                            console.warn(`Échec optimisation pour ${z.name} (${floor.name})`, e);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (optimized > 0) {
+                            console.log(`🎉 ${optimized} image(s) de plan optimisée(s) automatiquement`);
+                            await saveZones();
+                        }
+                    };
+                    
+                    // Lancer l'optimisation en arrière-plan (non bloquant)
+                    if (storageInfo && parseFloat(storageInfo.percent) > 60) {
+                        setTimeout(() => optimizeImages(), 2000);
+                    }
+                    
+                    // persist migration result if needed
+                    if (needsSave) saveZones();
                 }
 
                 // If still empty, fall back to the embedded default
@@ -1964,9 +1950,9 @@
                 }
             }
 
-            // Compression / redimensionnement des images DataURL pour stocker dans localStorage
-            // Optimisation agressive pour économiser l'espace
-            function compressImage(dataUrl, maxWidth = 1200, quality = 0.65) {
+            // Compression / redimensionnement ultra-agressif pour économiser l'espace
+            // Utilisation de WebP si possible + compression adaptative intelligente
+            function compressImage(dataUrl, maxWidth = 1000, quality = 0.55) {
                 return new Promise(resolve => {
                     const img = new Image();
                     img.onload = () => {
@@ -1989,43 +1975,86 @@
                         ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Exporter en JPEG avec qualité réduite
-                        let compressed = canvas.toDataURL('image/jpeg', quality);
-                        
-                        // Si l'image est encore trop grande (>500KB), réduire davantage
-                        if (compressed.length > 500000) {
-                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        // Essayer WebP d'abord (meilleure compression)
+                        let compressed = null;
+                        try {
+                            const webpTest = canvas.toDataURL('image/webp', quality);
+                            if (webpTest.startsWith('data:image/webp')) {
+                                compressed = webpTest;
+                                console.log('✅ Compression WebP réussie');
+                            }
+                        } catch (e) {
+                            console.debug('WebP non disponible, utilisation JPEG');
                         }
                         
-                        // Si encore trop grande (>800KB), réduire la résolution
-                        if (compressed.length > 800000) {
-                            const smallerWidth = Math.round(width * 0.75);
-                            const smallerHeight = Math.round(height * 0.75);
-                            canvas.width = smallerWidth;
-                            canvas.height = smallerHeight;
-                            ctx.imageSmoothingEnabled = true;
-                            ctx.imageSmoothingQuality = 'high';
-                            ctx.drawImage(img, 0, 0, smallerWidth, smallerHeight);
-                            compressed = canvas.toDataURL('image/jpeg', 0.5);
+                        // Fallback sur JPEG si WebP non supporté
+                        if (!compressed) {
+                            compressed = canvas.toDataURL('image/jpeg', quality);
                         }
                         
+                        // Compression adaptative : si trop grande, réduire progressivement
+                        const targets = [
+                            { maxSize: 300000, quality: 0.5, scale: 1.0 },    // 300KB max
+                            { maxSize: 400000, quality: 0.45, scale: 0.9 },   // 400KB -> réduire 10%
+                            { maxSize: 500000, quality: 0.4, scale: 0.8 },    // 500KB -> réduire 20%
+                            { maxSize: Infinity, quality: 0.35, scale: 0.7 }  // Au-delà -> réduire 30%
+                        ];
+                        
+                        for (const target of targets) {
+                            if (compressed.length > target.maxSize) {
+                                if (target.scale < 1.0) {
+                                    // Réduire la résolution
+                                    const newWidth = Math.round(width * target.scale);
+                                    const newHeight = Math.round(height * target.scale);
+                                    canvas.width = newWidth;
+                                    canvas.height = newHeight;
+                                    ctx.imageSmoothingEnabled = true;
+                                    ctx.imageSmoothingQuality = 'high';
+                                    ctx.drawImage(img, 0, 0, newWidth, newHeight);
+                                }
+                                
+                                // Réappliquer compression avec nouvelle qualité
+                                try {
+                                    const webp = canvas.toDataURL('image/webp', target.quality);
+                                    if (webp.startsWith('data:image/webp')) {
+                                        compressed = webp;
+                                    } else {
+                                        compressed = canvas.toDataURL('image/jpeg', target.quality);
+                                    }
+                                } catch (e) {
+                                    compressed = canvas.toDataURL('image/jpeg', target.quality);
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        const finalSizeKB = (compressed.length / 1024).toFixed(1);
+                        console.log(`📦 Image compressée: ${finalSizeKB}KB (${width}×${height})`);
                         resolve(compressed);
                     };
-                    img.onerror = () => resolve(dataUrl);
+                    img.onerror = () => {
+                        console.error('Erreur chargement image pour compression');
+                        resolve(dataUrl);
+                    };
                     img.src = dataUrl;
                 });
             }
             
             // Fonction pour calculer l'utilisation du stockage (uniquement pour cette app)
+            // Optimisée pour détecter les doublons et proposer un nettoyage intelligent
             function getStorageInfo() {
                 // Calculer uniquement l'espace utilisé par notre application
                 let appTotal = 0;
                 const appKeys = ['fireInspection_zones', 'fireInspection_inspections', 'fireInspection_leftPanelCollapsed'];
                 
+                let detailedSizes = {};
                 appKeys.forEach(key => {
                     const value = localStorage.getItem(key);
                     if (value) {
-                        appTotal += value.length + key.length;
+                        const size = value.length + key.length;
+                        appTotal += size;
+                        detailedSizes[key] = size;
                     }
                 });
                 
@@ -2042,9 +2071,15 @@
                 const limitMB = 5; // Limite typique de localStorage
                 const percentUsed = ((appTotal / (limitMB * 1024 * 1024)) * 100).toFixed(1);
                 
-                // Log pour diagnostic
+                // Analyse détaillée pour diagnostic
+                const zonesMB = ((detailedSizes['fireInspection_zones'] || 0) / (1024 * 1024)).toFixed(2);
+                const inspectionsMB = ((detailedSizes['fireInspection_inspections'] || 0) / (1024 * 1024)).toFixed(2);
+                
+                // Log pour diagnostic amélioré
                 if (parseFloat(globalMB) - parseFloat(appMB) > 0.5) {
-                    console.log(`ℹ️ Stockage global: ${globalMB}MB (dont ${appMB}MB pour cette app, ${(globalMB - appMB).toFixed(2)}MB autres données)`);
+                    console.log(`ℹ️ Stockage: App=${appMB}MB (zones=${zonesMB}MB + inspections=${inspectionsMB}MB) | Global=${globalMB}MB (${(globalMB - appMB).toFixed(2)}MB autres)`);
+                } else {
+                    console.log(`ℹ️ Stockage: App=${appMB}MB (zones=${zonesMB}MB + inspections=${inspectionsMB}MB)`);
                 }
                 
                 return {
@@ -2053,7 +2088,11 @@
                     limit: limitMB,
                     percent: percentUsed,  // Pourcentage basé sur cette app
                     bytes: appTotal,
-                    bytesGlobal: globalTotal
+                    bytesGlobal: globalTotal,
+                    details: {
+                        zones: zonesMB,
+                        inspections: inspectionsMB
+                    }
                 };
             }
             
@@ -2174,40 +2213,287 @@
                 }
             }
             
-            // Fonction pour nettoyer automatiquement l'espace
+            // Fonction pour nettoyer automatiquement l'espace de manière intelligente
             function autoCleanStorage() {
                 const storage = getStorageInfo();
                 
-                // Si on dépasse 80% du quota, nettoyer
-                if (parseFloat(storage.percent) > 80) {
-                    console.log('Nettoyage automatique du stockage...');
+                // Si on dépasse 75% du quota, nettoyer progressivement
+                if (parseFloat(storage.percent) > 75) {
+                    console.log('🧹 Nettoyage automatique du stockage...');
                     
-                    // 1. Supprimer les photos d'inspection les plus anciennes
                     let photosRemoved = 0;
-                    inspections.forEach(insp => {
-                        if (insp.photo) {
-                            insp.photo = '';
-                            photosRemoved++;
+                    let plansOptimized = 0;
+                    let duplicatesRemoved = 0;
+                    
+                    // 1. Détecter et supprimer les doublons d'inspections (même zone/élément/campagne)
+                    const seenKeys = new Set();
+                    const duplicates = [];
+                    inspections.forEach((insp, idx) => {
+                        const key = `${insp.campaign}_${insp.zoneId}_${insp.type}_${insp.elementKey}`;
+                        if (seenKeys.has(key)) {
+                            duplicates.push(idx);
+                        } else {
+                            seenKeys.add(key);
                         }
                     });
                     
-                    // 2. Re-compresser les images de plan si nécessaire
-                    let plansCompressed = 0;
+                    // Supprimer les doublons (en commençant par la fin pour ne pas décaler les indices)
+                    duplicates.reverse().forEach(idx => {
+                        inspections.splice(idx, 1);
+                        duplicatesRemoved++;
+                    });
+                    
+                    // 2. Limiter le nombre de photos par inspection (garder max 3 par défaut)
+                    inspections.forEach(insp => {
+                        if (insp.photos && insp.photos.length > 3) {
+                            photosRemoved += insp.photos.length - 3;
+                            insp.photos = insp.photos.slice(0, 3);
+                        }
+                    });
+                    
+                    // 3. Si toujours critique (>85%), supprimer toutes les photos sauf pour les non-conformités
+                    if (parseFloat(storage.percent) > 85) {
+                        inspections.forEach(insp => {
+                            const hasNonConformity = insp.criteria && Object.values(insp.criteria).includes('non');
+                            if (!hasNonConformity && insp.photos && insp.photos.length > 0) {
+                                photosRemoved += insp.photos.length;
+                                insp.photos = [];
+                            }
+                        });
+                    }
+                    
+                    // 4. Optimiser les images de plan trop volumineuses (>500KB)
                     zones.forEach(z => {
                         if (z.floors) {
                             z.floors.forEach(floor => {
-                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 300000) {
-                                    // Marquer pour re-compression au prochain chargement
-                                    plansCompressed++;
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 500000) {
+                                    plansOptimized++;
                                 }
                             });
                         }
                     });
                     
-                    return { photosRemoved, plansCompressed };
+                    console.log(`✅ Nettoyage terminé: ${duplicatesRemoved} doublons + ${photosRemoved} photos + ${plansOptimized} plans à optimiser`);
+                    
+                    return { photosRemoved, plansOptimized, duplicatesRemoved };
                 }
                 
                 return null;
+            }
+            
+            // Modal d'optimisation manuelle du stockage
+            function showOptimizeStorageModal() {
+                const storage = getStorageInfo();
+                
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 600px;">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold">🧹 Optimisation du Stockage</h2>
+                            <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <!-- État actuel -->
+                            <div class="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                                <h3 class="font-semibold mb-2 text-blue-900 dark:text-blue-100">📊 État actuel</h3>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-blue-800 dark:text-blue-200">Zones:</span>
+                                        <span class="font-bold text-blue-900 dark:text-blue-50">${storage.details.zones} MB</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-blue-800 dark:text-blue-200">Inspections:</span>
+                                        <span class="font-bold text-blue-900 dark:text-blue-50">${storage.details.inspections} MB</span>
+                                    </div>
+                                    <div class="flex justify-between border-t border-blue-200 dark:border-blue-700 pt-2">
+                                        <span class="text-blue-800 dark:text-blue-200">Total app:</span>
+                                        <span class="font-bold text-blue-900 dark:text-blue-50">${storage.used} MB / ${storage.limit} MB (${storage.percent}%)</span>
+                                    </div>
+                                    ${storage.usedGlobal && parseFloat(storage.usedGlobal) > parseFloat(storage.used) + 0.1 ? `
+                                    <div class="flex justify-between text-xs text-blue-600 dark:text-blue-300">
+                                        <span>Autres données:</span>
+                                        <span>${(parseFloat(storage.usedGlobal) - parseFloat(storage.used)).toFixed(2)} MB</span>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            
+                            <!-- Options d'optimisation -->
+                            <div class="space-y-3">
+                                <h3 class="font-semibold">Options d'optimisation</h3>
+                                
+                                <label class="flex items-start p-3 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600">
+                                    <input type="checkbox" id="optRemoveDuplicates" checked class="mt-1 mr-3">
+                                    <div class="flex-1">
+                                        <div class="font-medium">Supprimer les doublons</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">Inspections identiques (zone/élément/campagne)</div>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-start p-3 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600">
+                                    <input type="checkbox" id="optLimitPhotos" checked class="mt-1 mr-3">
+                                    <div class="flex-1">
+                                        <div class="font-medium">Limiter les photos</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">Max 3 photos par inspection (garde les plus importantes)</div>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-start p-3 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600">
+                                    <input type="checkbox" id="optCompressPlans" checked class="mt-1 mr-3">
+                                    <div class="flex-1">
+                                        <div class="font-medium">Compresser les plans</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">Optimiser les images de plan volumineuses (&gt;500KB)</div>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-start p-3 bg-yellow-50 dark:bg-yellow-900 rounded cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-800">
+                                    <input type="checkbox" id="optRemoveConformPhotos" class="mt-1 mr-3">
+                                    <div class="flex-1">
+                                        <div class="font-medium text-yellow-900 dark:text-yellow-100">⚠️ Supprimer photos conformes</div>
+                                        <div class="text-xs text-yellow-700 dark:text-yellow-200">Conserver uniquement les photos des non-conformités</div>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <!-- Résultats -->
+                            <div id="optimizeResults" class="hidden p-4 bg-green-50 dark:bg-green-900 rounded-lg">
+                                <h3 class="font-semibold mb-2 text-green-900 dark:text-green-100">✅ Optimisation terminée</h3>
+                                <div id="optimizeResultsContent" class="text-sm space-y-1"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2 justify-end mt-6">
+                            <button onclick="this.closest('.modal').remove()" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                                Annuler
+                            </button>
+                            <button onclick="executeOptimization()" 
+                                class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-semibold">
+                                🚀 Optimiser
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // Exécution de l'optimisation
+            async function executeOptimization() {
+                const removeDuplicates = document.getElementById('optRemoveDuplicates').checked;
+                const limitPhotos = document.getElementById('optLimitPhotos').checked;
+                const compressPlans = document.getElementById('optCompressPlans').checked;
+                const removeConformPhotos = document.getElementById('optRemoveConformPhotos').checked;
+                
+                const resultsDiv = document.getElementById('optimizeResults');
+                const resultsContent = document.getElementById('optimizeResultsContent');
+                
+                resultsDiv.classList.remove('hidden');
+                resultsContent.innerHTML = '<p class="text-gray-600 dark:text-gray-300">⏳ Optimisation en cours...</p>';
+                
+                let stats = {
+                    duplicatesRemoved: 0,
+                    photosRemoved: 0,
+                    plansCompressed: 0,
+                    savedSpace: 0
+                };
+                
+                const beforeSize = getStorageInfo().bytes;
+                
+                // 1. Supprimer les doublons
+                if (removeDuplicates) {
+                    const seenKeys = new Set();
+                    const duplicates = [];
+                    inspections.forEach((insp, idx) => {
+                        const key = `${insp.campaign}_${insp.zoneId}_${insp.type}_${insp.elementKey}`;
+                        if (seenKeys.has(key)) {
+                            duplicates.push(idx);
+                        } else {
+                            seenKeys.add(key);
+                        }
+                    });
+                    
+                    duplicates.reverse().forEach(idx => {
+                        inspections.splice(idx, 1);
+                        stats.duplicatesRemoved++;
+                    });
+                }
+                
+                // 2. Limiter les photos
+                if (limitPhotos) {
+                    inspections.forEach(insp => {
+                        if (insp.photos && insp.photos.length > 3) {
+                            stats.photosRemoved += insp.photos.length - 3;
+                            insp.photos = insp.photos.slice(0, 3);
+                        }
+                    });
+                }
+                
+                // 3. Supprimer photos des éléments conformes
+                if (removeConformPhotos) {
+                    inspections.forEach(insp => {
+                        const hasNonConformity = insp.criteria && Object.values(insp.criteria).includes('non');
+                        if (!hasNonConformity && insp.photos && insp.photos.length > 0) {
+                            stats.photosRemoved += insp.photos.length;
+                            insp.photos = [];
+                        }
+                    });
+                }
+                
+                // 4. Compresser les plans
+                if (compressPlans) {
+                    resultsContent.innerHTML += '<p class="text-gray-600 dark:text-gray-300">🔧 Compression des plans...</p>';
+                    
+                    for (const z of zones) {
+                        if (z.floors) {
+                            for (const floor of z.floors) {
+                                if (floor.plan && floor.plan.imageUrl && floor.plan.imageUrl.length > 500000) {
+                                    try {
+                                        const beforeLen = floor.plan.imageUrl.length;
+                                        const compressed = await compressImage(floor.plan.imageUrl, 1200, 0.6);
+                                        floor.plan.imageUrl = compressed;
+                                        stats.plansCompressed++;
+                                        console.log(`✅ Plan ${z.name} (${floor.name}) compressé`);
+                                    } catch (e) {
+                                        console.warn(`Échec compression ${z.name} (${floor.name})`, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Sauvegarder
+                await saveZones();
+                await saveInspections();
+                
+                const afterSize = getStorageInfo().bytes;
+                stats.savedSpace = ((beforeSize - afterSize) / (1024 * 1024)).toFixed(2);
+                
+                const newStorage = getStorageInfo();
+                
+                // Afficher les résultats
+                resultsContent.innerHTML = `
+                    <p class="text-green-800 dark:text-green-200">
+                        🗑️ <strong>${stats.duplicatesRemoved}</strong> doublon(s) supprimé(s)
+                    </p>
+                    <p class="text-green-800 dark:text-green-200">
+                        📸 <strong>${stats.photosRemoved}</strong> photo(s) supprimée(s)
+                    </p>
+                    <p class="text-green-800 dark:text-green-200">
+                        🗜️ <strong>${stats.plansCompressed}</strong> plan(s) compressé(s)
+                    </p>
+                    <p class="text-green-900 dark:text-green-100 font-bold border-t border-green-200 dark:border-green-700 pt-2 mt-2">
+                        💾 Espace libéré: <strong>${stats.savedSpace} MB</strong>
+                    </p>
+                    <p class="text-green-800 dark:text-green-200">
+                        📊 Nouveau stockage: <strong>${newStorage.used} MB / ${newStorage.limit} MB (${newStorage.percent}%)</strong>
+                    </p>
+                `;
+                
+                updateStorageIndicator();
             }
 
             // --- Ajout : utilitaires de positionnement et recalcul systématique ---
@@ -2587,112 +2873,6 @@
         }
     }
 
-    // ===== FILTRE MR UNIQUEMENT =====
-    
-    /**
-     * Toggle le mode MR-only qui :
-     * 1. Affiche uniquement les zones MR
-     * 2. Désactive les modifications (notation, admin, exports)
-     * 3. Filtre les zones MR depuis TICP.json pour économiser du stockage
-     */
-    function toggleMRFilter(checkbox) {
-        isMROnlyMode = checkbox.checked;
-        
-        // Sauvegarder la préférence
-        localStorage.setItem('fireInspection_mrOnlyMode', isMROnlyMode ? '1' : '0');
-        
-        const indicator = document.getElementById('mrOnlyIndicator');
-        const adminBtn = document.getElementById('adminModeBtn');
-        const exportBtn = document.getElementById('exportBtn');
-        const dashboardBtn = document.getElementById('dashboardBtn');
-        const notationPanel = document.getElementById('notationPanel');
-        const appElement = document.getElementById('app');
-        
-        if (isMROnlyMode) {
-            // Activer le mode MR uniquement
-            console.log('🔒 Mode MR uniquement activé');
-            
-            // Afficher l'indicateur
-            if (indicator) indicator.style.display = 'block';
-            
-            // Désactiver les autres filtres
-            const otherFilters = document.querySelectorAll('#categoryFilter input[type="checkbox"]:not([value="MR"])');
-            otherFilters.forEach(cb => {
-                cb.checked = false;
-                cb.disabled = true;
-            });
-            
-            // Désactiver le mode admin et l'export
-            if (adminBtn) {
-                adminBtn.disabled = true;
-                adminBtn.title = 'Mode admin désactivé en mode MR';
-            }
-            if (exportBtn) {
-                exportBtn.classList.add('mr-readonly');
-                exportBtn.title = 'Export désactivé en mode MR (consultation uniquement)';
-            }
-            if (dashboardBtn) {
-                dashboardBtn.classList.remove('mr-readonly');
-            }
-            
-            // Appliquer la classe readonly au panneau de notation
-            if (notationPanel) {
-                notationPanel.classList.add('mr-readonly');
-            }
-            
-            // Appliquer readonly à l'app entier
-            if (appElement) {
-                appElement.classList.add('mr-readonly');
-            }
-            
-            // Filtrer pour n'afficher que les zones MR
-            zones = zones.filter(zone => zone.category === 'MR' || zone.categorie === 'MR');
-            
-        } else {
-            // Désactiver le mode MR uniquement
-            console.log('✅ Mode normal activé (toutes catégories)');
-            
-            // Masquer l'indicateur
-            if (indicator) indicator.style.display = 'none';
-            
-            // Réactiver les autres filtres
-            const otherFilters = document.querySelectorAll('#categoryFilter input[type="checkbox"]:not([value="MR"])');
-            otherFilters.forEach(cb => {
-                cb.disabled = false;
-            });
-            
-            // Réactiver le mode admin et l'export
-            if (adminBtn) {
-                adminBtn.disabled = false;
-                adminBtn.title = 'Mode Admin';
-            }
-            if (exportBtn) {
-                exportBtn.classList.remove('mr-readonly');
-                exportBtn.title = 'Exporter';
-            }
-            
-            // Retirer readonly du panneau de notation
-            if (notationPanel) {
-                notationPanel.classList.remove('mr-readonly');
-            }
-            
-            // Retirer readonly de l'app
-            if (appElement) {
-                appElement.classList.remove('mr-readonly');
-            }
-            
-            // Recharger toutes les zones (pas de filtre)
-            loadData();
-        }
-        
-        // Rafraîchir la liste des zones
-        renderZoneList();
-        renderAdminZoneList();
-        updateKPIs();
-    }
-    
-    // ===== FIN FILTRE MR =====
-
     function hasNonConformities(zone) {
         return inspections.some(inspection => 
             inspection.campaign === currentCampaign && 
@@ -2923,16 +3103,6 @@
         
         container.innerHTML = `
             <div class="text-left">
-                ${isMROnlyMode ? `
-                <div class="mb-4 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
-                    <div class="flex items-center gap-2 text-orange-800">
-                        <span class="text-lg">🔒</span>
-                        <span class="text-sm font-semibold">Mode MR - Consultation uniquement</span>
-                    </div>
-                    <p class="text-xs text-orange-700 mt-1">Les modifications sont désactivées dans ce mode.</p>
-                </div>
-                ` : ''}
-                
                 <div class="mb-4 pb-3 border-b">
                     <h3 class="font-semibold text-lg">${title}</h3>
                     <div class="text-sm text-gray-600 mt-2">
