@@ -1580,46 +1580,69 @@
             async function tryLoadTICPJson() {
                 // Charger TICP.json automatiquement en arrière-plan (sans alertes)
                 // Cela permet la synchronisation avec un fichier centralisé
-                if (window.location && /^https?:/.test(window.location.protocol)) {
-                    const candidates = [
-                        'TICP.json',
-                        './TICP.json',
-                        './data/TICP.json'
-                    ];
+                
+                // Support du protocole file:// pour ouverture locale
+                const isLocalFile = window.location.protocol === 'file:';
+                const isHttp = /^https?:/.test(window.location.protocol);
+                
+                if (!isLocalFile && !isHttp) {
+                    console.info('Protocol non supporté pour TICP.json:', window.location.protocol);
+                    return;
+                }
+                
+                const candidates = [
+                    'TICP.json',
+                    './TICP.json',
+                    './data/TICP.json'
+                ];
 
-                    for (const path of candidates) {
-                        try {
-                            console.info('Tentative de chargement de', path);
-                            const resp = await fetch(path, { cache: 'no-cache' });
-                            if (!resp.ok) continue;
+                for (const path of candidates) {
+                    try {
+                        console.info('🔍 Tentative de chargement de', path);
+                        const resp = await fetch(path, { cache: 'no-cache' });
+                        if (!resp.ok) {
+                            console.info(`❌ ${path} non trouvé (${resp.status})`);
+                            continue;
+                        }
+                        
+                        const json = await resp.json();
+                        let externalZones = [];
+                        
+                        if (Array.isArray(json)) {
+                            externalZones = json;
+                        } else if (json && Array.isArray(json.zones)) {
+                            externalZones = json.zones;
+                        } else if (json && (json.id || json.name)) {
+                            externalZones = [json];
+                        }
+                        
+                        console.info(`📦 ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
+                        
+                        // Filtre MR fixe : ne charger que les zones MR depuis TICP.json
+                        // Support des deux noms de propriété: category OU categorie
+                        const beforeFilter = externalZones.length;
+                        externalZones = externalZones.filter(zone => {
+                            const cat = zone.category || zone.categorie || '';
+                            return cat === 'MR';
+                        });
+                        
+                        if (beforeFilter > 0) {
+                            console.info(`🔍 Filtre MR appliqué : ${externalZones.length}/${beforeFilter} zones MR importées depuis TICP.json`);
+                        }
+                        
+                        if (externalZones.length === 0) {
+                            console.warn(`⚠️ Aucune zone MR trouvée dans ${path} (${beforeFilter} zone(s) au total)`);
+                            continue;
+                        }
+                        
+                        console.info(`✅ ${externalZones.length} zone(s) MR trouvée(s) dans ${path}`);
+                        
+                        // Fusionner automatiquement avec gestion intelligente des éléments
+                        if (zones.length > 0) {
+                            let addedZones = 0;
+                            let addedElements = 0;
                             
-                            const json = await resp.json();
-                            let externalZones = [];
-                            
-                            if (Array.isArray(json)) {
-                                externalZones = json;
-                            } else if (json && Array.isArray(json.zones)) {
-                                externalZones = json.zones;
-                            } else if (json && (json.id || json.name)) {
-                                externalZones = [json];
-                            }
-                            
-                            // Filtre MR fixe : ne charger que les zones MR depuis TICP.json
-                            const beforeFilter = externalZones.length;
-                            externalZones = externalZones.filter(zone => zone.category === 'MR');
-                            if (beforeFilter > 0) {
-                                console.info(`🔍 Filtre MR appliqué : ${externalZones.length}/${beforeFilter} zones MR importées depuis TICP.json`);
-                            }
-                            
-                            if (externalZones.length > 0) {
-                                console.info(`✅ ${externalZones.length} zone(s) MR trouvée(s) dans ${path}`);
-                                
-                                // Fusionner automatiquement avec gestion intelligente des éléments
-                                if (zones.length > 0) {
-                                    let addedZones = 0;
-                                    let addedElements = 0;
-                                    
-                                    externalZones.forEach(extZone => {
+                            externalZones.forEach(extZone => {
                                         const existingZone = zones.find(z => z.id === extZone.id);
                                         
                                         if (!existingZone) {
@@ -1690,26 +1713,25 @@
                                         }
                                     });
                                     
-                                    if (addedZones > 0 || addedElements > 0) {
-                                        saveZones();
-                                        renderZoneList();
-                                        console.info(`✅ Fusion terminée : ${addedZones} zone(s) + ${addedElements} élément(s) ajouté(s) depuis ${path}`);
-                                    } else {
-                                        console.info(`ℹ️ Aucun nouvel élément à ajouter depuis ${path}`);
-                                    }
-                                } else {
-                                    // Pas de zones locales, charger directement
-                                    zones = externalZones;
+                                if (addedZones > 0 || addedElements > 0) {
                                     saveZones();
                                     renderZoneList();
-                                    console.info(`✅ ${externalZones.length} zone(s) chargée(s) depuis ${path}`);
+                                    console.info(`✅ Fusion terminée : ${addedZones} zone(s) + ${addedElements} élément(s) ajouté(s) depuis ${path}`);
+                                } else {
+                                    console.info(`ℹ️ Aucun nouvel élément à ajouter depuis ${path}`);
                                 }
-                                
-                                break;
+                            } else {
+                                // Pas de zones locales, charger directement
+                                zones = externalZones;
+                                saveZones();
+                                renderZoneList();
+                                console.info(`✅ ${externalZones.length} zone(s) chargée(s) depuis ${path}`);
                             }
-                        } catch (err) {
-                            console.debug('Échec du chargement de', path, err);
-                        }
+                            
+                            break;
+                        
+                    } catch (err) {
+                        console.debug('Échec du chargement de', path, err);
                     }
                 }
             }
@@ -1786,74 +1808,9 @@
                     saveZones();
                 }
 
-                // If still empty, fall back to the embedded default
+                // Pas de zone par défaut - doit charger depuis TICP.json
                 if (!zones || zones.length === 0) {
-                    zones = [{
-                        id: 'AT14',
-                        name: 'AT14',
-                        floors: [
-                            {
-                                id: 'RDC',
-                                name: 'Rez-de-chaussée',
-                                plan: {
-                                    imageUrl: 'data:image/svg+xml;base64,' + btoa(`
-                                        <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-                                            <rect width="800" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
-                                            <rect x="50" y="50" width="700" height="500" fill="#e9ecef" stroke="#6c757d" stroke-width="1"/>
-                                            <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#495057">Plan d'exemple - AT14 (RDC)</text>
-                                        </svg>
-                                    `),
-                                    naturalWidth: 800,
-                                    naturalHeight: 600
-                                },
-                                elements: {
-                                    extincteurs: [
-                                        { id: 'EXT-001', type: 'Poudre', x: 0.2, y: 0.3, size: 0.03 },
-                                        { id: 'EXT-002', type: 'CO2', x: 0.8, y: 0.3, size: 0.03 }
-                                    ],
-                                    dm: [
-                                        { id: 'DM-001', x: 0.1, y: 0.7, size: 0.025 },
-                                        { id: 'DM-002', x: 0.9, y: 0.7, size: 0.025 }
-                                    ],
-                                    sorties: [
-                                        { x: 0.5, y: 0.1, size: 0.035 },
-                                        { x: 0.5, y: 0.9, size: 0.035 }
-                                    ]
-                                }
-                            },
-                            {
-                                id: '1',
-                                name: '1er étage',
-                                plan: {
-                                    imageUrl: 'data:image/svg+xml;base64,' + btoa(`
-                                        <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-                                            <rect width="800" height="600" fill="#fff7ed" stroke="#fde68a" stroke-width="2"/>
-                                            <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="24" fill="#92400e">Plan d'exemple - AT14 (1er)</text>
-                                        </svg>
-                                    `),
-                                    naturalWidth: 800,
-                                    naturalHeight: 600
-                                },
-                                elements: {
-                                    extincteurs: [
-                                        { id: 'EXT-101', type: 'Eau', x: 0.4, y: 0.5, size: 0.03 }
-                                    ],
-                                    dm: [],
-                                    sorties: []
-                                }
-                            }
-                        ],
-                        enabledCriteria: {
-                            extincteur: Object.keys(CRITERIA.extincteur),
-                            dm: Object.keys(CRITERIA.dm),
-                            sortie: Object.keys(CRITERIA.sortie),
-                            zone: Object.keys(ZONE_CRITERIA).reduce((acc, section) => {
-                                acc[section] = Object.keys(ZONE_CRITERIA[section]);
-                                return acc;
-                            }, {})
-                        }
-                    }];
-                    saveZones();
+                    console.warn('⚠️ Aucune zone chargée. Vérifiez que TICP.json est accessible.');
                 }
             }
 
@@ -3887,6 +3844,7 @@
         const newZone = {
             id: zoneId,
             name: zoneName,
+            category: 'MR',  // Catégorie MR par défaut
             floors: [
                 {
                     id: 'RDC',
@@ -3895,7 +3853,6 @@
                     elements: { extincteurs: [], dm: [], sorties: [] }
                 }
             ],
-            category: '',
             enabledCriteria: {
                 extincteur: Object.keys(CRITERIA.extincteur),
                 dm: Object.keys(CRITERIA.dm),
