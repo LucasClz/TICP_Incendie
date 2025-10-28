@@ -1578,6 +1578,10 @@
             
             // Fonction pour charger TICP.json en arrière-plan
             async function tryLoadTICPJson() {
+                console.log('🚀 tryLoadTICPJson() démarré');
+                console.log('📍 Protocol:', window.location.protocol);
+                console.log('📍 Zones actuelles:', zones.length);
+                
                 // Charger TICP.json automatiquement en arrière-plan (sans alertes)
                 // Cela permet la synchronisation avec un fichier centralisé
                 
@@ -1606,6 +1610,8 @@
                         }
                         
                         const json = await resp.json();
+                        console.log('📦 JSON chargé:', json);
+                        
                         let externalZones = [];
                         
                         if (Array.isArray(json)) {
@@ -1617,6 +1623,11 @@
                         }
                         
                         console.info(`📦 ${externalZones.length} zone(s) trouvée(s) dans ${path}`);
+                        
+                        // DEBUG: Afficher les catégories de chaque zone
+                        externalZones.forEach((z, idx) => {
+                            console.log(`  Zone ${idx}: id="${z.id}", category="${z.category}", categorie="${z.categorie}"`);
+                        });
                         
                         // Filtre MR fixe : ne charger que les zones MR depuis TICP.json
                         // Support des deux noms de propriété: category OU categorie
@@ -2596,11 +2607,19 @@
     }
 
     function renderZoneList() {
+        console.log('🎨 renderZoneList() appelé - Zones disponibles:', zones.length);
+        
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
         // Filtre MR fixe : afficher uniquement les zones MR
-        let filteredZones = zones.filter(zone => zone.category === 'MR');
+        let filteredZones = zones.filter(zone => {
+            const cat = zone.category || zone.categorie || '';
+            console.log(`  Zone ${zone.id}: category="${cat}"`);
+            return cat === 'MR';
+        });
+        
+        console.log(`🔍 Après filtre MR: ${filteredZones.length} zones`);
 
         // Filtre optionnel : non-conformités
         if (filterChecked) {
