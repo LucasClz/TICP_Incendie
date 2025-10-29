@@ -194,6 +194,48 @@
             color: var(--text-primary) !important;
         }
 
+        /* Styles pour les arrière-plans en mode sombre */
+        .dark-mode .bg-gray-50 {
+            background-color: var(--bg-tertiary) !important;
+        }
+
+        .dark-mode .hover\:bg-gray-50:hover {
+            background-color: var(--bg-tertiary) !important;
+        }
+
+        .dark-mode .hover\:bg-blue-50:hover {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+
+        .dark-mode .bg-gradient-to-br {
+            background: var(--card-bg) !important;
+        }
+
+        .dark-mode .border-gray-200 {
+            border-color: var(--border-color) !important;
+        }
+
+        /* Styles pour tous les textes dans les sections de critères */
+        .dark-mode h5,
+        .dark-mode .text-xs,
+        .dark-mode .font-medium,
+        .dark-mode .font-semibold {
+            color: var(--text-primary) !important;
+        }
+
+        /* Boutons ✓ et ✗ en mode sombre */
+        .dark-mode .text-blue-600 {
+            color: #60a5fa !important;
+        }
+
+        .dark-mode .hover\:text-blue-800:hover {
+            color: #93c5fd !important;
+        }
+
+        .dark-mode .hover\:text-gray-700:hover {
+            color: var(--text-secondary) !important;
+        }
+
         /* Visionneuse de photos */
         .photo-viewer {
             position: fixed;
