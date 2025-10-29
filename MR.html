@@ -2530,6 +2530,15 @@
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
+                <!-- Bouton Tout valider pour la zone -->
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <button onclick="validateAllZoneCriteria()" 
+                            class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors">
+                        ✅ Tout valider la zone (OUI)
+                    </button>
+                    <p class="text-xs text-green-700 mt-1 text-center">Met tous les critères de zone à "Oui" d'un seul clic</p>
+                </div>
+                
                 <div class="space-y-6 max-h-96 overflow-y-auto">
                     ${Object.entries(ZONE_CRITERIA).map(([section, criteria]) => `
 
@@ -2924,6 +2933,15 @@
                 </div>
                 ` : ''}
                 
+                <!-- Bouton Tout valider -->
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <button onclick="validateAllCriteria()" 
+                            class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors">
+                        ✅ Tout valider (OUI)
+                    </button>
+                    <p class="text-xs text-green-700 mt-1 text-center">Met tous les critères à "Oui" d'un seul clic</p>
+                </div>
+                
                 <div class="space-y-4">
                     ${Object.entries(criteria).map(([key, label]) => `
                         <div class="criteria-grid">
@@ -3191,6 +3209,68 @@
             renderAdminElements();
             scheduleReposition(100);
         }
+    }
+
+    // Valider tous les critères à "oui"
+    function validateAllCriteria() {
+        if (!currentElement) return;
+        
+        const { type, data } = currentElement;
+        const criteria = CRITERIA[type] || {};
+        const inspection = getElementInspection(type, data);
+        
+        if (!inspection) return;
+        
+        // Confirmer l'action
+        const criteriaCount = Object.keys(criteria).length;
+        if (criteriaCount === 0) {
+            alert('Aucun critère à valider pour cet élément.');
+            return;
+        }
+        
+        const confirm = window.confirm(`Voulez-vous vraiment mettre tous les critères (${criteriaCount}) à "OUI" pour cet élément ?`);
+        if (!confirm) return;
+        
+        // Mettre tous les critères à "oui"
+        Object.keys(criteria).forEach(key => {
+            inspection.criteria[key] = 'oui';
+        });
+        
+        inspection.timestamp = new Date().toISOString();
+        saveInspections();
+        updateKPIs();
+        
+        // Rafraîchir le panneau de notation pour montrer les changements
+        renderNotationPanel();
+        
+        // Mettre à jour l'état visuel des hotspots et éléments admin
+        const elementKey = inspection.elementKey;
+        const planWrapper = document.getElementById('planWrapper');
+        if (planWrapper) {
+            planWrapper.querySelectorAll('.hotspot').forEach(h => {
+                if (h.dataset.elementKey === elementKey) {
+                    h.classList.add('completed');
+                }
+            });
+        }
+        
+        document.querySelectorAll('.admin-element').forEach(a => {
+            if (a.dataset.elementKey === elementKey) {
+                a.classList.add('completed');
+            }
+        });
+        
+        // Recréer les hotspots et éléments admin pour assurer la cohérence visuelle
+        addHotspots();
+        renderAdminElements();
+        scheduleReposition(100);
+        
+        // Message de confirmation
+        const elementName = type === 'extincteur' ? `Extincteur ${data.id || 'sans numéro'}` :
+                          type === 'dm' ? `DM ${data.id || 'sans numéro'}` :
+                          type === 'sortie' ? 'Sortie' : 'Zone';
+        
+        alert(`✅ Tous les critères ont été validés pour ${elementName} !`);
     }
 
     // Update comments
@@ -3508,6 +3588,54 @@
             // If the checklist modal is open, update its progress display live
             updateZoneChecklistModalProgress();
         }
+    }
+
+    // Valider tous les critères de zone à "oui"
+    function validateAllZoneCriteria() {
+        if (!currentZone) return;
+        
+        const inspection = getZoneInspection() || createZoneInspection();
+        
+        // Récupérer tous les critères de zone activés
+        let allZoneCriteria = [];
+        Object.entries(ZONE_CRITERIA).forEach(([section, criteria]) => {
+            if (currentZone.enabledCriteria?.zone?.[section]) {
+                currentZone.enabledCriteria.zone[section].forEach(key => {
+                    allZoneCriteria.push(`${section}_${key}`);
+                });
+            }
+        });
+        
+        if (allZoneCriteria.length === 0) {
+            alert('Aucun critère de zone activé à valider.');
+            return;
+        }
+        
+        // Confirmer l'action
+        const confirm = window.confirm(`Voulez-vous vraiment mettre tous les critères de zone (${allZoneCriteria.length}) à "OUI" pour la zone "${currentZone.name}" ?`);
+        if (!confirm) return;
+        
+        // Mettre tous les critères à "oui"
+        allZoneCriteria.forEach(fullKey => {
+            inspection.criteria[fullKey] = 'oui';
+        });
+        
+        inspection.timestamp = new Date().toISOString();
+        saveInspections();
+        updateKPIs();
+        
+        // Mettre à jour l'affichage de la modal si elle est ouverte
+        updateZoneChecklistModalProgress();
+        
+        // Rafraîchir tous les boutons radio dans la modal
+        allZoneCriteria.forEach(fullKey => {
+            const radioButton = document.querySelector(`input[name="${fullKey}"][value="oui"]`);
+            if (radioButton) {
+                radioButton.checked = true;
+            }
+        });
+        
+        alert(`✅ Tous les critères de zone ont été validés pour "${currentZone.name}" !`);
     }
 
     // Compute zone progress: returns { total, completed, percentage }
