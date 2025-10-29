@@ -82,12 +82,7 @@
         .bg-gray-50 { background-color: var(--bg-secondary) !important; }
         .bg-gray-100 { background-color: var(--bg-tertiary) !important; }
         .text-gray-900 { color: var(--text-primary) !important; }
-        .text-gray-700,
-        label.text-gray-700,
-        .text-xs.text-gray-700,
-        .font-medium.text-gray-700,
-        #notationContent label,
-        #notationContent .text-gray-700 { color: var(--text-primary) !important; }
+        .text-gray-700 { color: var(--text-primary) !important; }
         .text-gray-600 { color: var(--text-secondary) !important; }
         .border-gray-200 { border-color: var(--border-color) !important; }
         .border-gray-300 { border-color: var(--border-color) !important; }
@@ -119,6 +114,49 @@
         
         .dark-mode .hover\:text-gray-700:hover {
             color: #d1d5db !important;
+        }
+        
+        /* Labels et textes de formulaires en mode sombre */
+        .dark-mode .text-gray-700 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode label {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-xs {
+            color: var(--text-secondary) !important;
+        }
+        
+        .dark-mode .font-medium {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration de la visibilité des boutons radio et textes associés */
+        .dark-mode .text-green-600 {
+            color: #4ade80 !important;
+            font-weight: 600;
+        }
+        
+        .dark-mode .text-red-600 {
+            color: #f87171 !important;
+            font-weight: 600;
+        }
+        
+        .dark-mode .text-gray-600 {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+        }
+        
+        /* Amélioration des éléments de critères */
+        .dark-mode .criteria-grid label {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .criteria-grid .text-sm {
+            color: var(--text-primary) !important;
+            font-weight: 500;
         }
         
         /* Cartes de non-conformités */
@@ -156,6 +194,75 @@
             color: #93c5fd !important;
         }
         
+        /* Messages d'information colorés en mode sombre */
+        .dark-mode .text-yellow-800 {
+            color: #fbbf24 !important;
+        }
+        
+        .dark-mode .text-green-800 {
+            color: #4ade80 !important;
+        }
+        
+        .dark-mode .text-green-600 {
+            color: #4ade80 !important;
+        }
+        
+        .dark-mode .text-green-700 {
+            color: #4ade80 !important;
+        }
+        
+        /* Backgrounds pour les bandeaux colorés en mode sombre */
+        .dark-mode .bg-yellow-50 {
+            background-color: rgba(251, 191, 36, 0.15) !important;
+        }
+        
+        .dark-mode .border-yellow-200 {
+            border-color: rgba(251, 191, 36, 0.4) !important;
+        }
+        
+        .dark-mode .border-yellow-300 {
+            border-color: rgba(251, 191, 36, 0.6) !important;
+        }
+        
+        .dark-mode .bg-green-50 {
+            background-color: rgba(74, 222, 128, 0.15) !important;
+        }
+        
+        .dark-mode .border-green-200 {
+            border-color: rgba(74, 222, 128, 0.4) !important;
+        }
+        
+        /* Amélioration générale des textes et titres */
+        .dark-mode h1,
+        .dark-mode h2,
+        .dark-mode h3,
+        .dark-mode h4,
+        .dark-mode h5,
+        .dark-mode h6 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode p {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode span {
+            color: inherit;
+        }
+        
+        /* Styles pour les boutons en mode sombre */
+        .dark-mode button:not([class*="bg-"]) {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration des placeholders */
+        .dark-mode input::placeholder,
+        .dark-mode textarea::placeholder,
+        .dark-mode select::placeholder {
+            color: var(--text-secondary) !important;
+            opacity: 0.8;
+        }
+        
         .modal-content {
             background-color: var(--modal-bg) !important;
             color: var(--text-primary) !important;
@@ -171,34 +278,19 @@
         .dark-mode textarea::placeholder {
             color: var(--text-secondary);
         }
-
-        /* Styles pour le mode sombre - classes de couleurs principales */
-        .dark-mode .text-green-600 {
-            color: #4ade80 !important;
+        
+        /* Sélecteurs et options en mode sombre */
+        .dark-mode select {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
         }
         
-        .dark-mode .text-yellow-800 {
-            color: #fbbf24 !important;
-        }
-
-        .dark-mode .text-green-700 {
-            color: #4ade80 !important;
-        }
-
-        .dark-mode .text-blue-600 {
-            color: #60a5fa !important;
-        }
-
-        /* Style pour TOUS les labels du panneau de notation */
-        #notationContent label {
+        .dark-mode select option {
+            background-color: var(--input-bg) !important;
             color: var(--text-primary) !important;
         }
-
-        /* Style spécifique pour les labels en mode sombre */
-        .dark-mode #notationContent label {
-            color: var(--text-primary) !important;
-        }
-
+        
         /* Visionneuse de photos */
         .photo-viewer {
             position: fixed;
@@ -2945,7 +3037,7 @@
                     <h4 class="text-sm font-semibold text-yellow-800 mb-3">✏️ Modifier l'élément</h4>
                     <div class="space-y-3">
                         <div>
-                            <label id="elementNumberLabel" class="block text-xs font-medium mb-1" style="color: var(--text-primary) !important;">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
                             <input type="text" id="elementIdInput" value="${data.id || ''}" 
                                 onchange="updateElementId(this.value)"
                                 placeholder="${type === 'extincteur' ? 'EXT-001' : 'DM-001'}"
@@ -2953,7 +3045,7 @@
                         </div>
                         ${type === 'extincteur' ? `
                         <div>
-                            <label id="elementTypeLabel" class="block text-xs font-medium mb-1" style="color: var(--text-primary) !important;">Type d'extincteur</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Type d'extincteur</label>
                             <select id="elementTypeSelect" onchange="updateElementType(this.value)"
                                 class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm">
                                 <option value="">-- Sélectionner --</option>
@@ -3018,14 +3110,14 @@
                 ` : ''}
                 
                 <div class="mt-6">
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-primary) !important;">Commentaires</label>
+                    <label class="block text-sm font-medium mb-2">Commentaires</label>
                     <textarea class="w-full px-3 py-2 border border-gray-300 rounded-md" 
                             rows="3" placeholder="Commentaires optionnels..."
                             onchange="updateComments(this.value)">${inspection.comments || ''}</textarea>
                 </div>
                 
                 <div class="mt-4">
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-primary) !important;">Photos</label>
+                    <label class="block text-sm font-medium mb-2">Photos</label>
                     <input type="file" accept="image/*" multiple 
                         onchange="handlePhotoUpload(event)" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md">
