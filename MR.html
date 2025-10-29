@@ -1121,14 +1121,19 @@
                 
                 document.body.appendChild(modal);
                 
-                // Générer les graphiques
+                // Générer les graphiques après un délai plus long pour s'assurer que les données sont chargées
                 setTimeout(() => {
+                    console.log('Démarrage génération des graphiques MR...');
+                    console.log('Données disponibles:', { zones: zones?.length, inspections: inspections?.length, currentCampaign });
+                    
                     generateNonConformitiesChart();
                     generateConformityEvolutionChart();
                     generateCategoryChart();
                     generateGlobalStats();
                     generateElementTypeChart();
-                }, 100);
+                    
+                    console.log('Fin de génération des graphiques MR');
+                }, 500);
             }
             
             function generateNonConformitiesChart() {
@@ -1243,14 +1248,34 @@
             }
             
             function generateCategoryChart() {
+                console.log('Génération du graphique de catégorie MR...');
+                
+                // Vérifier que les données sont disponibles
+                if (!zones || !inspections || !currentCampaign) {
+                    console.error('Données manquantes pour generateCategoryChart:', { zones: !!zones, inspections: !!inspections, currentCampaign });
+                    return;
+                }
+                
+                // Détruire le graphique existant s'il existe
+                const ctx = document.getElementById('categoryChart');
+                if (!ctx) {
+                    console.error('Element categoryChart non trouvé');
+                    return;
+                }
+                
+                if (window.categoryChartInstance) {
+                    window.categoryChartInstance.destroy();
+                }
+                
                 // Filtrer uniquement la catégorie MR
                 const categories = ['MR'];
                 const stats = categories.map(category => {
                     const categoryZones = zones.filter(zone => {
-                        const cat = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                        const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
                         return cat === category;
                     });
                     
+                    console.log('Zones MR trouvées pour le graphique:', categoryZones.length);
                     const zoneIds = categoryZones.map(z => z.id);
                     const totalInspections = inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
@@ -1264,15 +1289,16 @@
                         Object.values(insp.criteria).includes('non')
                     ).length;
                     
+                    console.log('Stats MR - Total:', totalInspections, 'Non-conformes:', nonConformInspections);
+                    
                     return totalInspections > 0 
                         ? Math.round(((totalInspections - nonConformInspections) / totalInspections) * 100)
                         : 0;
                 });
                 
-                const ctx = document.getElementById('categoryChart');
-                if (!ctx) return;
+                console.log('Données du graphique de catégorie:', stats);
                 
-                new Chart(ctx, {
+                window.categoryChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: categories,
@@ -1313,13 +1339,28 @@
             }
             
             function generateGlobalStats() {
+                console.log('Génération des statistiques globales MR...');
+                
+                // Vérifier que les données sont disponibles
+                if (!zones || !inspections || !currentCampaign) {
+                    console.error('Données manquantes pour generateGlobalStats:', { zones: !!zones, inspections: !!inspections, currentCampaign });
+                    return;
+                }
+                
+                const statsDiv = document.getElementById('globalStats');
+                if (!statsDiv) {
+                    console.error('Element globalStats non trouvé');
+                    return;
+                }
+                
                 // Filtrer uniquement les zones MR
-                const mrZoneIds = zones.filter(zone => {
+                const mrZones = zones.filter(zone => {
                     const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
                     return cat === 'MR';
-                }).map(z => z.id);
+                });
+                const mrZoneIds = mrZones.map(z => z.id);
                 
-                const totalZones = mrZoneIds.length;
+                const totalZones = mrZones.length;
                 const totalInspections = inspections.filter(i => 
                     i.campaign === currentCampaign && 
                     mrZoneIds.includes(i.zoneId)
@@ -1340,12 +1381,11 @@
                     ? Math.round(((totalInspections - nonConformities) / totalInspections) * 100)
                     : 0;
                 
-                const statsDiv = document.getElementById('globalStats');
-                if (!statsDiv) return;
+                console.log('Statistiques MR:', { totalZones, totalInspections, nonConformities, withPhotos, conformityRate });
                 
                 statsDiv.innerHTML = `
                     <div class="flex justify-between p-3 bg-blue-100 dark:bg-blue-800 rounded">
-                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones:</span>
+                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones MR:</span>
                         <span class="font-bold text-blue-900 dark:text-blue-50">${totalZones}</span>
                     </div>
                     <div class="flex justify-between p-3 bg-green-100 dark:bg-green-800 rounded">
@@ -1368,6 +1408,25 @@
             }
             
             function generateElementTypeChart() {
+                console.log('Génération du graphique par type d\'élément MR...');
+                
+                // Vérifier que les données sont disponibles
+                if (!zones || !inspections || !currentCampaign) {
+                    console.error('Données manquantes pour generateElementTypeChart:', { zones: !!zones, inspections: !!inspections, currentCampaign });
+                    return;
+                }
+                
+                // Détruire le graphique existant s'il existe
+                const ctx = document.getElementById('elementTypeChart');
+                if (!ctx) {
+                    console.error('Element elementTypeChart non trouvé');
+                    return;
+                }
+                
+                if (window.elementTypeChartInstance) {
+                    window.elementTypeChartInstance.destroy();
+                }
+                
                 // Filtrer uniquement les zones MR
                 const mrZoneIds = zones.filter(zone => {
                     const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
@@ -1392,10 +1451,10 @@
                     ).length;
                 });
                 
-                const ctx = document.getElementById('elementTypeChart');
-                if (!ctx) return;
+                console.log('Données graphique par type MR:', data, 'Types:', types);
+                console.log('Zones MR filtrées:', mrZoneIds.length);
                 
-                const chart = new Chart(ctx, {
+                window.elementTypeChartInstance = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: types.map(t => typeLabels[t]),
