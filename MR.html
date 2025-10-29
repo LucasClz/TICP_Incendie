@@ -82,7 +82,12 @@
         .bg-gray-50 { background-color: var(--bg-secondary) !important; }
         .bg-gray-100 { background-color: var(--bg-tertiary) !important; }
         .text-gray-900 { color: var(--text-primary) !important; }
-        .text-gray-700 { color: var(--text-primary) !important; }
+        .text-gray-700,
+        label.text-gray-700,
+        .text-xs.text-gray-700,
+        .font-medium.text-gray-700,
+        #notationContent label,
+        #notationContent .text-gray-700 { color: var(--text-primary) !important; }
         .text-gray-600 { color: var(--text-secondary) !important; }
         .border-gray-200 { border-color: var(--border-color) !important; }
         .border-gray-300 { border-color: var(--border-color) !important; }
@@ -167,76 +172,11 @@
             color: var(--text-secondary);
         }
 
-        /* Styles spécifiques pour les éléments de configuration des critères en mode sombre */
+        /* Styles pour le mode sombre - classes de couleurs principales */
         .dark-mode .text-green-600 {
             color: #4ade80 !important;
         }
         
-        .dark-mode .text-gray-400 {
-            color: #9ca3af !important;
-        }
-        
-        .dark-mode .text-gray-300 {
-            color: #d1d5db !important;
-        }
-        
-        .dark-mode .text-gray-900 {
-            color: var(--text-primary) !important;
-        }
-        
-        .dark-mode .group-hover\:text-gray-900:hover {
-            color: var(--text-primary) !important;
-        }
-
-        /* Styles pour les spans avec classes dynamiques */
-        .dark-mode span.text-gray-700,
-        .dark-mode span.text-gray-800 {
-            color: var(--text-primary) !important;
-        }
-
-        /* Styles pour les arrière-plans en mode sombre */
-        .dark-mode .bg-gray-50 {
-            background-color: var(--bg-tertiary) !important;
-        }
-
-        .dark-mode .hover\:bg-gray-50:hover {
-            background-color: var(--bg-tertiary) !important;
-        }
-
-        .dark-mode .hover\:bg-blue-50:hover {
-            background-color: rgba(59, 130, 246, 0.1) !important;
-        }
-
-        .dark-mode .bg-gradient-to-br {
-            background: var(--card-bg) !important;
-        }
-
-        .dark-mode .border-gray-200 {
-            border-color: var(--border-color) !important;
-        }
-
-        /* Styles pour tous les textes dans les sections de critères */
-        .dark-mode h5,
-        .dark-mode .text-xs,
-        .dark-mode .font-medium,
-        .dark-mode .font-semibold {
-            color: var(--text-primary) !important;
-        }
-
-        /* Boutons ✓ et ✗ en mode sombre */
-        .dark-mode .text-blue-600 {
-            color: #60a5fa !important;
-        }
-
-        .dark-mode .hover\:text-blue-800:hover {
-            color: #93c5fd !important;
-        }
-
-        .dark-mode .hover\:text-gray-700:hover {
-            color: var(--text-secondary) !important;
-        }
-
-        /* Styles spécifiques pour les textes du panneau de notation */
         .dark-mode .text-yellow-800 {
             color: #fbbf24 !important;
         }
@@ -245,42 +185,16 @@
             color: #4ade80 !important;
         }
 
-        /* Styles pour les labels et textes des formulaires */
-        .dark-mode label,
-        .dark-mode .block {
+        .dark-mode .text-blue-600 {
+            color: #60a5fa !important;
+        }
+
+        /* Style pour tous les labels du panneau de notation en mode sombre */
+        .dark-mode #notationContent label,
+        .dark-mode #notationContent .text-gray-700,
+        .dark-mode #notationContent .text-xs,
+        .dark-mode #notationContent .font-medium {
             color: var(--text-primary) !important;
-        }
-
-        /* Style global pour text-gray-700 en mode sombre */
-        .dark-mode .text-gray-700,
-        .dark-mode label.text-gray-700,
-        .dark-mode .text-xs.text-gray-700,
-        .dark-mode .font-medium.text-gray-700 {
-            color: var(--text-primary) !important;
-        }
-
-        /* Style pour text-gray-600 (utilisé pour les sous-textes) */
-        .dark-mode .text-gray-600 {
-            color: var(--text-secondary) !important;
-        }
-
-        /* Style ultra spécifique pour les labels du panneau de notation */
-        .dark-mode #notationContent label {
-            color: var(--text-primary) !important;
-        }
-
-        /* Style pour tous les éléments dans le conteneur de notation */
-        .dark-mode #notationContent * {
-            color: inherit !important;
-        }
-
-        .dark-mode #notationContent .text-gray-700 {
-            color: var(--text-primary) !important;
-        }
-
-        /* Style pour dark:text-gray-100 */
-        .dark-mode .dark\:text-gray-100 {
-            color: #f3f4f6 !important;
         }
 
         /* Visionneuse de photos */
@@ -3029,7 +2943,7 @@
                     <h4 class="text-sm font-semibold text-yellow-800 mb-3">✏️ Modifier l'élément</h4>
                     <div class="space-y-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-100 mb-1">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
                             <input type="text" id="elementIdInput" value="${data.id || ''}" 
                                 onchange="updateElementId(this.value)"
                                 placeholder="${type === 'extincteur' ? 'EXT-001' : 'DM-001'}"
@@ -3037,7 +2951,7 @@
                         </div>
                         ${type === 'extincteur' ? `
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-100 mb-1">Type d'extincteur</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Type d'extincteur</label>
                             <select id="elementTypeSelect" onchange="updateElementType(this.value)"
                                 class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm">
                                 <option value="">-- Sélectionner --</option>
