@@ -3221,15 +3221,9 @@
         
         if (!inspection) return;
         
-        // Confirmer l'action
+        // Vérifier s'il y a des critères à valider
         const criteriaCount = Object.keys(criteria).length;
-        if (criteriaCount === 0) {
-            alert('Aucun critère à valider pour cet élément.');
-            return;
-        }
-        
-        const confirm = window.confirm(`Voulez-vous vraiment mettre tous les critères (${criteriaCount}) à "OUI" pour cet élément ?`);
-        if (!confirm) return;
+        if (criteriaCount === 0) return;
         
         // Mettre tous les critères à "oui"
         Object.keys(criteria).forEach(key => {
@@ -3264,13 +3258,6 @@
         addHotspots();
         renderAdminElements();
         scheduleReposition(100);
-        
-        // Message de confirmation
-        const elementName = type === 'extincteur' ? `Extincteur ${data.id || 'sans numéro'}` :
-                          type === 'dm' ? `DM ${data.id || 'sans numéro'}` :
-                          type === 'sortie' ? 'Sortie' : 'Zone';
-        
-        alert(`✅ Tous les critères ont été validés pour ${elementName} !`);
     }
 
     // Update comments
@@ -3606,14 +3593,7 @@
             }
         });
         
-        if (allZoneCriteria.length === 0) {
-            alert('Aucun critère de zone activé à valider.');
-            return;
-        }
-        
-        // Confirmer l'action
-        const confirm = window.confirm(`Voulez-vous vraiment mettre tous les critères de zone (${allZoneCriteria.length}) à "OUI" pour la zone "${currentZone.name}" ?`);
-        if (!confirm) return;
+        if (allZoneCriteria.length === 0) return;
         
         // Mettre tous les critères à "oui"
         allZoneCriteria.forEach(fullKey => {
@@ -3634,8 +3614,6 @@
                 radioButton.checked = true;
             }
         });
-        
-        alert(`✅ Tous les critères de zone ont été validés pour "${currentZone.name}" !`);
     }
 
     // Compute zone progress: returns { total, completed, percentage }
