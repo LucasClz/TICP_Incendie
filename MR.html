@@ -369,6 +369,30 @@
             border-radius: 4px;
         }
         
+        /* Optimisation du panneau de notation réduit */
+        #notationPanel {
+            font-size: 0.875rem;
+        }
+        
+        #notationPanel .criteria-grid label {
+            font-size: 0.75rem;
+        }
+        
+        #notationPanel .criteria-grid input[type="radio"] {
+            transform: scale(0.9);
+        }
+        
+        #notationPanel h3 {
+            line-height: 1.2;
+        }
+        
+        /* Responsive pour le panneau encore plus compact sur petits écrans */
+        @media (max-width: 1400px) {
+            #notationPanel {
+                width: 220px !important;
+            }
+        }
+        
         .modal-content {
             background-color: var(--modal-bg) !important;
             color: var(--text-primary) !important;
@@ -544,6 +568,7 @@
             position: relative;
             width: 100%;
             height: 100%;
+            min-height: calc(100vh - 150px);
             overflow: hidden;
             border: 2px solid #e5e7eb;
             border-radius: 8px;
@@ -580,8 +605,9 @@
         .criteria-grid {
             display: grid;
             grid-template-columns: 1fr auto auto auto;
-            gap: 8px;
+            gap: 4px;
             align-items: center;
+            padding: 2px 0;
         }
         
         .kpi-card {
@@ -849,8 +875,8 @@
             </div>
 
             <!-- Center Panel: Plan -->
-            <div class="flex-1 p-4 flex flex-col min-w-0 overflow-hidden">
-                <div class="flex justify-between items-center mb-4 flex-shrink-0">
+            <div class="flex-1 p-3 flex flex-col min-w-0 overflow-hidden">
+                <div class="flex justify-between items-center mb-2 flex-shrink-0">
                     <div class="flex items-center gap-3">
                         <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
                         <select id="floorSelect" class="px-2 py-1 border border-gray-300 rounded-md text-sm hidden"></select>
@@ -859,7 +885,7 @@
                         Checklist Zone
                     </button>
                 </div>
-                <div class="flex-1 flex items-center justify-center overflow-hidden" style="min-height: 0;">
+                <div class="flex-1 flex items-center justify-center overflow-hidden" style="min-height: 0; height: calc(100vh - 150px);">
                     <div id="planContainer" class="plan-container hidden" style="width: 100%; height: 100%;">
                         <div id="planWrapper" class="plan-wrapper">
                             <img id="planImage" class="plan-image" alt="Plan de la zone">
@@ -874,12 +900,12 @@
             </div>
 
             <!-- Right Panel: Notation -->
-            <div class="w-[500px] bg-white border-l flex flex-col" id="notationPanel">
-                <div class="flex items-center justify-between p-4 border-b flex-shrink-0">
-                    <h2 class="text-lg font-semibold">Notation</h2>
-                    <button id="notationCloseBtn" class="text-sm text-gray-600 px-2 py-1 rounded hover:bg-gray-100">Fermer</button>
+            <div class="w-[250px] bg-white border-l flex flex-col" id="notationPanel">
+                <div class="flex items-center justify-between p-2 border-b flex-shrink-0">
+                    <h2 class="text-base font-semibold">Notation</h2>
+                    <button id="notationCloseBtn" class="text-xs text-gray-600 px-1 py-1 rounded hover:bg-gray-100">✕</button>
                 </div>
-                <div id="notationContent" class="text-gray-500 text-center p-4 overflow-y-auto flex-1">
+                <div id="notationContent" class="text-gray-500 text-center p-2 overflow-y-auto flex-1">
                     <div class="text-4xl mb-2">📝</div>
                     <p>Cliquez sur un élément du plan pour le noter</p>
                 </div>
@@ -3131,29 +3157,29 @@
         
         container.innerHTML = `
             <div class="text-left">
-                <div class="mb-4 pb-3 border-b">
-                    <h3 class="font-semibold text-lg">${title}</h3>
+                <div class="mb-2 pb-2 border-b">
+                    <h3 class="font-semibold text-sm leading-tight">${title}</h3>
                     <div class="text-sm text-gray-600 mt-2">
                         Avancement: <span class="font-bold text-blue-600">${percentage}%</span> (${completedCount}/${enabledCriteria.length})
                     </div>
                 </div>
                 
                 ${(type === 'extincteur' || type === 'dm') ? `
-                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <h4 class="text-sm font-semibold text-yellow-800 mb-3">✏️ Modifier l'élément</h4>
-                    <div class="space-y-3">
+                <div class="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <h4 class="text-xs font-semibold text-yellow-800 mb-2">✏️ Modifier</h4>
+                    <div class="space-y-2">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">N° ${type === 'extincteur' ? 'extincteur' : 'DM'}</label>
                             <input type="text" id="elementIdInput" value="${data.id || ''}" 
                                 onchange="updateElementId(this.value)"
                                 placeholder="${type === 'extincteur' ? 'EXT-001' : 'DM-001'}"
-                                class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm font-semibold">
+                                class="w-full px-2 py-1 border border-yellow-300 rounded text-xs font-semibold">
                         </div>
                         ${type === 'extincteur' ? `
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Type d'extincteur</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Type</label>
                             <select id="elementTypeSelect" onchange="updateElementType(this.value)"
-                                class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm">
+                                class="w-full px-2 py-1 border border-yellow-300 rounded text-xs">
                                 <option value="">-- Sélectionner --</option>
                                 ${EXTINGUISHER_TYPES.map(t => `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                             </select>
@@ -3164,18 +3190,18 @@
                 ` : ''}
                 
                 <!-- Bouton Tout valider -->
-                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <div class="mb-2 p-2 bg-green-50 border border-green-200 rounded">
                     <button onclick="validateAllCriteria()" 
-                            class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors">
-                        ✅ Tout valider (OUI)
+                            class="w-full px-2 py-1 bg-green-600 hover:bg-green-700 text-white font-medium rounded text-xs transition-colors">
+                        ✅ Tout OUI
                     </button>
-                    <p class="text-xs text-green-700 mt-1 text-center">Met tous les critères à "Oui" d'un seul clic</p>
+                    <p class="text-xs text-green-700 mt-1 text-center leading-tight">Valide tous les critères</p>
                 </div>
                 
-                <div class="space-y-4">
+                <div class="space-y-2">
                     ${Object.entries(criteria).map(([key, label]) => `
                         <div class="criteria-grid">
-                            <label class="text-sm font-medium">${label}</label>
+                            <label class="text-xs font-medium leading-tight">${label}</label>
                             <label class="flex items-center">
                                 <input type="radio" name="${key}" value="oui" 
                                     ${inspection.criteria[key] === 'oui' ? 'checked' : ''}
