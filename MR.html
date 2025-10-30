@@ -5150,8 +5150,45 @@
                 
                 // Parcourir les notations importées
                 importedInspections.forEach(importedInsp => {
-                    // Vérifier que la zone existe
-                    const zone = zones.find(z => z.id === importedInsp.zoneId);
+                    // 🔍 Correspondance intelligente des zones avec plusieurs stratégies
+                    let zone = zones.find(z => z.id === importedInsp.zoneId);
+                    
+                    if (!zone) {
+                        // Stratégie 1: Correspondance par nom (insensible à la casse)
+                        zone = zones.find(z => z.name && z.name.toLowerCase() === importedInsp.zoneId.toLowerCase());
+                        
+                        if (!zone) {
+                            // Stratégie 2: Correspondance partielle pour les variations d'ID (AT11 → AT11_12)
+                            zone = zones.find(z => {
+                                // Cas spécifiques connus
+                                if (importedInsp.zoneId === 'AT11' && z.id === 'AT11_12') return true;
+                                if (importedInsp.zoneId === 'AT11_12' && z.id === 'AT11') return true;
+                                
+                                // Correspondance générale par base numérique
+                                const importedBase = importedInsp.zoneId.replace(/[-_]/g, '').toLowerCase();
+                                const localBase = z.id.replace(/[-_]/g, '').toLowerCase();
+                                
+                                // Vérifier si l'un contient l'autre (AT11 dans AT1112, etc.)
+                                return importedBase.includes(localBase) || localBase.includes(importedBase);
+                            });
+                        }
+                        
+                        if (!zone) {
+                            // Stratégie 3: Correspondance par nom contenant l'ID importé
+                            zone = zones.find(z => z.name && z.name.toLowerCase().includes(importedInsp.zoneId.toLowerCase()));
+                        }
+                        
+                        if (!zone) {
+                            // Stratégie 4: Correspondance par ID contenant le nom importé  
+                            zone = zones.find(z => z.id.toLowerCase().includes(importedInsp.zoneId.toLowerCase()) || 
+                                                   importedInsp.zoneId.toLowerCase().includes(z.id.toLowerCase()));
+                        }
+                        
+                        if (zone) {
+                            console.log(`✅ Correspondance zone trouvée: "${importedInsp.zoneId}" → "${zone.id}" (${zone.name})`);
+                        }
+                    }
+                    
                     if (!zone) {
                         if (!notFound.some(item => item.startsWith(`Zone ${importedInsp.zoneId}`))) {
                             notFound.push(`Zone ${importedInsp.zoneId} (n'existe pas)`);
@@ -5484,7 +5521,14 @@
                     if (notFound.length > 10) {
                         message += `  ... et ${notFound.length - 10} autre(s)\n`;
                     }
-                    message += `\n💡 Astuce : Assurez-vous que les zones et éléments existent avant d'importer les notations.`;
+                    message += `\n💡 Astuce : Vérifiez les correspondances des zones :\n`;
+                    
+                    // Afficher les zones disponibles pour aider au diagnostic
+                    const availableZones = zones.map(z => `${z.id} (${z.name})`);
+                    message += `   Zones disponibles : ${availableZones.slice(0, 5).join(', ')}`;
+                    if (availableZones.length > 5) {
+                        message += ` et ${availableZones.length - 5} autre(s)`;
+                    }
                 }
                 
                 alert(message);
