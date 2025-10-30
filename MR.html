@@ -4256,10 +4256,33 @@
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
+        
+        // Amélioration pour mobile : ajout d'attributs supplémentaires
+        a.style.display = 'none';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        
         document.body.appendChild(a);
-        a.click();
+        
+        // Forcer le focus et le clic pour mobile
+        if (typeof a.click === 'function') {
+            a.click();
+        } else {
+            // Fallback pour les anciens navigateurs
+            const evt = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true
+            });
+            a.dispatchEvent(evt);
+        }
+        
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        
+        // Délai avant de révoquer l'URL pour éviter les problèmes sur mobile
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 1000);
     }
 
     // Export current zone
