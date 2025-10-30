@@ -843,6 +843,103 @@
             transform: translate(-50%, -50%);
             transition: all 0.2s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            /* Enhanced mobile touch targets */
+            min-width: 24px;
+            min-height: 24px;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        /* Mobile-specific enhancements */
+        @media (max-width: 768px) {
+            .admin-element {
+                width: 24px;
+                height: 24px;
+                min-width: 32px;
+                min-height: 32px;
+                border-width: 3px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
+            
+            .admin-element:hover {
+                transform: translate(-50%, -50%) scale(1.3) !important;
+                box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
+            }
+            
+            .admin-element:active {
+                transform: translate(-50%, -50%) scale(1.1) !important;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.5) !important;
+                border-width: 4px;
+            }
+            
+            /* Mobile admin interface improvements */
+            .mobile-admin-layout {
+                flex-direction: column;
+            }
+            
+            .mobile-admin-panel {
+                width: 100% !important;
+                max-height: 200px;
+                overflow-y: auto;
+                border-right: none !important;
+                border-bottom: 2px solid #e5e7eb;
+                position: relative;
+            }
+            
+            .mobile-admin-panel .space-y-4 {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 8px;
+                margin-bottom: 16px;
+            }
+            
+            .mobile-admin-panel button {
+                font-size: 14px;
+                padding: 8px 12px;
+                min-height: 44px;
+            }
+            
+            /* Add toggle button for mobile admin panel */
+            .mobile-admin-toggle {
+                display: none;
+                position: fixed;
+                top: 70px;
+                left: 10px;
+                z-index: 1000;
+                background: rgba(59, 130, 246, 0.9);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                padding: 8px 12px;
+                font-size: 12px;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            
+            .mobile-admin-toggle:hover {
+                background: rgba(59, 130, 246, 1);
+                transform: scale(1.05);
+            }
+            
+            .mobile-admin-toggle.active {
+                background: rgba(239, 68, 68, 0.9);
+            }
+            
+            .mobile-admin-panel.collapsed {
+                max-height: 0;
+                padding: 0;
+                overflow: hidden;
+                border-bottom: none;
+            }
+            
+            .mobile-admin-toggle {
+                display: block !important;
+            }
         }
 
         .admin-element.completed {
@@ -1128,10 +1225,15 @@
                 </button>
             </div>
         </header>
+        
+        <!-- Mobile Admin Panel Toggle -->
+        <button id="mobileAdminToggle" class="mobile-admin-toggle">
+            📱 Panneau Admin
+        </button>
 
-        <div class="flex-1 flex overflow-hidden">
+        <div class="flex-1 flex overflow-hidden mobile-admin-layout">
             <!-- Admin Left Panel -->
-            <div class="w-80 bg-white border-r p-4">
+            <div class="w-80 bg-white border-r p-4 mobile-admin-panel" id="adminLeftPanel">
                 <div class="space-y-4">
                     <button id="createZoneBtn" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                         ➕ Créer une Zone
@@ -3114,6 +3216,29 @@
             if (exportLibraryBtn) exportLibraryBtn.onclick = exportLibrary;
             const exitBtn = document.getElementById('exitAdminBtn');
             if (exitBtn) exitBtn.onclick = () => toggleAdminMode(false);
+            
+            // Mobile admin panel toggle functionality
+            const mobileToggle = document.getElementById('mobileAdminToggle');
+            const adminPanel = document.getElementById('adminLeftPanel');
+            if (mobileToggle && adminPanel) {
+                mobileToggle.onclick = () => {
+                    const isCollapsed = adminPanel.classList.contains('collapsed');
+                    if (isCollapsed) {
+                        adminPanel.classList.remove('collapsed');
+                        mobileToggle.textContent = '❌ Fermer Panneau';
+                        mobileToggle.classList.add('active');
+                    } else {
+                        adminPanel.classList.add('collapsed');
+                        mobileToggle.textContent = '📱 Panneau Admin';
+                        mobileToggle.classList.remove('active');
+                    }
+                };
+                
+                // Auto-collapse on mobile load
+                if (window.innerWidth <= 768) {
+                    adminPanel.classList.add('collapsed');
+                }
+            }
         } else {
             // leaving admin mode: refresh main view
             renderZoneList();
@@ -5018,8 +5143,10 @@
                 let added = 0;
                 let updated = 0;
                 let skipped = 0;
+                let created = 0; // Nouveaux éléments créés automatiquement
                 const notFound = [];
                 const zonesProcessed = new Set();
+                const createdElements = []; // Liste des éléments créés
                 
                 // Parcourir les notations importées
                 importedInspections.forEach(importedInsp => {
@@ -5051,14 +5178,15 @@
                         return;
                     }
                     
-                    // Vérifier que l'élément existe dans la zone
+                    // Fonction améliorée de correspondance d'éléments
                     let elementExists = false;
+                    let matchedElement = null;
                     
                     if (importedInsp.type === 'zone') {
                         // Notation de zone : toujours valide
                         elementExists = true;
                     } else {
-                        // Notation d'élément : vérifier l'existence
+                        // Notation d'élément : utiliser un algorithme de correspondance intelligent
                         const collectionKey = importedInsp.type === 'extincteur' ? 'extincteurs' :
                                             importedInsp.type === 'dm' ? 'dm' :
                                             importedInsp.type === 'sortie' ? 'sorties' : null;
@@ -5066,65 +5194,170 @@
                         if (collectionKey && targetFloor.elements) {
                             const collection = targetFloor.elements[collectionKey] || [];
                             
-                            // Recherche par ID exact (pour extincteurs et DM)
-                            if (importedInsp.elementData?.id) {
-                                elementExists = collection.some(el => el.id === importedInsp.elementData.id);
-                            }
-                            
-                            // Recherche par position (pour sorties et éléments sans ID)
-                            if (!elementExists && importedInsp.elementData?.x !== undefined && importedInsp.elementData?.y !== undefined) {
-                                const tolerance = 0.05; // 5% de tolérance sur la position (augmenté pour plus de compatibilité)
+                            if (collection.length === 0) {
+                                console.log(`⚠️ Aucun élément ${importedInsp.type} dans la zone ${zone.name}`);
+                            } else {
+                                // 🔍 Algorithme de correspondance intelligent multi-étapes
                                 
-                                // Trouver l'élément par position
-                                const elementByPosition = collection.find(el => 
-                                    Math.abs(el.x - importedInsp.elementData.x) < tolerance &&
-                                    Math.abs(el.y - importedInsp.elementData.y) < tolerance
-                                );
+                                // Étape 1: Correspondance exacte par ID
+                                if (importedInsp.elementData?.id) {
+                                    matchedElement = collection.find(el => el.id === importedInsp.elementData.id);
+                                    if (matchedElement) {
+                                        console.log(`✅ Correspondance exacte ID: ${importedInsp.elementData.id}`);
+                                        elementExists = true;
+                                    }
+                                }
                                 
-                                if (elementByPosition) {
-                                    elementExists = true;
+                                // Étape 2: Correspondance par position (tolérance large)
+                                if (!elementExists && importedInsp.elementData?.x !== undefined && importedInsp.elementData?.y !== undefined) {
+                                    const tolerance = 0.15; // 15% de tolérance pour gérer les variations cross-device
                                     
-                                    // Si l'élément a été trouvé par position mais avec un ID différent, 
-                                    // remplacer le nom de l'ancien élément par celui de l'import
-                                    if (importedInsp.elementData?.id && 
-                                        elementByPosition.id !== importedInsp.elementData.id) {
+                                    matchedElement = collection.find(el => 
+                                        Math.abs(el.x - importedInsp.elementData.x) < tolerance &&
+                                        Math.abs(el.y - importedInsp.elementData.y) < tolerance
+                                    );
+                                    
+                                    if (matchedElement) {
+                                        console.log(`✅ Correspondance par position: ${importedInsp.type} (${Math.round(importedInsp.elementData.x*100)}%, ${Math.round(importedInsp.elementData.y*100)}%) → ${matchedElement.id}`);
+                                        elementExists = true;
                                         
-                                        console.log(`🔄 Mise à jour ID élément: ${elementByPosition.id} → ${importedInsp.elementData.id} (position: ${Math.round(elementByPosition.x*100)}%, ${Math.round(elementByPosition.y*100)}%)`);
-                                        
-                                        // Mettre à jour l'ID de l'élément local
-                                        elementByPosition.id = importedInsp.elementData.id;
-                                        
-                                        // Mettre à jour aussi les autres propriétés si nécessaire
-                                        if (importedInsp.elementData.type && importedInsp.type === 'extincteur') {
-                                            elementByPosition.type = importedInsp.elementData.type;
-                                        }
-                                        
-                                        // Sauvegarder les changements dans les zones
-                                        saveZones();
-                                        
-                                        // Mettre à jour l'affichage si on est sur cette zone
-                                        if (currentZone?.id === zone.id && currentFloor?.id === targetFloor.id) {
-                                            renderAdminElements();
-                                            renderElementsList();
+                                        // Synchroniser les IDs pour éviter les futures incohérences
+                                        if (importedInsp.elementData.id && matchedElement.id !== importedInsp.elementData.id) {
+                                            console.log(`🔄 Synchronisation ID: ${matchedElement.id} → ${importedInsp.elementData.id}`);
+                                            matchedElement.id = importedInsp.elementData.id;
+                                            if (importedInsp.elementData.type && importedInsp.type === 'extincteur') {
+                                                matchedElement.type = importedInsp.elementData.type;
+                                            }
+                                            saveZones();
                                         }
                                     }
-                                } else {
-                                    // Debug: log pour voir les éléments recherchés
-                                    console.log(`Élément non trouvé par position: ${importedInsp.type} à (${importedInsp.elementData.x}, ${importedInsp.elementData.y})`, {
-                                        collectionSize: collection.length,
-                                        positions: collection.map(el => ({ x: el.x, y: el.y, id: el.id }))
+                                }
+                                
+                                // Étape 3: Correspondance par index/ordre si ID et position échouent
+                                if (!elementExists && importedInsp.elementData?.index !== undefined) {
+                                    const index = importedInsp.elementData.index;
+                                    if (index >= 0 && index < collection.length) {
+                                        matchedElement = collection[index];
+                                        console.log(`✅ Correspondance par index: ${index} → ${matchedElement.id}`);
+                                        elementExists = true;
+                                        
+                                        // Mettre à jour les informations de l'élément avec celles de l'import
+                                        if (importedInsp.elementData.id && matchedElement.id !== importedInsp.elementData.id) {
+                                            console.log(`🔄 Mise à jour ID par index: ${matchedElement.id} → ${importedInsp.elementData.id}`);
+                                            matchedElement.id = importedInsp.elementData.id;
+                                        }
+                                        if (importedInsp.elementData.type && importedInsp.type === 'extincteur') {
+                                            matchedElement.type = importedInsp.elementData.type;
+                                        }
+                                        // Mettre à jour la position si elle diffère significativement
+                                        if (importedInsp.elementData.x !== undefined && importedInsp.elementData.y !== undefined) {
+                                            const posDiff = Math.abs(matchedElement.x - importedInsp.elementData.x) + Math.abs(matchedElement.y - importedInsp.elementData.y);
+                                            if (posDiff > 0.1) { // Si différence > 10%
+                                                console.log(`🔄 Mise à jour position: (${Math.round(matchedElement.x*100)}%, ${Math.round(matchedElement.y*100)}%) → (${Math.round(importedInsp.elementData.x*100)}%, ${Math.round(importedInsp.elementData.y*100)}%)`);
+                                                matchedElement.x = importedInsp.elementData.x;
+                                                matchedElement.y = importedInsp.elementData.y;
+                                            }
+                                        }
+                                        saveZones();
+                                    }
+                                }
+                                
+                                // Étape 4: Correspondance intelligente par similarité de nom (pour extinction et DM)
+                                if (!elementExists && importedInsp.elementData?.id && (importedInsp.type === 'extincteur' || importedInsp.type === 'dm')) {
+                                    // Extraire le numéro de l'ID importé
+                                    const importedIdNum = importedInsp.elementData.id.match(/\d+/);
+                                    if (importedIdNum) {
+                                        matchedElement = collection.find(el => {
+                                            const localIdNum = el.id?.match(/\d+/);
+                                            return localIdNum && localIdNum[0] === importedIdNum[0];
+                                        });
+                                        
+                                        if (matchedElement) {
+                                            console.log(`✅ Correspondance par numéro: ${matchedElement.id} ≈ ${importedInsp.elementData.id}`);
+                                            elementExists = true;
+                                            // Synchroniser l'ID exact
+                                            matchedElement.id = importedInsp.elementData.id;
+                                            saveZones();
+                                        }
+                                    }
+                                }
+                                
+                                // Debug : afficher les éléments disponibles si aucune correspondance
+                                if (!elementExists) {
+                                    console.log(`❌ Aucune correspondance pour ${importedInsp.type} ${importedInsp.elementData?.id}`, {
+                                        importedElement: importedInsp.elementData,
+                                        availableElements: collection.map((el, idx) => ({ 
+                                            index: idx, 
+                                            id: el.id, 
+                                            x: Math.round(el.x*100)/100, 
+                                            y: Math.round(el.y*100)/100 
+                                        }))
                                     });
                                 }
                             }
                         }
                     }
                     
-                    // Pour les zones, pas de vérification d'élément nécessaire
+                    // Gestion des éléments non trouvés - option de création automatique
                     if (importedInsp.type !== 'zone' && !elementExists) {
                         const elementDesc = `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
-                        notFound.push(`[${zone.name}] ${elementDesc}`);
-                        skipped++;
-                        return;
+                        
+                        // Proposer de créer l'élément manquant automatiquement
+                        if (importedInsp.elementData && importedInsp.elementData.x !== undefined && importedInsp.elementData.y !== undefined) {
+                            console.log(`🔧 Création automatique de l'élément manquant: ${elementDesc}`);
+                            
+                            const collectionKey = importedInsp.type === 'extincteur' ? 'extincteurs' :
+                                                importedInsp.type === 'dm' ? 'dm' :
+                                                importedInsp.type === 'sortie' ? 'sorties' : null;
+                            
+                            if (collectionKey) {
+                                // Initialiser la collection si elle n'existe pas
+                                if (!targetFloor.elements) targetFloor.elements = {};
+                                if (!targetFloor.elements[collectionKey]) targetFloor.elements[collectionKey] = [];
+                                
+                                // Créer le nouvel élément
+                                const newElement = {
+                                    x: importedInsp.elementData.x,
+                                    y: importedInsp.elementData.y,
+                                    size: importedInsp.elementData.size || 0.02
+                                };
+                                
+                                // Ajouter les propriétés spécifiques selon le type
+                                if (importedInsp.type === 'extincteur') {
+                                    newElement.id = importedInsp.elementData.id || generateUniqueElementId('extincteur', targetFloor.elements[collectionKey]);
+                                    newElement.type = importedInsp.elementData.type || 'Poudre';
+                                } else if (importedInsp.type === 'dm') {
+                                    newElement.id = importedInsp.elementData.id || generateUniqueElementId('dm', targetFloor.elements[collectionKey]);
+                                } else if (importedInsp.type === 'sortie') {
+                                    // Les sorties n'ont généralement pas d'ID fixe
+                                }
+                                
+                                // Ajouter l'élément à la collection
+                                targetFloor.elements[collectionKey].push(newElement);
+                                
+                                // Sauvegarder les zones
+                                saveZones();
+                                
+                                // Mettre à jour l'affichage si nécessaire
+                                if (currentZone?.id === zone.id && currentFloor?.id === targetFloor.id) {
+                                    renderAdminElements();
+                                    renderElementsList();
+                                }
+                                
+                                console.log(`✅ Élément créé automatiquement: ${newElement.id || 'sortie'} à (${Math.round(newElement.x*100)}%, ${Math.round(newElement.y*100)}%)`);
+                                elementExists = true;
+                                matchedElement = newElement;
+                                created++;
+                                createdElements.push(`[${zone.name}] ${importedInsp.type} ${newElement.id || 'sortie'}`);
+                            }
+                        }
+                        
+                        // Si toujours pas trouvé/créé, l'ajouter aux éléments non trouvés
+                        if (!elementExists) {
+                            notFound.push(`[${zone.name}] ${elementDesc}`);
+                            skipped++;
+                            return;
+                        }
                     }
                     
                     // Chercher si une inspection existe déjà - logique améliorée pour compatibilité cross-device
@@ -5234,6 +5467,9 @@
                 
                 message += `�📥 Ajoutées : ${added}\n`;
                 message += `🔄 Mises à jour : ${updated}\n`;
+                if (created > 0) {
+                    message += `🔧 Éléments créés automatiquement : ${created}\n`;
+                }
                 if (skipped > 0) {
                     message += `⚠️ Ignorées : ${skipped}\n`;
                 }
@@ -5761,18 +5997,57 @@
                     document.removeEventListener('mouseup', handleMouseUp);
                 };
                 
-                // Support tactile pour mobile
+                // Enhanced mobile touch handlers with better UX
+                let touchStartTime = 0;
+                let hasMoved = false;
+                let longPressTimer = null;
+                
                 const handleTouchStart = (e) => {
+                    touchStartTime = Date.now();
+                    hasMoved = false;
                     isDragging = true;
+                    
+                    // Haptic feedback if available
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(10);
+                    }
+                    
+                    // Enhanced visual feedback for mobile
                     adminElement.style.cursor = 'grabbing';
+                    adminElement.style.transform = 'translate(-50%, -50%) scale(1.1)';
+                    adminElement.style.boxShadow = '0 8px 16px rgba(0,0,0,0.5)';
+                    adminElement.style.borderWidth = '4px';
+                    adminElement.style.zIndex = '9999';
+                    
                     e.preventDefault();
                     e.stopPropagation();
+                    
+                    // Long press detection for context menu
+                    longPressTimer = setTimeout(() => {
+                        if (!hasMoved && isDragging) {
+                            // Trigger context menu on long press
+                            if ('vibrate' in navigator) {
+                                navigator.vibrate([10, 50, 10]);
+                            }
+                            editElementDialog(typeShort, index);
+                            isDragging = false;
+                            resetElementStyle();
+                        }
+                    }, 500);
+                    
                     document.addEventListener('touchmove', handleTouchMove, { passive: false });
                     document.addEventListener('touchend', handleTouchEnd);
                 };
                 
                 const handleTouchMove = (e) => {
                     if (!isDragging) return;
+                    
+                    hasMoved = true;
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    
                     e.preventDefault();
                     
                     const touch = e.touches[0];
@@ -5792,24 +6067,58 @@
                     currentY = Math.max(0, Math.min(1, relativeY / imgHeight));
                     
                     positionElement(adminElement, currentX, currentY, true);
+                    
+                    // Show live position feedback on mobile
+                    if (window.innerWidth <= 768) {
+                        showPositionFeedback(currentX, currentY);
+                    }
                 };
                 
                 const handleTouchEnd = () => {
                     if (!isDragging) return;
+                    
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    
+                    const touchDuration = Date.now() - touchStartTime;
+                    
+                    // Haptic feedback on drop
+                    if ('vibrate' in navigator && hasMoved) {
+                        navigator.vibrate(20);
+                    }
+                    
                     isDragging = false;
-                    adminElement.style.cursor = 'move';
+                    resetElementStyle();
                     
-                    element.x = currentX;
-                    element.y = currentY;
-                    adminElement.dataset.x = currentX;
-                    adminElement.dataset.y = currentY;
+                    // Only save if element was actually moved
+                    if (hasMoved) {
+                        element.x = currentX;
+                        element.y = currentY;
+                        adminElement.dataset.x = currentX;
+                        adminElement.dataset.y = currentY;
+                        
+                        saveZones();
+                        renderElementsList();
+                        scheduleReposition(50);
+                        
+                        // Show success feedback
+                        showPositionSaved();
+                    }
                     
-                    saveZones();
-                    renderElementsList();
-                    scheduleReposition(50);
+                    hidePositionFeedback();
                     
                     document.removeEventListener('touchmove', handleTouchMove);
                     document.removeEventListener('touchend', handleTouchEnd);
+                };
+                
+                const resetElementStyle = () => {
+                    adminElement.style.cursor = 'move';
+                    adminElement.style.transform = 'translate(-50%, -50%)';
+                    adminElement.style.boxShadow = '';
+                    adminElement.style.borderWidth = '';
+                    adminElement.style.zIndex = '';
                 };
 
                 // Events souris (desktop)
@@ -5832,10 +6141,187 @@
                     e.stopPropagation();
                     editElementDialog(typeShort, index);
                 });
+                
+                // Add mobile position controls for precise positioning
+                addMobilePositionControls(adminElement, element, index, typeShort);
 
                 container.appendChild(adminElement);
             });
         });
+    }
+
+    // Mobile feedback functions for enhanced UX
+    function showPositionFeedback(x, y) {
+        let feedbackDiv = document.getElementById('positionFeedback');
+        if (!feedbackDiv) {
+            feedbackDiv = document.createElement('div');
+            feedbackDiv.id = 'positionFeedback';
+            feedbackDiv.style.cssText = `
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 10000;
+                pointer-events: none;
+                transition: opacity 0.2s ease;
+                backdrop-filter: blur(10px);
+            `;
+            document.body.appendChild(feedbackDiv);
+        }
+        
+        feedbackDiv.innerHTML = `Position: ${(x * 100).toFixed(1)}%, ${(y * 100).toFixed(1)}%`;
+        feedbackDiv.style.opacity = '1';
+    }
+    
+    function hidePositionFeedback() {
+        const feedbackDiv = document.getElementById('positionFeedback');
+        if (feedbackDiv) {
+            feedbackDiv.style.opacity = '0';
+            setTimeout(() => {
+                if (feedbackDiv.parentNode) {
+                    feedbackDiv.parentNode.removeChild(feedbackDiv);
+                }
+            }, 200);
+        }
+    }
+    
+    function showPositionSaved() {
+        let savedDiv = document.getElementById('positionSaved');
+        if (!savedDiv) {
+            savedDiv = document.createElement('div');
+            savedDiv.id = 'positionSaved';
+            savedDiv.style.cssText = `
+                position: fixed;
+                top: 50px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(34, 197, 94, 0.9);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 25px;
+                font-size: 14px;
+                font-weight: 600;
+                z-index: 10000;
+                pointer-events: none;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+            `;
+            document.body.appendChild(savedDiv);
+        }
+        
+        savedDiv.innerHTML = '✓ Position sauvegardée';
+        savedDiv.style.opacity = '1';
+        savedDiv.style.transform = 'translateX(-50%) translateY(0)';
+        
+        setTimeout(() => {
+            savedDiv.style.opacity = '0';
+            savedDiv.style.transform = 'translateX(-50%) translateY(-10px)';
+            setTimeout(() => {
+                if (savedDiv.parentNode) {
+                    savedDiv.parentNode.removeChild(savedDiv);
+                }
+            }, 300);
+        }, 1500);
+    }
+    
+    // Add mobile position controls for precise positioning
+    function addMobilePositionControls(adminElement, element, index, type) {
+        if (window.innerWidth > 768) return; // Only on mobile
+        
+        adminElement.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showMobilePositionControls(element, index, type);
+        });
+    }
+    
+    function showMobilePositionControls(element, index, type) {
+        const controlsModal = document.createElement('div');
+        controlsModal.className = 'modal';
+        controlsModal.innerHTML = `
+            <div class="modal-content" style="max-width: 350px;">
+                <h3 class="text-lg font-bold mb-4">Position précise</h3>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="moveElement('${type}', ${index}, -1, -1)" class="p-3 bg-blue-500 text-white rounded">↖</button>
+                        <button onclick="moveElement('${type}', ${index}, 0, -1)" class="p-3 bg-blue-500 text-white rounded">↑</button>
+                        <button onclick="moveElement('${type}', ${index}, 1, -1)" class="p-3 bg-blue-500 text-white rounded">↗</button>
+                        <button onclick="moveElement('${type}', ${index}, -1, 0)" class="p-3 bg-blue-500 text-white rounded">←</button>
+                        <button onclick="moveElement('${type}', ${index}, 0, 0)" class="p-3 bg-gray-500 text-white rounded">●</button>
+                        <button onclick="moveElement('${type}', ${index}, 1, 0)" class="p-3 bg-blue-500 text-white rounded">→</button>
+                        <button onclick="moveElement('${type}', ${index}, -1, 1)" class="p-3 bg-blue-500 text-white rounded">↙</button>
+                        <button onclick="moveElement('${type}', ${index}, 0, 1)" class="p-3 bg-blue-500 text-white rounded">↓</button>
+                        <button onclick="moveElement('${type}', ${index}, 1, 1)" class="p-3 bg-blue-500 text-white rounded">↘</button>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600 mb-2">Position: ${(element.x * 100).toFixed(1)}%, ${(element.y * 100).toFixed(1)}%</p>
+                        <div class="flex gap-2">
+                            <label class="text-xs">Pas:</label>
+                            <select id="moveStep" class="text-xs border rounded px-1">
+                                <option value="0.5">Fin (0.5%)</option>
+                                <option value="1" selected>Normal (1%)</option>
+                                <option value="2">Rapide (2%)</option>
+                                <option value="5">Très rapide (5%)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="this.closest('.modal').remove()" 
+                            class="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(controlsModal);
+    }
+
+    function moveElement(type, index, deltaX, deltaY) {
+        if (!currentZone || !currentFloor) return;
+        
+        const collectionKey = type === 'sortie' ? 'sorties' : type === 'extincteur' ? 'extincteurs' : 'dm';
+        const collection = currentFloor.elements?.[collectionKey];
+        if (!collection || !collection[index]) return;
+        
+        const element = collection[index];
+        const stepSize = parseFloat(document.getElementById('moveStep')?.value || 1) / 100;
+        
+        // Calculate new position with bounds checking
+        const newX = Math.max(0, Math.min(1, element.x + (deltaX * stepSize)));
+        const newY = Math.max(0, Math.min(1, element.y + (deltaY * stepSize)));
+        
+        // Apply the change
+        element.x = newX;
+        element.y = newY;
+        
+        // Update the display
+        const adminElement = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+        if (adminElement) {
+            adminElement.dataset.x = newX;
+            adminElement.dataset.y = newY;
+            positionElement(adminElement, newX, newY, true);
+        }
+        
+        // Update position display in modal
+        const positionDisplay = document.querySelector('.modal-content p');
+        if (positionDisplay) {
+            positionDisplay.textContent = `Position: ${(newX * 100).toFixed(1)}%, ${(newY * 100).toFixed(1)}%`;
+        }
+        
+        // Haptic feedback
+        if ('vibrate' in navigator) {
+            navigator.vibrate(5);
+        }
+        
+        // Save changes
+        saveZones();
+        renderElementsList();
     }
 
     function editZone(zoneId) {
