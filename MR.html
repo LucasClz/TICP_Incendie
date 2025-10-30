@@ -897,44 +897,7 @@
                 min-height: 44px;
             }
             
-            /* Add toggle button for mobile admin panel */
-            .mobile-admin-toggle {
-                display: none;
-                position: fixed;
-                top: 70px;
-                left: 10px;
-                z-index: 1000;
-                background: rgba(59, 130, 246, 0.9);
-                color: white;
-                border: none;
-                border-radius: 20px;
-                padding: 8px 12px;
-                font-size: 12px;
-                backdrop-filter: blur(10px);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-            
-            .mobile-admin-toggle:hover {
-                background: rgba(59, 130, 246, 1);
-                transform: scale(1.05);
-            }
-            
-            .mobile-admin-toggle.active {
-                background: rgba(239, 68, 68, 0.9);
-            }
-            
-            .mobile-admin-panel.collapsed {
-                max-height: 0;
-                padding: 0;
-                overflow: hidden;
-                border-bottom: none;
-            }
-            
-            .mobile-admin-toggle {
-                display: block !important;
-            }
+
         }
 
         .admin-element.completed {
@@ -1221,11 +1184,6 @@
             </div>
         </header>
         
-        <!-- Mobile Admin Panel Toggle -->
-        <button id="mobileAdminToggle" class="mobile-admin-toggle">
-            📱 Panneau Admin
-        </button>
-
         <div class="flex-1 flex overflow-hidden mobile-admin-layout">
             <!-- Admin Left Panel -->
             <div class="w-80 bg-white border-r p-4 mobile-admin-panel" id="adminLeftPanel">
@@ -3231,28 +3189,7 @@
             const exitBtn = document.getElementById('exitAdminBtn');
             if (exitBtn) exitBtn.onclick = () => toggleAdminMode(false);
             
-            // Mobile admin panel toggle functionality
-            const mobileToggle = document.getElementById('mobileAdminToggle');
-            const adminPanel = document.getElementById('adminLeftPanel');
-            if (mobileToggle && adminPanel) {
-                mobileToggle.onclick = () => {
-                    const isCollapsed = adminPanel.classList.contains('collapsed');
-                    if (isCollapsed) {
-                        adminPanel.classList.remove('collapsed');
-                        mobileToggle.textContent = '❌ Fermer Panneau';
-                        mobileToggle.classList.add('active');
-                    } else {
-                        adminPanel.classList.add('collapsed');
-                        mobileToggle.textContent = '📱 Panneau Admin';
-                        mobileToggle.classList.remove('active');
-                    }
-                };
-                
-                // Auto-collapse on mobile load
-                if (window.innerWidth <= 768) {
-                    adminPanel.classList.add('collapsed');
-                }
-            }
+
         } else {
             // leaving admin mode: refresh main view
             renderZoneList();
@@ -4240,14 +4177,6 @@
                 </div>
                 
                 <div class="space-y-4">
-                    <button onclick="exportInspections('json')" 
-                            class="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Exporter Inspections (JSON)
-                    </button>
-                    <button onclick="exportInspections('csv')" 
-                            class="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700">
-                        Exporter Inspections (CSV)
-                    </button>
                     <button onclick="exportCurrentZone()" 
                             class="w-full px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                         Exporter Zone Actuelle (JSON)
