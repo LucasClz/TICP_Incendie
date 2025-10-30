@@ -4772,10 +4772,9 @@
         };
         
         const data = JSON.stringify(exportData, null, 2);
-        downloadFile(data, filename, 'application/json');
         
-        // Envoyer automatiquement par email
-        sendNotationsByEmail(exportData, filename, zones_exported);
+        // Envoyer automatiquement par email avec le fichier
+        sendNotationsByEmailWithFile(exportData, filename, zones_exported, data);
         
         // Message détaillé
         let message = `✅ Export réussi !\n\n`;
@@ -5163,7 +5162,172 @@
     }
 
     /**
-     * Envoie automatiquement les notations par email
+     * Envoie automatiquement les notations par email avec facilitation de l'ajout de pièce jointe
+     * Crée un fichier temporaire et guide l'utilisateur pour l'ajout automatique
+     */
+    function sendNotationsByEmailWithFile(exportData, filename, zones_exported, fileData) {
+        try {
+            // Créer un blob du fichier pour faciliter l'accès
+            const blob = new Blob([fileData], { type: 'application/json' });
+            const fileUrl = URL.createObjectURL(blob);
+            
+            // Construire le sujet de l'email
+            const zoneNames = zones_exported.map(z => z.name).join(', ');
+            const subject = `TICP Incendie - Notations ${zones_exported.length > 1 ? 'Zones' : 'Zone'} ${zoneNames} - ${exportData.campaign}`;
+            
+            // Construire le corps de l'email
+            let emailBody = `Bonjour,\n\n`;
+            emailBody += `Veuillez trouver ci-joint l'export des notations TICP Incendie :\n\n`;
+            emailBody += `📋 DÉTAILS DE L'EXPORT :\n`;
+            emailBody += `• Date d'export : ${new Date(exportData.exportDate).toLocaleString('fr-FR')}\n`;
+            emailBody += `• Campagne : ${exportData.campaign}\n`;
+            emailBody += `• Zone(s) : ${zoneNames}\n`;
+            emailBody += `• Nombre de notations : ${exportData.stats.total}\n`;
+            emailBody += `• Avec photos : ${exportData.stats.withPhotos}\n`;
+            emailBody += `• Non-conformités : ${exportData.stats.nonConformities}\n`;
+            emailBody += `• Fichier : ${filename}\n\n`;
+            
+            if (exportData.stats.nonConformities > 0) {
+                emailBody += `⚠️ ATTENTION : ${exportData.stats.nonConformities} non-conformité(s) détectée(s)\n\n`;
+            }
+            
+            emailBody += `Cordialement,\n`;
+            emailBody += `Système TICP Incendie`;
+            
+            // Créer l'email avec les outils disponibles du navigateur
+            if (navigator.share && navigator.canShare) {
+                // Si l'API de partage est disponible (mobile principalement)
+                const shareData = {
+                    title: subject,
+                    text: emailBody,
+                    files: [new File([blob], filename, { type: 'application/json' })]
+                };
+                
+                if (navigator.canShare(shareData)) {
+                    navigator.share(shareData).then(() => {
+                        console.log('Fichier partagé avec succès');
+                    }).catch((error) => {
+                        console.log('Erreur de partage:', error);
+                        fallbackEmailMethod(subject, emailBody, filename, fileUrl);
+                    });
+                    return;
+                }
+            }
+            
+            // Méthode de fallback : interface améliorée
+            showEmailAssistant(subject, emailBody, filename, fileUrl, blob);
+            
+        } catch (error) {
+            console.error('Erreur lors de la préparation de l\'email:', error);
+            // Fallback vers l'ancienne méthode
+            sendNotationsByEmail(exportData, filename, zones_exported);
+        }
+    }
+    
+    /**
+     * Affiche un assistant d'envoi d'email avec instructions détaillées
+     */
+    function showEmailAssistant(subject, emailBody, filename, fileUrl, blob) {
+        // Créer une modal personnalisée avec instructions
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-green-600">📧 Assistant d'envoi Email</h2>
+                    <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <h3 class="font-semibold text-green-800 mb-2">📎 Fichier prêt à envoyer</h3>
+                        <p class="text-sm text-green-700">
+                            Le fichier <strong>${filename}</strong> a été préparé et téléchargé.
+                        </p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <h3 class="font-semibold">🚀 Choisissez votre méthode d'envoi :</h3>
+                        
+                        <button onclick="openEmailClient('${encodeURIComponent(subject)}', '${encodeURIComponent(emailBody)}')" 
+                                class="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-3">
+                            <span class="text-xl">📧</span>
+                            <div class="text-left">
+                                <div class="font-semibold">Ouvrir le client email</div>
+                                <div class="text-xs opacity-90">Ouvre votre client email par défaut (Outlook, Thunderbird, etc.)</div>
+                            </div>
+                        </button>
+                        
+                        <button onclick="copyEmailInfo('${encodeURIComponent(subject)}', '${encodeURIComponent(emailBody)}', '${filename}')" 
+                                class="w-full p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-3">
+                            <span class="text-xl">📋</span>
+                            <div class="text-left">
+                                <div class="font-semibold">Copier les informations</div>
+                                <div class="text-xs opacity-90">Copie le sujet et le contenu dans le presse-papiers</div>
+                            </div>
+                        </button>
+                        
+                        <button onclick="downloadFileAgain('${filename}', '${fileUrl}')" 
+                                class="w-full p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-3">
+                            <span class="text-xl">📥</span>
+                            <div class="text-left">
+                                <div class="font-semibold">Re-télécharger le fichier</div>
+                                <div class="text-xs opacity-90">Si vous avez perdu le fichier téléchargé</div>
+                            </div>
+                        </button>
+                    </div>
+                    
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2">📝 Destinataire :</h4>
+                        <p class="text-blue-700 font-mono">lucas.cluzeau@sncf.fr</p>
+                    </div>
+                    
+                    <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <h4 class="font-semibold text-yellow-800 mb-2">💡 Instructions :</h4>
+                        <ol class="text-sm text-yellow-700 space-y-1 list-decimal list-inside">
+                            <li>Cliquez sur "Ouvrir le client email" ci-dessus</li>
+                            <li>Votre client email s'ouvrira avec le destinataire et le contenu pré-remplis</li>
+                            <li>Ajoutez le fichier <strong>${filename}</strong> en pièce jointe</li>
+                            <li>Cliquez sur "Envoyer" !</li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end mt-6">
+                    <button onclick="this.closest('.modal').remove()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Nettoyer l'URL du blob après 10 minutes
+        setTimeout(() => {
+            URL.revokeObjectURL(fileUrl);
+        }, 600000);
+    }
+    
+    /**
+     * Méthode de fallback pour les anciens navigateurs
+     */
+    function fallbackEmailMethod(subject, emailBody, filename, fileUrl) {
+        const emailTo = 'lucas.cluzeau@sncf.fr';
+        const encodedSubject = encodeURIComponent(subject);
+        const encodedBody = encodeURIComponent(emailBody);
+        const mailtoLink = `mailto:${emailTo}?subject=${encodedSubject}&body=${encodedBody}`;
+        
+        window.open(mailtoLink, '_self');
+        
+        setTimeout(() => {
+            alert(`📧 Email ouvert !\n\n📎 N'oubliez pas de joindre le fichier "${filename}" qui vient d'être téléchargé.`);
+        }, 1000);
+    }
+    
+    /**
+     * Envoie automatiquement les notations par email (ancienne méthode)
      * Ouvre le client de messagerie par défaut avec un email pré-rempli
      */
     function sendNotationsByEmail(exportData, filename, zones_exported) {
@@ -5244,12 +5408,81 @@
             alert(`⚠️ Impossible d'ouvrir automatiquement l'email.\n\nVeuillez envoyer manuellement le fichier "${filename}" à lucas.cluzeau@sncf.fr`);
         }
     }
+    
+    /**
+     * Ouvre le client email avec les informations pré-remplies
+     */
+    function openEmailClient(subject, body) {
+        const emailTo = 'lucas.cluzeau@sncf.fr';
+        const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
+        window.open(mailtoLink, '_self');
+        
+        setTimeout(() => {
+            alert('📧 Client email ouvert ! N\'oubliez pas d\'ajouter le fichier en pièce jointe.');
+        }, 1000);
+    }
+    
+    /**
+     * Copie les informations d'email dans le presse-papiers
+     */
+    function copyEmailInfo(subject, body, filename) {
+        const decodedSubject = decodeURIComponent(subject);
+        const decodedBody = decodeURIComponent(body);
+        
+        const textToCopy = `Destinataire: lucas.cluzeau@sncf.fr\n\nSujet: ${decodedSubject}\n\nCorps du message:\n${decodedBody}\n\nFichier à joindre: ${filename}`;
+        
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('📋 Informations copiées dans le presse-papiers !');
+            }).catch(err => {
+                console.error('Erreur lors de la copie:', err);
+                fallbackCopy(textToCopy);
+            });
+        } else {
+            fallbackCopy(textToCopy);
+        }
+    }
+    
+    /**
+     * Méthode de fallback pour copier le texte
+     */
+    function fallbackCopy(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            alert('📋 Informations copiées dans le presse-papiers !');
+        } catch (err) {
+            console.error('Erreur lors de la copie:', err);
+            alert('❌ Impossible de copier automatiquement. Copiez manuellement le contenu.');
+        }
+        document.body.removeChild(textArea);
+    }
+    
+    /**
+     * Re-télécharge le fichier si nécessaire
+     */
+    function downloadFileAgain(filename, fileUrl) {
+        const a = document.createElement('a');
+        a.href = fileUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        alert(`📥 Fichier "${filename}" téléchargé à nouveau !`);
+    }
 
     // ===== FIN EXPORT / IMPORT NOTATIONS =====
     
     // Rendre les fonctions disponibles globalement (pour compatibilité onclick)
     window.exportNotations = exportNotations;
     window.importNotations = importNotations;
+    window.openEmailClient = openEmailClient;
+    window.copyEmailInfo = copyEmailInfo;
+    window.downloadFileAgain = downloadFileAgain;
     window.sendNotationsByEmail = sendNotationsByEmail;
 
     const ELEMENT_COLLECTION_MAP = { extincteur: 'extincteurs', dm: 'dm', sortie: 'sorties' };
