@@ -735,8 +735,7 @@
         
         .hotspot {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            /* Taille dynamique gérée par JavaScript, pas de taille fixe */
             /* carré avec coins légèrement arrondis */
             border-radius: 4px;
             border: 2px solid white;
@@ -2924,11 +2923,21 @@
             // Calculer la taille basée sur la largeur de l'image
             let px = Math.max(6, Math.round(size * dims.displayedWidth));
             
-            // Taille minimale pour les éléments admin en mode mobile
-            if (isAdminMode && window.innerWidth <= 768) {
-                px = Math.max(24, px); // Au moins 24px sur mobile pour les éléments admin
-            } else if (isAdminMode) {
-                px = Math.max(16, px); // Au moins 16px sur desktop pour les éléments admin
+            // Taille minimale selon le mode et le device
+            if (isAdminMode) {
+                // Éléments admin : plus grands pour manipulation
+                if (window.innerWidth <= 768) {
+                    px = Math.max(24, px); // Au moins 24px sur mobile pour les éléments admin
+                } else {
+                    px = Math.max(16, px); // Au moins 16px sur desktop pour les éléments admin
+                }
+            } else {
+                // Hotspots : taille standard pour clic/touch
+                if (window.innerWidth <= 768) {
+                    px = Math.max(20, px); // Au moins 20px sur mobile pour les hotspots
+                } else {
+                    px = Math.max(16, px); // Au moins 16px sur desktop pour les hotspots
+                }
             }
             
             el.style.width = px + 'px';
@@ -2977,7 +2986,7 @@
         hotspot.dataset.x = String(x);
         hotspot.dataset.y = String(y);
         hotspot.dataset.elementKey = getElementKey(type, elementData);
-        hotspot.dataset.size = String(elementData?.size || 0.02);
+        hotspot.dataset.size = String(elementData?.size || 0.04);
         
         // Position initiale
         positionElement(hotspot, x, y, false);
