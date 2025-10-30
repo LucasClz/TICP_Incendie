@@ -2,8 +2,8 @@
 <html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tournées Incendie - Gestion des Inspections (PRM)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=0.5, maximum-scale=3.0">
+    <title>Tournées Incendie - Gestion des Inspections (MR)</title>
     <!-- Version 1.1 - Export/Import Notations ajouté le 27/10/2025 -->
     <!-- Version 1.2 - Stockage étendu : 500MB avec IndexedDB, 50MB localStorage (28/10/2025) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -39,6 +39,43 @@
             background-color: var(--bg-primary);
             color: var(--text-primary);
             transition: background-color 0.3s, color 0.3s;
+            min-width: 320px; /* Support mobile jusqu'à 320px */
+            overflow-x: auto;
+        }
+        
+        /* Support mobile et tablette */
+        html {
+            min-width: 320px;
+            overflow-x: auto;
+        }
+        
+        /* Optimisation pour l'affichage 100% */
+        @media screen and (min-width: 1024px) {
+            .left-panel {
+                flex-shrink: 0;
+                width: 280px !important;
+            }
+            
+            .kpi-card {
+                white-space: nowrap;
+                overflow: visible;
+                font-size: 0.875rem;
+            }
+            
+            .kpi-card .text-base {
+                font-size: 0.875rem;
+                line-height: 1.2;
+            }
+            
+            .kpi-card .text-\[10px\] {
+                font-size: 0.625rem;
+                line-height: 1;
+            }
+            
+            /* Assurer que tous les indicateurs sont visibles */
+            .space-y-1\.5 > * + * {
+                margin-top: 0.375rem;
+            }
         }
         
         .bg-white { background-color: var(--card-bg) !important; }
@@ -79,6 +116,49 @@
             color: #d1d5db !important;
         }
         
+        /* Labels et textes de formulaires en mode sombre */
+        .dark-mode .text-gray-700 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode label {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-xs {
+            color: var(--text-secondary) !important;
+        }
+        
+        .dark-mode .font-medium {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration de la visibilité des boutons radio et textes associés */
+        .dark-mode .text-green-600 {
+            color: #4ade80 !important;
+            font-weight: 600;
+        }
+        
+        .dark-mode .text-red-600 {
+            color: #f87171 !important;
+            font-weight: 600;
+        }
+        
+        .dark-mode .text-gray-600 {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+        }
+        
+        /* Amélioration des éléments de critères */
+        .dark-mode .criteria-grid label {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .criteria-grid .text-sm {
+            color: var(--text-primary) !important;
+            font-weight: 500;
+        }
+        
         /* Cartes de non-conformités */
         .dark-mode .bg-red-50 {
             background-color: rgba(127, 29, 29, 0.2) !important;
@@ -114,6 +194,405 @@
             color: #93c5fd !important;
         }
         
+        /* Messages d'information colorés en mode sombre */
+        .dark-mode .text-yellow-800 {
+            color: #fbbf24 !important;
+        }
+        
+        .dark-mode .text-green-800 {
+            color: #4ade80 !important;
+        }
+        
+        .dark-mode .text-green-600 {
+            color: #4ade80 !important;
+        }
+        
+        .dark-mode .text-green-700 {
+            color: #4ade80 !important;
+        }
+        
+        /* Backgrounds pour les bandeaux colorés en mode sombre */
+        .dark-mode .bg-yellow-50 {
+            background-color: rgba(251, 191, 36, 0.15) !important;
+        }
+        
+        .dark-mode .border-yellow-200 {
+            border-color: rgba(251, 191, 36, 0.4) !important;
+        }
+        
+        .dark-mode .border-yellow-300 {
+            border-color: rgba(251, 191, 36, 0.6) !important;
+        }
+        
+        .dark-mode .bg-green-50 {
+            background-color: rgba(74, 222, 128, 0.15) !important;
+        }
+        
+        .dark-mode .border-green-200 {
+            border-color: rgba(74, 222, 128, 0.4) !important;
+        }
+        
+        /* Amélioration des statistiques du tableau de bord en mode sombre */
+        .dark-mode .bg-blue-100 {
+            background-color: rgba(59, 130, 246, 0.2) !important;
+        }
+        
+        .dark-mode .bg-green-100 {
+            background-color: rgba(34, 197, 94, 0.2) !important;
+        }
+        
+        .dark-mode .bg-red-100 {
+            background-color: rgba(239, 68, 68, 0.2) !important;
+        }
+        
+        .dark-mode .bg-purple-100 {
+            background-color: rgba(147, 51, 234, 0.2) !important;
+        }
+        
+        .dark-mode .bg-yellow-100 {
+            background-color: rgba(251, 191, 36, 0.2) !important;
+        }
+        
+        .dark-mode .bg-blue-800 {
+            background-color: rgba(59, 130, 246, 0.3) !important;
+        }
+        
+        .dark-mode .bg-green-800 {
+            background-color: rgba(34, 197, 94, 0.3) !important;
+        }
+        
+        .dark-mode .bg-red-800 {
+            background-color: rgba(239, 68, 68, 0.3) !important;
+        }
+        
+        .dark-mode .bg-purple-800 {
+            background-color: rgba(147, 51, 234, 0.3) !important;
+        }
+        
+        .dark-mode .bg-yellow-800 {
+            background-color: rgba(251, 191, 36, 0.3) !important;
+        }
+        
+        /* Couleurs de texte spécifiques pour les statistiques en mode sombre */
+        .dark-mode .text-blue-900 {
+            color: #dbeafe !important;
+        }
+        
+        .dark-mode .text-blue-100 {
+            color: #dbeafe !important;
+        }
+        
+        .dark-mode .text-blue-50 {
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .text-green-900 {
+            color: #dcfce7 !important;
+        }
+        
+        .dark-mode .text-green-100 {
+            color: #dcfce7 !important;
+        }
+        
+        .dark-mode .text-green-50 {
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .text-red-900 {
+            color: #fee2e2 !important;
+        }
+        
+        .dark-mode .text-red-100 {
+            color: #fee2e2 !important;
+        }
+        
+        .dark-mode .text-red-50 {
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .text-purple-900 {
+            color: #f3e8ff !important;
+        }
+        
+        .dark-mode .text-purple-100 {
+            color: #f3e8ff !important;
+        }
+        
+        .dark-mode .text-purple-50 {
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .text-yellow-900 {
+            color: #fef3c7 !important;
+        }
+        
+        .dark-mode .text-yellow-100 {
+            color: #fef3c7 !important;
+        }
+        
+        .dark-mode .text-yellow-50 {
+            color: #ffffff !important;
+        }
+        
+        /* Amélioration générale des cartes de statistiques */
+        .dark-mode .font-medium {
+            font-weight: 600 !important;
+        }
+        
+        .dark-mode .font-bold {
+            font-weight: 700 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Amélioration du contraste pour les cartes colorées */
+        .dark-mode .bg-blue-100.dark\:bg-blue-800,
+        .dark-mode .bg-green-100.dark\:bg-green-800,
+        .dark-mode .bg-red-100.dark\:bg-red-800,
+        .dark-mode .bg-purple-100.dark\:bg-purple-800,
+        .dark-mode .bg-yellow-100.dark\:bg-yellow-800 {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Amélioration générale des textes et titres */
+        .dark-mode h1,
+        .dark-mode h2,
+        .dark-mode h3,
+        .dark-mode h4,
+        .dark-mode h5,
+        .dark-mode h6 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode p {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode span {
+            color: inherit;
+        }
+        
+        /* Styles pour les boutons en mode sombre */
+        .dark-mode button:not([class*="bg-"]) {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration des placeholders */
+        .dark-mode input::placeholder,
+        .dark-mode textarea::placeholder,
+        .dark-mode select::placeholder {
+            color: var(--text-secondary) !important;
+            opacity: 0.8;
+        }
+        
+        /* Amélioration des icônes et couleurs de checklist en mode sombre */
+        .dark-mode .text-gray-300 {
+            color: #6b7280 !important;
+        }
+        
+        .dark-mode .text-gray-400 {
+            color: #9ca3af !important;
+        }
+        
+        .dark-mode .text-gray-500 {
+            color: #9ca3af !important;
+        }
+        
+        .dark-mode .text-gray-600 {
+            color: #d1d5db !important;
+        }
+        
+        .dark-mode .text-gray-700 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-gray-800 {
+            color: var(--text-primary) !important;
+        }
+        
+        .dark-mode .text-gray-900 {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration spécifique des backgrounds de hover */
+        .dark-mode .hover\:bg-blue-50:hover {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+        
+        .dark-mode .hover\:text-gray-900:hover {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration des bordures en mode sombre */
+        .dark-mode .border-gray-200 {
+            border-color: var(--border-color) !important;
+        }
+        
+        .dark-mode .from-gray-50 {
+            background: linear-gradient(to bottom right, var(--bg-tertiary), var(--card-bg)) !important;
+        }
+        
+        .dark-mode .to-white {
+            background: linear-gradient(to bottom right, var(--bg-tertiary), var(--card-bg)) !important;
+        }
+        
+        /* Amélioration spécifique des boutons avec icônes ✓ et ✗ */
+        .dark-mode .text-blue-600 {
+            color: #60a5fa !important;
+        }
+        
+        .dark-mode .hover\:text-blue-800:hover {
+            color: #93c5fd !important;
+        }
+        
+        .dark-mode .hover\:text-gray-700:hover {
+            color: #d1d5db !important;
+        }
+        
+        /* Amélioration des icônes de validation dans les listes */
+        .dark-mode span.text-green-600.font-bold {
+            color: #4ade80 !important;
+            text-shadow: 0 0 2px rgba(74, 222, 128, 0.5);
+            font-size: 1.1em;
+        }
+        
+        .dark-mode span.text-gray-300 {
+            color: #9ca3af !important;
+            opacity: 0.7;
+        }
+        
+        /* Amélioration des messages de comptage */
+        .dark-mode .text-xs.text-gray-500 {
+            color: var(--text-secondary) !important;
+            font-weight: 500;
+        }
+        
+        /* Amélioration spécifique des badges de progression et éléments bleus */
+        .dark-mode .font-bold.text-blue-600 {
+            color: #60a5fa !important;
+            text-shadow: none;
+        }
+        
+        .dark-mode .text-2xl.font-bold.text-blue-600 {
+            color: #60a5fa !important;
+            text-shadow: 0 0 3px rgba(96, 165, 250, 0.3);
+        }
+        
+        /* Amélioration des titres de sections avec emojis */  
+        .dark-mode .text-sm.font-semibold.text-gray-800 {
+            color: var(--text-primary) !important;
+        }
+        
+        /* Amélioration des éléments de comptage fraction */
+        .dark-mode .text-xs.text-gray-500.font-medium {
+            color: var(--text-secondary) !important;
+            background-color: rgba(107, 114, 128, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        /* Optimisation du panneau de notation réduit */
+        #notationPanel {
+            font-size: 0.875rem;
+        }
+        
+        #notationPanel .criteria-grid label {
+            font-size: 0.75rem;
+        }
+        
+        #notationPanel .criteria-grid input[type="radio"] {
+            transform: scale(0.9);
+        }
+        
+        #notationPanel h3 {
+            line-height: 1.2;
+        }
+        
+        /* Responsive design pour mobile et tablette */
+        @media (max-width: 768px) {
+            /* Mobile: panneau pleine largeur en overlay */
+            #notationPanel {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 1001 !important;
+                background: var(--bg-primary) !important;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            #notationPanel.show {
+                transform: translateX(0);
+            }
+            
+            /* Réduire la taille du panneau gauche sur mobile */
+            .left-panel {
+                width: 60px !important;
+                min-width: 60px !important;
+            }
+            
+            .left-panel:not(.collapsed) {
+                width: 280px !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                z-index: 999 !important;
+                background: var(--bg-primary);
+                box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            }
+            
+            /* Overlay pour fermer le panneau latéral */
+            .mobile-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 998;
+                display: none;
+            }
+            
+            .mobile-overlay.show {
+                display: block;
+            }
+            
+            /* Adapter le contenu principal */
+            .main-content {
+                margin-left: 60px !important;
+                width: calc(100% - 60px) !important;
+            }
+            
+            /* Header responsive */
+            header {
+                padding: 0.75rem 1rem !important;
+            }
+            
+            header h1 {
+                font-size: 1.25rem !important;
+            }
+            
+            /* Modales pleine largeur sur mobile */
+            .modal-content {
+                max-width: 95vw !important;
+                max-height: 95vh !important;
+                margin: 1rem !important;
+                padding: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 1400px) and (min-width: 769px) {
+            /* Tablette: panneau plus compact */
+            #notationPanel {
+                width: 220px !important;
+            }
+        }
+        
         .modal-content {
             background-color: var(--modal-bg) !important;
             color: var(--text-primary) !important;
@@ -128,6 +607,18 @@
         .dark-mode input::placeholder,
         .dark-mode textarea::placeholder {
             color: var(--text-secondary);
+        }
+        
+        /* Sélecteurs et options en mode sombre */
+        .dark-mode select {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        .dark-mode select option {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
         }
         
         /* Visionneuse de photos */
@@ -277,6 +768,7 @@
             position: relative;
             width: 100%;
             height: 100%;
+            min-height: calc(100vh - 150px);
             overflow: hidden;
             border: 2px solid #e5e7eb;
             border-radius: 8px;
@@ -313,23 +805,32 @@
         .criteria-grid {
             display: grid;
             grid-template-columns: 1fr auto auto auto;
-            gap: 8px;
+            gap: 4px;
             align-items: center;
+            padding: 2px 0;
         }
         
         .kpi-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 0.375rem 0.25rem;
+            padding: 0.25rem 0.5rem;
             border-radius: 4px;
             text-align: center;
+            min-height: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0.875rem;
         }
         
         /* Ajout d'un style spécifique pour l'indicateur Bâtiment */
         .kpi-card.batiment {
             background: linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%);
-            border: 1.5px solid #2563eb;
+            border: 1px solid #2563eb;
             box-shadow: 0 2px 4px -1px rgba(59, 130, 246, 0.3);
+            min-height: 40px;
+            font-weight: 600;
         }
         
         .admin-element {
@@ -399,6 +900,9 @@
             transition: width 0.25s ease;
             min-width: 56px; /* allow compact collapsed state */
             position: relative;
+            width: 280px; /* largeur optimisée pour mode 100% */
+            max-height: calc(100vh - 80px); /* limiter la hauteur */
+            overflow-y: auto; /* scroll si nécessaire */
         }
         .left-panel.collapsed {
             width: 56px !important; /* collapsed width */
@@ -469,7 +973,7 @@
                 <div class="flex items-center gap-4">
                     <h1 class="text-2xl font-bold text-gray-900">Tournées Incendie</h1>
                     <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200">
-                        PRM uniquement
+                        MR uniquement
                     </span>
                     <!-- Indicateur de stockage -->
                     <div id="storageIndicator" class="text-xs" title="Utilisation du stockage local">
@@ -511,7 +1015,7 @@
         <!-- Main Content -->
         <div class="flex-1 flex overflow-hidden">
             <!-- Left Panel: KPIs only (modified to be collapsible) -->
-            <div id="leftPanel" class="left-panel w-72 bg-white border-r flex flex-col">
+            <div id="leftPanel" class="left-panel bg-white border-r flex flex-col">
                 <div class="p-3 border-b flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <button id="leftPanelToggleBtn" class="collapse-toggle" title="Réduire / Développer">
@@ -525,24 +1029,29 @@
                 </div>
                 <div class="panel-details flex flex-col flex-1">
                     <!-- Zone Selection Dropdown -->
-                    <div class="p-4 border-b">
-                        <h2 class="text-lg font-semibold mb-3">Zone Sélectionnée</h2>
+                    <div class="p-3 border-b">
+                        <h2 class="text-base font-semibold mb-2">Zone Sélectionnée</h2>
                         <select id="zoneSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                             <option value="">Sélectionnez une zone...</option>
                             <!-- Options will be populated here -->
                         </select>
+                        <div class="mt-1 p-1.5 bg-blue-50 border border-blue-200 rounded-md">
+                            <div class="text-xs text-blue-800">
+                                <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
+                            </div>
+                        </div>
 
                         <!-- Sort UI removed as requested; zones are displayed sorted by name A→Z -->
-                        <label class="flex items-center mt-2">
+                        <label class="flex items-center mt-1.5">
                             <input type="checkbox" id="filterNonCompliant" onchange="renderZoneList(); if (currentZone) addHotspots();" class="mr-2">
-                            <span class="text-sm">Afficher seulement les zones non conformes</span>
+                            <span class="text-xs">Afficher seulement les zones non conformes</span>
                         </label>
                     </div>
 
                     <!-- KPIs -->
-                    <div class="p-1 flex-1">
-                        <h2 class="text-sm font-semibold mb-1.5">Indicateurs</h2>
-                        <div class="space-y-1">
+                    <div class="p-2 flex-1 overflow-y-auto">
+                        <h2 class="text-sm font-semibold mb-2">Indicateurs</h2>
+                        <div class="space-y-1.5">
                             <div class="kpi-card">
                                 <div class="text-base font-bold" id="kpiExtincteurs">0%</div>
                                 <div class="text-[10px] opacity-90 leading-tight">Extincteurs</div>
@@ -566,8 +1075,8 @@
             </div>
 
             <!-- Center Panel: Plan -->
-            <div class="flex-1 p-4 flex flex-col min-w-0 overflow-hidden">
-                <div class="flex justify-between items-center mb-4 flex-shrink-0">
+            <div class="flex-1 p-3 flex flex-col min-w-0 overflow-hidden">
+                <div class="flex justify-between items-center mb-2 flex-shrink-0">
                     <div class="flex items-center gap-3">
                         <h2 class="text-lg font-semibold" id="currentZoneName">Sélectionnez une zone</h2>
                         <select id="floorSelect" class="px-2 py-1 border border-gray-300 rounded-md text-sm hidden"></select>
@@ -576,7 +1085,7 @@
                         Checklist Zone
                     </button>
                 </div>
-                <div class="flex-1 flex items-center justify-center overflow-hidden" style="min-height: 0;">
+                <div class="flex-1 flex items-center justify-center overflow-hidden" style="min-height: 0; height: calc(100vh - 150px);">
                     <div id="planContainer" class="plan-container hidden" style="width: 100%; height: 100%;">
                         <div id="planWrapper" class="plan-wrapper">
                             <img id="planImage" class="plan-image" alt="Plan de la zone">
@@ -591,12 +1100,12 @@
             </div>
 
             <!-- Right Panel: Notation -->
-            <div class="w-[500px] bg-white border-l flex flex-col" id="notationPanel">
-                <div class="flex items-center justify-between p-4 border-b flex-shrink-0">
-                    <h2 class="text-lg font-semibold">Notation</h2>
-                    <button id="notationCloseBtn" class="text-sm text-gray-600 px-2 py-1 rounded hover:bg-gray-100">Fermer</button>
+            <div class="w-[250px] bg-white border-l flex flex-col" id="notationPanel">
+                <div class="flex items-center justify-between p-2 border-b flex-shrink-0">
+                    <h2 class="text-base font-semibold">Notation</h2>
+                    <button id="notationCloseBtn" class="text-xs text-gray-600 px-1 py-1 rounded hover:bg-gray-100">✕</button>
                 </div>
-                <div id="notationContent" class="text-gray-500 text-center p-4 overflow-y-auto flex-1">
+                <div id="notationContent" class="text-gray-500 text-center p-2 overflow-y-auto flex-1">
                     <div class="text-4xl mb-2">📝</div>
                     <p>Cliquez sur un élément du plan pour le noter</p>
                 </div>
@@ -611,7 +1120,7 @@
                 <div class="flex items-center gap-4">
                     <h1 class="text-2xl font-bold text-gray-900">Mode Administration</h1>
                     <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200">
-                        PRM uniquement
+                        MR uniquement
                     </span>
                 </div>
                 <button id="exitAdminBtn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
@@ -637,6 +1146,11 @@
 
                 <div class="mt-6">
                     <h3 class="font-semibold mb-3">Zones Existantes</h3>
+                    <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                        <div class="text-xs text-blue-800">
+                            <strong>📌 Filtre actif :</strong> Affichage des zones <strong>MR uniquement</strong>
+                        </div>
+                    </div>
                     <div id="adminZoneList" class="space-y-2">
                         <!-- Admin zone list -->
                     </div>
@@ -1026,33 +1540,33 @@
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Graphique évolution des non-conformités PRM -->
+                            <!-- Graphique évolution des non-conformités MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Évolution des Non-Conformités - PRM</h3>
+                                <h3 class="text-lg font-semibold mb-4">Évolution des Non-Conformités - MR</h3>
                                 <canvas id="nonConformitiesChart"></canvas>
                             </div>
                             
-                            <!-- Graphique évolution de la conformité PRM -->
+                            <!-- Graphique évolution de la conformité MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Évolution de la Conformité (%) - PRM</h3>
+                                <h3 class="text-lg font-semibold mb-4">Évolution de la Conformité (%) - MR</h3>
                                 <canvas id="conformityEvolutionChart"></canvas>
                             </div>
                             
-                            <!-- Graphique taux de conformité par catégorie PRM -->
+                            <!-- Graphique taux de conformité par catégorie MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Taux de Conformité - Catégorie PRM</h3>
+                                <h3 class="text-lg font-semibold mb-4">Taux de Conformité - Catégorie MR</h3>
                                 <canvas id="categoryChart"></canvas>
                             </div>
                             
-                            <!-- Statistiques globales PRM -->
+                            <!-- Statistiques globales MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow">
-                                <h3 class="text-lg font-semibold mb-4">Statistiques Globales - PRM</h3>
+                                <h3 class="text-lg font-semibold mb-4">Statistiques Globales - MR</h3>
                                 <div id="globalStats" class="space-y-2"></div>
                             </div>
                             
-                            <!-- Graphique répartition par type d'élément PRM -->
+                            <!-- Graphique répartition par type d'élément MR -->
                             <div class="bg-white dark:bg-gray-700 p-4 rounded-lg shadow col-span-1 md:col-span-2">
-                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités par Type - PRM</h3>
+                                <h3 class="text-lg font-semibold mb-4">Répartition des Non-Conformités par Type - MR</h3>
                                 <div class="flex justify-center">
                                     <canvas id="elementTypeChart" style="max-width: 400px;"></canvas>
                                 </div>
@@ -1063,28 +1577,33 @@
                 
                 document.body.appendChild(modal);
                 
-                // Générer les graphiques
+                // Générer les graphiques après un délai plus long pour s'assurer que les données sont chargées
                 setTimeout(() => {
+                    console.log('Démarrage génération des graphiques MR...');
+                    console.log('Données disponibles:', { zones: zones?.length, inspections: inspections?.length, currentCampaign });
+                    
                     generateNonConformitiesChart();
                     generateConformityEvolutionChart();
                     generateCategoryChart();
                     generateGlobalStats();
                     generateElementTypeChart();
-                }, 100);
+                    
+                    console.log('Fin de génération des graphiques MR');
+                }, 500);
             }
             
             function generateNonConformitiesChart() {
-                // Filtrer uniquement les zones PRM
-                const prmZoneIds = zones.filter(zone => {
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
                     const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                    return cat === 'PRM';
+                    return cat === 'MR';
                 }).map(z => z.id);
                 
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 const data = campaigns.map(campaign => {
                     return inspections.filter(insp => 
                         insp.campaign === campaign && 
-                        prmZoneIds.includes(insp.zoneId) &&
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1120,21 +1639,21 @@
             }
             
             function generateConformityEvolutionChart() {
-                // Filtrer uniquement les zones PRM
-                const prmZoneIds = zones.filter(zone => {
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
                     const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                    return cat === 'PRM';
+                    return cat === 'MR';
                 }).map(z => z.id);
                 
                 const campaigns = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
                 const conformityRates = campaigns.map(campaign => {
                     const totalInspections = inspections.filter(insp => 
                         insp.campaign === campaign && 
-                        prmZoneIds.includes(insp.zoneId)
+                        mrZoneIds.includes(insp.zoneId)
                     ).length;
                     const nonConformInspections = inspections.filter(insp => 
                         insp.campaign === campaign && 
-                        prmZoneIds.includes(insp.zoneId) &&
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
@@ -1185,13 +1704,34 @@
             }
             
             function generateCategoryChart() {
-                const categories = ['PRM']; // Filtré uniquement sur PRM
+                console.log('Génération du graphique de catégorie MR...');
+                
+                // Vérifier que les données sont disponibles
+                if (!zones || !inspections || !currentCampaign) {
+                    console.error('Données manquantes pour generateCategoryChart:', { zones: !!zones, inspections: !!inspections, currentCampaign });
+                    return;
+                }
+                
+                // Détruire le graphique existant s'il existe
+                const ctx = document.getElementById('categoryChart');
+                if (!ctx) {
+                    console.error('Element categoryChart non trouvé');
+                    return;
+                }
+                
+                if (window.categoryChartInstance) {
+                    window.categoryChartInstance.destroy();
+                }
+                
+                // Filtrer uniquement la catégorie MR
+                const categories = ['MR'];
                 const stats = categories.map(category => {
                     const categoryZones = zones.filter(zone => {
                         const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
                         return cat === category;
                     });
                     
+                    console.log('Zones MR trouvées pour le graphique:', categoryZones.length);
                     const zoneIds = categoryZones.map(z => z.id);
                     const totalInspections = inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
@@ -1205,15 +1745,16 @@
                         Object.values(insp.criteria).includes('non')
                     ).length;
                     
+                    console.log('Stats MR - Total:', totalInspections, 'Non-conformes:', nonConformInspections);
+                    
                     return totalInspections > 0 
                         ? Math.round(((totalInspections - nonConformInspections) / totalInspections) * 100)
                         : 0;
                 });
                 
-                const ctx = document.getElementById('categoryChart');
-                if (!ctx) return;
+                console.log('Données du graphique de catégorie:', stats);
                 
-                new Chart(ctx, {
+                window.categoryChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: categories,
@@ -1254,27 +1795,41 @@
             }
             
             function generateGlobalStats() {
-                // Filtrer uniquement les zones PRM
-                const prmZones = zones.filter(zone => {
-                    const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                    return cat === 'PRM';
-                });
-                const prmZoneIds = prmZones.map(z => z.id);
+                console.log('Génération des statistiques globales MR...');
                 
-                const totalZones = prmZones.length;
+                // Vérifier que les données sont disponibles
+                if (!zones || !inspections || !currentCampaign) {
+                    console.error('Données manquantes pour generateGlobalStats:', { zones: !!zones, inspections: !!inspections, currentCampaign });
+                    return;
+                }
+                
+                const statsDiv = document.getElementById('globalStats');
+                if (!statsDiv) {
+                    console.error('Element globalStats non trouvé');
+                    return;
+                }
+                
+                // Filtrer uniquement les zones MR
+                const mrZones = zones.filter(zone => {
+                    const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return cat === 'MR';
+                });
+                const mrZoneIds = mrZones.map(z => z.id);
+                
+                const totalZones = mrZones.length;
                 const totalInspections = inspections.filter(i => 
                     i.campaign === currentCampaign && 
-                    prmZoneIds.includes(i.zoneId)
+                    mrZoneIds.includes(i.zoneId)
                 ).length;
                 const nonConformities = inspections.filter(i => 
                     i.campaign === currentCampaign && 
-                    prmZoneIds.includes(i.zoneId) &&
+                    mrZoneIds.includes(i.zoneId) &&
                     i.criteria && 
                     Object.values(i.criteria).includes('non')
                 ).length;
                 const withPhotos = inspections.filter(i => 
                     i.campaign === currentCampaign && 
-                    prmZoneIds.includes(i.zoneId) &&
+                    mrZoneIds.includes(i.zoneId) &&
                     i.photos && i.photos.length > 0
                 ).length;
                 
@@ -1282,12 +1837,11 @@
                     ? Math.round(((totalInspections - nonConformities) / totalInspections) * 100)
                     : 0;
                 
-                const statsDiv = document.getElementById('globalStats');
-                if (!statsDiv) return;
+                console.log('Statistiques MR:', { totalZones, totalInspections, nonConformities, withPhotos, conformityRate });
                 
                 statsDiv.innerHTML = `
                     <div class="flex justify-between p-3 bg-blue-100 dark:bg-blue-800 rounded">
-                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones PRM:</span>
+                        <span class="font-medium text-blue-900 dark:text-blue-100">Total Zones MR:</span>
                         <span class="font-bold text-blue-900 dark:text-blue-50">${totalZones}</span>
                     </div>
                     <div class="flex justify-between p-3 bg-green-100 dark:bg-green-800 rounded">
@@ -1310,10 +1864,29 @@
             }
             
             function generateElementTypeChart() {
-                // Filtrer uniquement les zones PRM
-                const prmZoneIds = zones.filter(zone => {
+                console.log('Génération du graphique par type d\'élément MR...');
+                
+                // Vérifier que les données sont disponibles
+                if (!zones || !inspections || !currentCampaign) {
+                    console.error('Données manquantes pour generateElementTypeChart:', { zones: !!zones, inspections: !!inspections, currentCampaign });
+                    return;
+                }
+                
+                // Détruire le graphique existant s'il existe
+                const ctx = document.getElementById('elementTypeChart');
+                if (!ctx) {
+                    console.error('Element elementTypeChart non trouvé');
+                    return;
+                }
+                
+                if (window.elementTypeChartInstance) {
+                    window.elementTypeChartInstance.destroy();
+                }
+                
+                // Filtrer uniquement les zones MR
+                const mrZoneIds = zones.filter(zone => {
                     const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                    return cat === 'PRM';
+                    return cat === 'MR';
                 }).map(z => z.id);
                 
                 const types = ['extincteur', 'dm', 'sortie', 'zone'];
@@ -1327,17 +1900,17 @@
                 const data = types.map(type => {
                     return inspections.filter(insp => 
                         insp.campaign === currentCampaign && 
-                        prmZoneIds.includes(insp.zoneId) &&
+                        mrZoneIds.includes(insp.zoneId) &&
                         insp.type === type &&
                         insp.criteria && 
                         Object.values(insp.criteria).includes('non')
                     ).length;
                 });
                 
-                const ctx = document.getElementById('elementTypeChart');
-                if (!ctx) return;
+                console.log('Données graphique par type MR:', data, 'Types:', types);
+                console.log('Zones MR filtrées:', mrZoneIds.length);
                 
-                const chart = new Chart(ctx, {
+                window.elementTypeChartInstance = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: types.map(t => typeLabels[t]),
@@ -1818,8 +2391,8 @@
                     }
                 }
                 
-                // Nettoyage préventif si > 90% (augmenté depuis 80%)
-                if (parseFloat(storageInfo.percent) > 90) {
+                // Nettoyage préventif si > 80%
+                if (parseFloat(storageInfo.percent) > 80) {
                     const cleaned = autoCleanStorage();
                     if (cleaned) {
                         console.log(`Nettoyage automatique: ${cleaned.photosRemoved} photos supprimées`);
@@ -2413,6 +2986,15 @@
                     <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 
+                <!-- Bouton Tout valider pour la zone -->
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <button onclick="validateAllZoneCriteria()" 
+                            class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors">
+                        ✅ Tout valider la zone (OUI)
+                    </button>
+                    <p class="text-xs text-green-700 mt-1 text-center">Met tous les critères de zone à "Oui" d'un seul clic</p>
+                </div>
+                
                 <div class="space-y-6 max-h-96 overflow-y-auto">
                     ${Object.entries(ZONE_CRITERIA).map(([section, criteria]) => `
 
@@ -2562,10 +3144,11 @@
         const container = document.getElementById('zoneSelect');
         const filterChecked = document.getElementById('filterNonCompliant')?.checked;
 
-        // Filtre fixe par défaut : catégorie PRM uniquement
-        let filteredZones = zones.filter(zone => {
-            const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-            return cat === 'PRM';
+        // Filtre FIXE : uniquement MR
+        let filteredZones = zones.filter(z => {
+            const cat = z.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
         });
 
         // Filtre optionnel : non-conformités
@@ -2774,29 +3357,29 @@
         
         container.innerHTML = `
             <div class="text-left">
-                <div class="mb-4 pb-3 border-b">
-                    <h3 class="font-semibold text-lg">${title}</h3>
+                <div class="mb-2 pb-2 border-b">
+                    <h3 class="font-semibold text-sm leading-tight">${title}</h3>
                     <div class="text-sm text-gray-600 mt-2">
                         Avancement: <span class="font-bold text-blue-600">${percentage}%</span> (${completedCount}/${enabledCriteria.length})
                     </div>
                 </div>
                 
                 ${(type === 'extincteur' || type === 'dm') ? `
-                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <h4 class="text-sm font-semibold text-yellow-800 mb-3">✏️ Modifier l'élément</h4>
-                    <div class="space-y-3">
+                <div class="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <h4 class="text-xs font-semibold text-yellow-800 mb-2">✏️ Modifier</h4>
+                    <div class="space-y-2">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Numéro ${type === 'extincteur' ? 'de l\'extincteur' : 'du DM'}</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">N° ${type === 'extincteur' ? 'extincteur' : 'DM'}</label>
                             <input type="text" id="elementIdInput" value="${data.id || ''}" 
                                 onchange="updateElementId(this.value)"
                                 placeholder="${type === 'extincteur' ? 'EXT-001' : 'DM-001'}"
-                                class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm font-semibold">
+                                class="w-full px-2 py-1 border border-yellow-300 rounded text-xs font-semibold">
                         </div>
                         ${type === 'extincteur' ? `
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Type d'extincteur</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Type</label>
                             <select id="elementTypeSelect" onchange="updateElementType(this.value)"
-                                class="w-full px-3 py-2 border border-yellow-300 rounded-md text-sm">
+                                class="w-full px-2 py-1 border border-yellow-300 rounded text-xs">
                                 <option value="">-- Sélectionner --</option>
                                 ${EXTINGUISHER_TYPES.map(t => `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                             </select>
@@ -2806,10 +3389,19 @@
                 </div>
                 ` : ''}
                 
-                <div class="space-y-4">
+                <!-- Bouton Tout valider -->
+                <div class="mb-2 p-2 bg-green-50 border border-green-200 rounded">
+                    <button onclick="validateAllCriteria()" 
+                            class="w-full px-2 py-1 bg-green-600 hover:bg-green-700 text-white font-medium rounded text-xs transition-colors">
+                        ✅ Tout OUI
+                    </button>
+                    <p class="text-xs text-green-700 mt-1 text-center leading-tight">Valide tous les critères</p>
+                </div>
+                
+                <div class="space-y-2">
                     ${Object.entries(criteria).map(([key, label]) => `
                         <div class="criteria-grid">
-                            <label class="text-sm font-medium">${label}</label>
+                            <label class="text-xs font-medium leading-tight">${label}</label>
                             <label class="flex items-center">
                                 <input type="radio" name="${key}" value="oui" 
                                     ${inspection.criteria[key] === 'oui' ? 'checked' : ''}
@@ -3073,6 +3665,55 @@
             renderAdminElements();
             scheduleReposition(100);
         }
+    }
+
+    // Valider tous les critères à "oui"
+    function validateAllCriteria() {
+        if (!currentElement) return;
+        
+        const { type, data } = currentElement;
+        const criteria = CRITERIA[type] || {};
+        const inspection = getElementInspection(type, data);
+        
+        if (!inspection) return;
+        
+        // Vérifier s'il y a des critères à valider
+        const criteriaCount = Object.keys(criteria).length;
+        if (criteriaCount === 0) return;
+        
+        // Mettre tous les critères à "oui"
+        Object.keys(criteria).forEach(key => {
+            inspection.criteria[key] = 'oui';
+        });
+        
+        inspection.timestamp = new Date().toISOString();
+        saveInspections();
+        updateKPIs();
+        
+        // Rafraîchir le panneau de notation pour montrer les changements
+        renderNotationPanel();
+        
+        // Mettre à jour l'état visuel des hotspots et éléments admin
+        const elementKey = inspection.elementKey;
+        const planWrapper = document.getElementById('planWrapper');
+        if (planWrapper) {
+            planWrapper.querySelectorAll('.hotspot').forEach(h => {
+                if (h.dataset.elementKey === elementKey) {
+                    h.classList.add('completed');
+                }
+            });
+        }
+        
+        document.querySelectorAll('.admin-element').forEach(a => {
+            if (a.dataset.elementKey === elementKey) {
+                a.classList.add('completed');
+            }
+        });
+        
+        // Recréer les hotspots et éléments admin pour assurer la cohérence visuelle
+        addHotspots();
+        renderAdminElements();
+        scheduleReposition(100);
     }
 
     // Update comments
@@ -3392,6 +4033,45 @@
         }
     }
 
+    // Valider tous les critères de zone à "oui"
+    function validateAllZoneCriteria() {
+        if (!currentZone) return;
+        
+        const inspection = getZoneInspection() || createZoneInspection();
+        
+        // Récupérer tous les critères de zone activés
+        let allZoneCriteria = [];
+        Object.entries(ZONE_CRITERIA).forEach(([section, criteria]) => {
+            if (currentZone.enabledCriteria?.zone?.[section]) {
+                currentZone.enabledCriteria.zone[section].forEach(key => {
+                    allZoneCriteria.push(`${section}_${key}`);
+                });
+            }
+        });
+        
+        if (allZoneCriteria.length === 0) return;
+        
+        // Mettre tous les critères à "oui"
+        allZoneCriteria.forEach(fullKey => {
+            inspection.criteria[fullKey] = 'oui';
+        });
+        
+        inspection.timestamp = new Date().toISOString();
+        saveInspections();
+        updateKPIs();
+        
+        // Mettre à jour l'affichage de la modal si elle est ouverte
+        updateZoneChecklistModalProgress();
+        
+        // Rafraîchir tous les boutons radio dans la modal
+        allZoneCriteria.forEach(fullKey => {
+            const radioButton = document.querySelector(`input[name="${fullKey}"][value="oui"]`);
+            if (radioButton) {
+                radioButton.checked = true;
+            }
+        });
+    }
+
     // Compute zone progress: returns { total, completed, percentage }
     function computeZoneProgress() {
         if (!currentZone) return { total: 0, completed: 0, percentage: 0 };
@@ -3432,8 +4112,9 @@
 
     // Show export modal
     function showExportModal() {
-        const deleteButtonText = 'Supprimer toutes les notations';
-        const deleteWarningText = '⚠️ Supprime <strong>TOUTES</strong> les notations pour la campagne actuelle. Cette action est irréversible !';
+        // Filtre FIXE : uniquement MR
+        const deleteButtonText = 'Supprimer notations (MR)';
+        const deleteWarningText = '⚠️ Supprime les notations des zones <strong>MR</strong> pour la campagne actuelle. Cette action est irréversible !';
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -3602,11 +4283,13 @@
 
     // Export inspections
     function exportInspections(format) {
-        // Exporter uniquement les zones PRM
-        const filteredZoneIds = zones.filter(zone => {
-            const cat = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-            return cat === 'PRM';
-        }).map(z => z.id);
+        // Filtre FIXE : uniquement MR
+        const filteredZones = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
+        const filteredZoneIds = filteredZones.map(z => z.id);
         
         const campaignInspections = inspections.filter(i => 
             i.campaign === currentCampaign && 
@@ -3651,10 +4334,33 @@
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
+        
+        // Amélioration pour mobile : ajout d'attributs supplémentaires
+        a.style.display = 'none';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        
         document.body.appendChild(a);
-        a.click();
+        
+        // Forcer le focus et le clic pour mobile
+        if (typeof a.click === 'function') {
+            a.click();
+        } else {
+            // Fallback pour les anciens navigateurs
+            const evt = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true
+            });
+            a.dispatchEvent(evt);
+        }
+        
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        
+        // Délai avant de révoquer l'URL pour éviter les problèmes sur mobile
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 1000);
     }
 
     // Export current zone
@@ -3700,8 +4406,12 @@
         const container = document.getElementById('adminZoneList');
         if (!container) return;
 
-        // Afficher toutes les zones
-        const filteredZones = zones.slice();
+        // Filtre FIXE : uniquement MR
+        const filteredZones = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
         
         // Tri par nom
         filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
@@ -3794,7 +4504,7 @@
                     elements: { extincteurs: [], dm: [], sorties: [] }
                 }
             ],
-            category: 'PRM', // Défini automatiquement comme PRM
+            category: '',
             enabledCriteria: {
                 extincteur: Object.keys(CRITERIA.extincteur),
                 dm: Object.keys(CRITERIA.dm),
@@ -4015,20 +4725,25 @@
     }
 
     function exportLibrary() {
-        // Exporter toutes les zones
-        const zonesToExport = zones.slice();
+        // Filtre FIXE : uniquement MR
+        const zonesToExport = zones.filter(zone => {
+            const cat = zone.category || '';
+            const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            return normalized === 'MR';
+        });
         
         // Export library in a format compatible with import
         const exportData = {
             version: "1.0",
             exportDate: new Date().toISOString(),
+            categories: ["MR"],
             zones: zonesToExport
         };
         const data = JSON.stringify(exportData, null, 2);
-        const filename = `TICP_zones_library_${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `TICP_zones_library_MR_${new Date().toISOString().split('T')[0]}.json`;
         downloadFile(data, filename, 'application/json');
         
-        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s)\nFichier : ${filename}`);
+        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s) (catégorie: MR)\nFichier : ${filename}`);
     }
 
     function exportCurrentZone() {
@@ -4056,18 +4771,18 @@
      * Inclut les critères, commentaires et photos
      */
     function exportNotations() {
-        // Filtrer uniquement les zones PRM
-        const categoryChecks = ['PRM']; // Filtre fixe sur PRM
+        // Récupérer les filtres de catégorie actifs
+        const categoryChecks = Array.from(document.querySelectorAll('#categoryFilter input[type=checkbox]:checked')).map(i => i.value);
         
         // Demander si on veut exporter une seule zone ou toutes les zones
         const exportAll = !currentZone || confirm(
             currentZone 
                 ? `Exporter les notations :\n\n` +
                   `• Zone actuelle uniquement : "${currentZone.name}" → Cliquez sur ANNULER\n` +
-                  `• Toutes les zones PRM → Cliquez sur OK\n\n` +
+                  `• Toutes les zones MR → Cliquez sur OK\n\n` +
                   `Campagne : ${currentCampaign}\n` +
-                  `Catégories : PRM uniquement`
-                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones PRM ?`
+                  `Catégories : MR uniquement`
+                : `Aucune zone sélectionnée.\n\nVoulez-vous exporter les notations de TOUTES les zones MR ?`
         );
         
         let zoneInspections;
@@ -4075,12 +4790,15 @@
         let filename;
         
         if (exportAll) {
-            // Filtrer uniquement les zones PRM
-            let filteredZones = zones.filter(zone => {
-                // Normaliser la catégorie pour gérer "Administratif:xxx"
-                const category = zone.category?.startsWith('Administratif:') ? 'Administratif' : zone.category;
-                return category === 'PRM';
-            });
+            // Filtrer les zones selon les catégories actives
+            let filteredZones = zones;
+            if (categoryChecks.length > 0) {
+                filteredZones = zones.filter(zone => {
+                    // Normaliser la catégorie pour gérer "Administratif:xxx"
+                    const category = zone.category.startsWith('Administratif:') ? 'Administratif' : zone.category;
+                    return categoryChecks.includes(category);
+                });
+            }
             
             const filteredZoneIds = filteredZones.map(z => z.id);
             
@@ -4185,23 +4903,21 @@
      * Demande une double confirmation pour éviter les suppressions accidentelles
      */
     function deleteAllNotations() {
-        // Filtrer uniquement les zones PRM
-        const categoryChecks = ['PRM']; // Filtre fixe sur PRM
         
-        // Déterminer les zones PRM uniquement
+        // Déterminer les zones MR uniquement
         let filteredZoneIds;
         let filterDescription;
         
-        // Filtrer uniquement les zones PRM
+        // Filtrer uniquement les zones MR
         filteredZoneIds = zones
             .filter(z => {
                 const cat = z.category || '';
                 const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
-                return normalized === 'PRM';
+                return normalized === 'MR';
             })
             .map(z => z.id);
         
-        filterDescription = `Catégories : PRM uniquement`;
+        filterDescription = `Catégories : MR uniquement`;
         
         // Trouver les inspections correspondantes
         const filteredInspections = inspections.filter(i => 
@@ -4211,7 +4927,9 @@
         const count = filteredInspections.length;
         
         if (count === 0) {
-            const msg = `Aucune notation à supprimer pour les zones PRM de la campagne ${currentCampaign}`;
+            const msg = categoryChecks.length > 0 
+                ? `Aucune notation à supprimer pour les zones ${categoryChecks.join(', ')} de la campagne ${currentCampaign}`
+                : `Aucune notation à supprimer pour la campagne ${currentCampaign}`;
             alert('ℹ️ ' + msg);
             return;
         }
@@ -4309,6 +5027,13 @@
                 
                 const importedInspections = importedData.inspections || [];
                 
+                console.log('Fichier d\'import analysé:', {
+                    exportType: importedData.exportType,
+                    campagne: importedData.campaign,
+                    nbInspections: importedInspections.length,
+                    zones: importedData.zones_exported?.map(z => z.name) || 'Non spécifié'
+                });
+                
                 if (importedInspections.length === 0) {
                     alert('❌ Aucune notation trouvée dans le fichier.');
                     return;
@@ -4373,26 +5098,33 @@
                             
                             // Recherche par position (pour sorties et éléments sans ID)
                             if (!elementExists && importedInsp.elementData?.x !== undefined && importedInsp.elementData?.y !== undefined) {
-                                const tolerance = 0.02; // 2% de tolérance sur la position
+                                const tolerance = 0.05; // 5% de tolérance sur la position (augmenté pour plus de compatibilité)
                                 elementExists = collection.some(el => 
                                     Math.abs(el.x - importedInsp.elementData.x) < tolerance &&
                                     Math.abs(el.y - importedInsp.elementData.y) < tolerance
                                 );
+                                
+                                // Debug: log pour voir les éléments recherchés
+                                if (!elementExists) {
+                                    console.log(`Élément non trouvé par position: ${importedInsp.type} à (${importedInsp.elementData.x}, ${importedInsp.elementData.y})`, {
+                                        collectionSize: collection.length,
+                                        positions: collection.map(el => ({ x: el.x, y: el.y, id: el.id }))
+                                    });
+                                }
                             }
                         }
                     }
                     
-                    if (!elementExists) {
-                        const elementDesc = importedInsp.type === 'zone' ? 
-                            'Zone globale' : 
-                            `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
+                    // Pour les zones, pas de vérification d'élément nécessaire
+                    if (importedInsp.type !== 'zone' && !elementExists) {
+                        const elementDesc = `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
                         notFound.push(`[${zone.name}] ${elementDesc}`);
                         skipped++;
                         return;
                     }
                     
-                    // Chercher si une inspection existe déjà
-                    const existingInspIndex = inspections.findIndex(insp =>
+                    // Chercher si une inspection existe déjà - logique améliorée pour compatibilité cross-device
+                    let existingInspIndex = inspections.findIndex(insp =>
                         insp.campaign === importedInsp.campaign &&
                         insp.zoneId === importedInsp.zoneId &&
                         insp.floorId === importedInsp.floorId &&
@@ -4400,11 +5132,57 @@
                         insp.type === importedInsp.type
                     );
                     
+                    // Si pas trouvé avec la clé exacte, essayer une recherche plus flexible
+                    if (existingInspIndex === -1) {
+                        existingInspIndex = inspections.findIndex(insp => {
+                            if (insp.campaign !== importedInsp.campaign ||
+                                insp.zoneId !== importedInsp.zoneId ||
+                                insp.floorId !== importedInsp.floorId ||
+                                insp.type !== importedInsp.type) {
+                                return false;
+                            }
+                            
+                            // Pour les zones, pas besoin de vérification supplémentaire
+                            if (importedInsp.type === 'zone') {
+                                return true;
+                            }
+                            
+                            // Pour les éléments avec ID, comparer les IDs
+                            if (importedInsp.elementData?.id && insp.elementData?.id) {
+                                return importedInsp.elementData.id === insp.elementData.id;
+                            }
+                            
+                            // Pour les sorties ou éléments sans ID, comparer les positions
+                            if (importedInsp.elementData?.x !== undefined && 
+                                importedInsp.elementData?.y !== undefined &&
+                                insp.elementData?.x !== undefined && 
+                                insp.elementData?.y !== undefined) {
+                                const tolerance = 0.01; // 1% de tolérance
+                                return Math.abs(importedInsp.elementData.x - insp.elementData.x) < tolerance &&
+                                       Math.abs(importedInsp.elementData.y - insp.elementData.y) < tolerance;
+                            }
+                            
+                            return false;
+                        });
+                    }
+                    
+                    // Régénérer la clé d'élément pour assurer la compatibilité locale
+                    let correctedElementKey = importedInsp.elementKey;
+                    if (importedInsp.type !== 'zone' && importedInsp.elementData) {
+                        const floorPrefix = importedInsp.floorId ? `${importedInsp.floorId}_` : '';
+                        if (importedInsp.type === 'sortie') {
+                            correctedElementKey = `${floorPrefix}${importedInsp.type}_${importedInsp.elementData.x}_${importedInsp.elementData.y}`;
+                        } else {
+                            correctedElementKey = `${floorPrefix}${importedInsp.type}_${importedInsp.elementData.id || importedInsp.elementData.index}`;
+                        }
+                    }
+                    
                     if (existingInspIndex !== -1) {
                         // Mettre à jour l'inspection existante
                         inspections[existingInspIndex] = {
                             ...inspections[existingInspIndex],
                             ...importedInsp,
+                            elementKey: correctedElementKey, // Utiliser la clé corrigée
                             timestamp: new Date().toISOString() // Mise à jour du timestamp
                         };
                         updated++;
@@ -4412,6 +5190,7 @@
                         // Ajouter la nouvelle inspection
                         inspections.push({
                             ...importedInsp,
+                            elementKey: correctedElementKey, // Utiliser la clé corrigée
                             timestamp: new Date().toISOString()
                         });
                         added++;
@@ -4978,6 +5757,58 @@
                     document.removeEventListener('mouseup', handleMouseUp);
                 };
                 
+                // Support tactile pour mobile
+                const handleTouchStart = (e) => {
+                    isDragging = true;
+                    adminElement.style.cursor = 'grabbing';
+                    e.preventDefault();
+                    e.stopPropagation();
+                    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    document.addEventListener('touchend', handleTouchEnd);
+                };
+                
+                const handleTouchMove = (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    
+                    const touch = e.touches[0];
+                    const planImage = document.getElementById('adminPlanImage');
+                    if (!planImage || !planImage.complete || planImage.naturalHeight === 0) return;
+                    
+                    const imageRect = planImage.getBoundingClientRect();
+                    const imgWidth = planImage.offsetWidth;
+                    const imgHeight = planImage.offsetHeight;
+                    
+                    if (!imgWidth || !imgHeight) return;
+                    
+                    const relativeX = touch.clientX - imageRect.left;
+                    const relativeY = touch.clientY - imageRect.top;
+                    
+                    currentX = Math.max(0, Math.min(1, relativeX / imgWidth));
+                    currentY = Math.max(0, Math.min(1, relativeY / imgHeight));
+                    
+                    positionElement(adminElement, currentX, currentY, true);
+                };
+                
+                const handleTouchEnd = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    adminElement.style.cursor = 'move';
+                    
+                    element.x = currentX;
+                    element.y = currentY;
+                    adminElement.dataset.x = currentX;
+                    adminElement.dataset.y = currentY;
+                    
+                    saveZones();
+                    renderElementsList();
+                    scheduleReposition(50);
+                    
+                    document.removeEventListener('touchmove', handleTouchMove);
+                    document.removeEventListener('touchend', handleTouchEnd);
+                };
+
+                // Events souris (desktop)
                 adminElement.addEventListener('mousedown', (e) => {
                     if (e.button !== 0) return;
                     isDragging = true;
@@ -4987,6 +5818,9 @@
                     document.addEventListener('mousemove', handleMouseMove);
                     document.addEventListener('mouseup', handleMouseUp);
                 });
+                
+                // Events tactiles (mobile)
+                adminElement.addEventListener('touchstart', handleTouchStart, { passive: false });
                 
                 // Right-click: open the edit dialog for this element (no mouse resize)
                 adminElement.addEventListener('contextmenu', (e) => {
@@ -5032,8 +5866,12 @@
                     </div>
                     <div class="ml-4">
                         <label class="block text-sm font-medium">Catégorie</label>
-                        <select id="editZoneCategory" class="px-2 py-1 border border-gray-300 rounded bg-gray-100" disabled>
-                            <option value="PRM" selected>PRM (fixe)</option>
+                        <select id="editZoneCategory" class="px-2 py-1 border border-gray-300 rounded">
+                            <option value="">-- Aucune --</option>
+                            <option value="MR" ${zone.category === 'MR' ? 'selected' : ''}>MR</option>
+                            <option value="PRM" ${zone.category === 'PRM' ? 'selected' : ''}>PRM</option>
+                            <option value="SC" ${zone.category === 'SC' ? 'selected' : ''}>SC</option>
+                            <option value="Administratif" ${zone.category === 'Administratif' ? 'selected' : ''}>Administratif</option>
                         </select>
                     </div>
                     <div class="ml-4">
@@ -5405,8 +6243,7 @@
                 if (currentZone) {
                     if (newName) updateZoneName(newName);
                     if (newId && newId !== currentZone.id) updateZoneId(newId);
-                    // Force la catégorie à PRM (ne peut pas être modifiée)
-                    currentZone.category = 'PRM';
+                    if (newCategory !== undefined) currentZone.category = newCategory || '';
                     saveZones();
                 }
                 renderAdminContent();
@@ -5503,8 +6340,209 @@
 
             // (mouse-based resize removed; resizing is done only via the edit dialog)
 
+            // ===== FONCTIONS MOBILE =====
+            
+            // Gestion du panneau de notation mobile
+            function showMobileNotationPanel() {
+                const panel = document.getElementById('notationPanel');
+                if (panel) {
+                    panel.classList.add('show');
+                    document.body.style.overflow = 'hidden'; // Bloquer le scroll
+                }
+            }
+            
+            function hideMobileNotationPanel() {
+                const panel = document.getElementById('notationPanel');
+                if (panel) {
+                    panel.classList.remove('show');
+                    document.body.style.overflow = 'auto'; // Rétablir le scroll
+                }
+            }
+            
+            // Gestion de l'overlay mobile pour le panneau latéral
+            function createMobileOverlay() {
+                let overlay = document.getElementById('mobileOverlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'mobileOverlay';
+                    overlay.className = 'mobile-overlay';
+                    overlay.addEventListener('click', closeMobileLeftPanel);
+                    document.body.appendChild(overlay);
+                }
+                return overlay;
+            }
+            
+            function showMobileLeftPanel() {
+                const leftPanel = document.querySelector('.left-panel');
+                const overlay = createMobileOverlay();
+                
+                if (leftPanel && window.innerWidth <= 768) {
+                    leftPanel.classList.remove('collapsed');
+                    overlay.classList.add('show');
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+            
+            function closeMobileLeftPanel() {
+                const leftPanel = document.querySelector('.left-panel');
+                const overlay = document.getElementById('mobileOverlay');
+                
+                if (leftPanel && window.innerWidth <= 768) {
+                    leftPanel.classList.add('collapsed');
+                    if (overlay) overlay.classList.remove('show');
+                    document.body.style.overflow = 'auto';
+                }
+            }
+            
+            // Gestionnaire de redimensionnement pour mobile
+            function handleResize() {
+                const leftPanel = document.querySelector('.left-panel');
+                const overlay = document.getElementById('mobileOverlay');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: rétablir le comportement normal
+                    if (leftPanel) {
+                        leftPanel.style.position = '';
+                        leftPanel.style.zIndex = '';
+                        leftPanel.style.background = '';
+                        leftPanel.style.boxShadow = '';
+                    }
+                    if (overlay) overlay.classList.remove('show');
+                    document.body.style.overflow = 'auto';
+                } else {
+                    // Mobile: forcer le collapse par défaut
+                    if (leftPanel && !leftPanel.classList.contains('collapsed')) {
+                        closeMobileLeftPanel();
+                    }
+                }
+            }
+            
+            // Améliorer les boutons pour mobile
+            function enhanceMobileButtons() {
+                // Ajouter des boutons tactiles plus grands
+                const style = document.createElement('style');
+                style.textContent = `
+                    @media (max-width: 768px) {
+                        button, input[type="button"], input[type="submit"] {
+                            min-height: 44px !important;
+                            padding: 12px 16px !important;
+                            font-size: 16px !important;
+                        }
+                        
+                        input[type="radio"], input[type="checkbox"] {
+                            width: 20px !important;
+                            height: 20px !important;
+                            margin: 4px !important;
+                        }
+                        
+                        select {
+                            min-height: 44px !important;
+                            font-size: 16px !important;
+                        }
+                        
+                        /* Bouton pour fermer le panneau de notation sur mobile */
+                        #notationPanel.show::before {
+                            content: "✕ Fermer";
+                            position: fixed;
+                            top: 10px;
+                            right: 10px;
+                            background: rgba(255, 255, 255, 0.9);
+                            padding: 10px 15px;
+                            border-radius: 20px;
+                            cursor: pointer;
+                            z-index: 1002;
+                            font-weight: bold;
+                            color: #333;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                // Ajouter l'event listener pour fermer le panneau de notation
+                document.addEventListener('click', (e) => {
+                    if (window.innerWidth <= 768 && e.target.matches('#notationPanel.show::before')) {
+                        hideMobileNotationPanel();
+                    }
+                });
+            }
+            
+            // Initialisation mobile
+            function initMobile() {
+                enhanceMobileButtons();
+                window.addEventListener('resize', handleResize);
+                handleResize(); // Appel initial
+                
+                // Modifier le comportement du toggle du panneau gauche sur mobile
+                const toggleBtn = document.getElementById('leftPanelToggleBtn');
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (window.innerWidth <= 768) {
+                            const leftPanel = document.querySelector('.left-panel');
+                            if (leftPanel.classList.contains('collapsed')) {
+                                showMobileLeftPanel();
+                            } else {
+                                closeMobileLeftPanel();  
+                            }
+                        }
+                    });
+                }
+                
+                // Gestion du clic sur les éléments pour ouvrir le panneau de notation sur mobile
+                if (window.innerWidth <= 768) {
+                    document.addEventListener('click', (e) => {
+                        if (e.target.closest('.element, .admin-element')) {
+                            const panel = document.getElementById('notationPanel');
+                            if (panel && !panel.classList.contains('show')) {
+                                showMobileNotationPanel();
+                            }
+                        }
+                    });
+                }
+                
+                // Gestion du swipe pour fermer les panneaux
+                let touchStartX = 0;
+                let touchStartY = 0;
+                
+                document.addEventListener('touchstart', (e) => {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                });
+                
+                document.addEventListener('touchmove', (e) => {
+                    if (!touchStartX || !touchStartY) return;
+                    
+                    const touchEndX = e.touches[0].clientX;
+                    const touchEndY = e.touches[0].clientY;
+                    const diffX = touchStartX - touchEndX;
+                    const diffY = touchStartY - touchEndY;
+                    
+                    // Swipe horizontal plus important que vertical
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        // Swipe vers la gauche pour fermer le panneau de notation
+                        if (diffX > 50) {
+                            const panel = document.getElementById('notationPanel');
+                            if (panel && panel.classList.contains('show')) {
+                                hideMobileNotationPanel();
+                            }
+                        }
+                        // Swipe vers la droite pour fermer le panneau gauche
+                        else if (diffX < -50) {
+                            closeMobileLeftPanel();
+                        }
+                    }
+                    
+                    touchStartX = 0;
+                    touchStartY = 0;
+                });
+            }
+
             // Initialize the application
-            init();
+            init().then(() => {
+                // Initialiser les fonctionnalités mobile après le chargement complet
+                initMobile();
+            });
         </script>
     </body>
 </html>
