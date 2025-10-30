@@ -4396,38 +4396,16 @@
             filteredZoneIds.includes(i.zoneId)
         );
         
-        // Vérifier qu'il y a des données à exporter
-        if (campaignInspections.length === 0) {
-            alert(`❌ Aucune inspection MR trouvée pour la campagne ${currentCampaign}.\n\nVérifiez que vous avez des inspections enregistrées pour les zones MR.`);
-            return;
-        }
-        
         // Définir categoryChecks dans cette fonction
         const categoryChecks = ['MR']; // Puisque c'est filtré pour MR uniquement
         const categorySuffix = categoryChecks.length > 0 ? `_${categoryChecks.join('-')}` : '';
         
-        try {
-            if (format === 'json') {
-                const data = JSON.stringify(campaignInspections, null, 2);
-                downloadFile(data, `inspections${categorySuffix}_${currentCampaign}.json`, 'application/json');
-                
-                // Message de confirmation
-                setTimeout(() => {
-                    alert(`✅ Export JSON réussi !\n\n📊 ${campaignInspections.length} inspection(s) exportée(s)\n📁 Fichier: inspections${categorySuffix}_${currentCampaign}.json`);
-                }, 500);
-                
-            } else if (format === 'csv') {
-                const csv = convertToCSV(campaignInspections);
-                downloadFile(csv, `inspections${categorySuffix}_${currentCampaign}.csv`, 'text/csv');
-                
-                // Message de confirmation
-                setTimeout(() => {
-                    alert(`✅ Export CSV réussi !\n\n📊 ${campaignInspections.length} inspection(s) exportée(s)\n📁 Fichier: inspections${categorySuffix}_${currentCampaign}.csv`);
-                }, 500);
-            }
-        } catch (error) {
-            console.error('Erreur lors de l\'export:', error);
-            alert(`❌ Erreur lors de l'export :\n\n${error.message}\n\nVérifiez la console pour plus de détails.`);
+        if (format === 'json') {
+            const data = JSON.stringify(campaignInspections, null, 2);
+            downloadFile(data, `inspections${categorySuffix}_${currentCampaign}.json`, 'application/json');
+        } else if (format === 'csv') {
+            const csv = convertToCSV(campaignInspections);
+            downloadFile(csv, `inspections${categorySuffix}_${currentCampaign}.csv`, 'text/csv');
         }
     }
 
@@ -4451,59 +4429,40 @@
         ).join('\n');
     }
 
-    // Download file - Version améliorée avec gestion d'erreurs
+    // Download file
     function downloadFile(content, filename, contentType) {
-        try {
-            // Vérification des paramètres
-            if (!content) {
-                throw new Error('Contenu vide pour le téléchargement');
-            }
-            
-            const blob = new Blob([content], { type: contentType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            
-            // Configuration du lien de téléchargement
-            a.href = url;
-            a.download = filename;
-            a.style.display = 'none';
-            a.target = '_blank';
-            a.rel = 'noopener';
-            
-            document.body.appendChild(a);
-            
-            console.log(`📥 Démarrage du téléchargement: ${filename} (${blob.size} bytes)`);
-            
-            // Déclencher le téléchargement
-            if (typeof a.click === 'function') {
-                a.click();
-            } else {
-                // Fallback pour les anciens navigateurs
-                const evt = new MouseEvent('click', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                });
-                a.dispatchEvent(evt);
-            }
-            
-            // Nettoyage après un délai
-            setTimeout(() => {
-                try {
-                    if (document.body.contains(a)) {
-                        document.body.removeChild(a);
-                    }
-                    URL.revokeObjectURL(url);
-                    console.log(`✅ Téléchargement terminé: ${filename}`);
-                } catch (cleanupError) {
-                    console.warn('Erreur lors du nettoyage:', cleanupError);
-                }
-            }, 2000);
-            
-        } catch (error) {
-            console.error('Erreur dans downloadFile:', error);
-            throw new Error(`Impossible de télécharger le fichier: ${error.message}`);
+        const blob = new Blob([content], { type: contentType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        
+        // Amélioration pour mobile : ajout d'attributs supplémentaires
+        a.style.display = 'none';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        
+        document.body.appendChild(a);
+        
+        // Forcer le focus et le clic pour mobile
+        if (typeof a.click === 'function') {
+            a.click();
+        } else {
+            // Fallback pour les anciens navigateurs
+            const evt = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true
+            });
+            a.dispatchEvent(evt);
         }
+        
+        document.body.removeChild(a);
+        
+        // Délai avant de révoquer l'URL pour éviter les problèmes sur mobile
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 1000);
     }
 
     // Export current zone
