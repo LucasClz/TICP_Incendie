@@ -3734,9 +3734,8 @@
         }
         
         const oldKey = getElementKey(currentElement.type, currentElement.data);
-        currentElement.data.id = trimmedId;
         
-        // Mettre à jour dans la zone
+        // Mettre à jour dans la zone AVANT de modifier currentElement.data
         if (currentZone && currentFloor) {
             const elementType = currentElement.type;
             const collectionKey = elementType === 'extincteur' ? 'extincteurs' : elementType === 'dm' ? 'dm' : 'sorties';
@@ -3755,9 +3754,14 @@
                     i.elementKey === oldKey
                 );
                 if (inspection) {
+                    // Mettre à jour currentElement.data PUIS l'inspection pour maintenir la cohérence
+                    currentElement.data.id = trimmedId;
                     inspection.elementKey = getElementKey(elementType, currentElement.data);
                     inspection.elementData = currentElement.data;
                     saveInspections();
+                } else {
+                    // Pas d'inspection existante, juste mettre à jour currentElement.data
+                    currentElement.data.id = trimmedId;
                 }
                 
                 // Re-render pour afficher le nouveau numéro
