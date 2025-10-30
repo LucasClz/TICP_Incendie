@@ -4926,6 +4926,13 @@
                 
                 const importedInspections = importedData.inspections || [];
                 
+                console.log('Fichier d\'import analysé:', {
+                    exportType: importedData.exportType,
+                    campagne: importedData.campaign,
+                    nbInspections: importedInspections.length,
+                    zones: importedData.zones_exported?.map(z => z.name) || 'Non spécifié'
+                });
+                
                 if (importedInspections.length === 0) {
                     alert('❌ Aucune notation trouvée dans le fichier.');
                     return;
@@ -4990,26 +4997,33 @@
                             
                             // Recherche par position (pour sorties et éléments sans ID)
                             if (!elementExists && importedInsp.elementData?.x !== undefined && importedInsp.elementData?.y !== undefined) {
-                                const tolerance = 0.02; // 2% de tolérance sur la position
+                                const tolerance = 0.05; // 5% de tolérance sur la position (augmenté pour plus de compatibilité)
                                 elementExists = collection.some(el => 
                                     Math.abs(el.x - importedInsp.elementData.x) < tolerance &&
                                     Math.abs(el.y - importedInsp.elementData.y) < tolerance
                                 );
+                                
+                                // Debug: log pour voir les éléments recherchés
+                                if (!elementExists) {
+                                    console.log(`Élément non trouvé par position: ${importedInsp.type} à (${importedInsp.elementData.x}, ${importedInsp.elementData.y})`, {
+                                        collectionSize: collection.length,
+                                        positions: collection.map(el => ({ x: el.x, y: el.y, id: el.id }))
+                                    });
+                                }
                             }
                         }
                     }
                     
-                    if (!elementExists) {
-                        const elementDesc = importedInsp.type === 'zone' ? 
-                            'Zone globale' : 
-                            `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
+                    // Pour les zones, pas de vérification d'élément nécessaire
+                    if (importedInsp.type !== 'zone' && !elementExists) {
+                        const elementDesc = `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
                         notFound.push(`[${zone.name}] ${elementDesc}`);
                         skipped++;
                         return;
                     }
                     
-                    // Chercher si une inspection existe déjà
-                    const existingInspIndex = inspections.findIndex(insp =>
+                    // Chercher si une inspection existe déjà - logique améliorée pour compatibilité cross-device
+                    let existingInspIndex = inspections.findIndex(insp =>
                         insp.campaign === importedInsp.campaign &&
                         insp.zoneId === importedInsp.zoneId &&
                         insp.floorId === importedInsp.floorId &&
@@ -5017,11 +5031,57 @@
                         insp.type === importedInsp.type
                     );
                     
+                    // Si pas trouvé avec la clé exacte, essayer une recherche plus flexible
+                    if (existingInspIndex === -1) {
+                        existingInspIndex = inspections.findIndex(insp => {
+                            if (insp.campaign !== importedInsp.campaign ||
+                                insp.zoneId !== importedInsp.zoneId ||
+                                insp.floorId !== importedInsp.floorId ||
+                                insp.type !== importedInsp.type) {
+                                return false;
+                            }
+                            
+                            // Pour les zones, pas besoin de vérification supplémentaire
+                            if (importedInsp.type === 'zone') {
+                                return true;
+                            }
+                            
+                            // Pour les éléments avec ID, comparer les IDs
+                            if (importedInsp.elementData?.id && insp.elementData?.id) {
+                                return importedInsp.elementData.id === insp.elementData.id;
+                            }
+                            
+                            // Pour les sorties ou éléments sans ID, comparer les positions
+                            if (importedInsp.elementData?.x !== undefined && 
+                                importedInsp.elementData?.y !== undefined &&
+                                insp.elementData?.x !== undefined && 
+                                insp.elementData?.y !== undefined) {
+                                const tolerance = 0.01; // 1% de tolérance
+                                return Math.abs(importedInsp.elementData.x - insp.elementData.x) < tolerance &&
+                                       Math.abs(importedInsp.elementData.y - insp.elementData.y) < tolerance;
+                            }
+                            
+                            return false;
+                        });
+                    }
+                    
+                    // Régénérer la clé d'élément pour assurer la compatibilité locale
+                    let correctedElementKey = importedInsp.elementKey;
+                    if (importedInsp.type !== 'zone' && importedInsp.elementData) {
+                        const floorPrefix = importedInsp.floorId ? `${importedInsp.floorId}_` : '';
+                        if (importedInsp.type === 'sortie') {
+                            correctedElementKey = `${floorPrefix}${importedInsp.type}_${importedInsp.elementData.x}_${importedInsp.elementData.y}`;
+                        } else {
+                            correctedElementKey = `${floorPrefix}${importedInsp.type}_${importedInsp.elementData.id || importedInsp.elementData.index}`;
+                        }
+                    }
+                    
                     if (existingInspIndex !== -1) {
                         // Mettre à jour l'inspection existante
                         inspections[existingInspIndex] = {
                             ...inspections[existingInspIndex],
                             ...importedInsp,
+                            elementKey: correctedElementKey, // Utiliser la clé corrigée
                             timestamp: new Date().toISOString() // Mise à jour du timestamp
                         };
                         updated++;
@@ -5029,6 +5089,7 @@
                         // Ajouter la nouvelle inspection
                         inspections.push({
                             ...importedInsp,
+                            elementKey: correctedElementKey, // Utiliser la clé corrigée
                             timestamp: new Date().toISOString()
                         });
                         added++;
