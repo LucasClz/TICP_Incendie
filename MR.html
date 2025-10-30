@@ -3642,25 +3642,8 @@
             updateKPIs();
             // Refresh notation panel counts/percentage
             renderNotationPanel();
-            // Update completed state on the matching hotspots and admin elements
-            const elementKey = inspection.elementKey;
-            // Hotspots
-            const planWrapper = document.getElementById('planWrapper');
-            if (planWrapper) {
-                planWrapper.querySelectorAll('.hotspot').forEach(h => {
-                    if (h.dataset.elementKey === elementKey) {
-                        if (isElementCompleted(inspection)) h.classList.add('completed'); else h.classList.remove('completed');
-                    }
-                });
-            }
-            // Admin elements
-            document.querySelectorAll('.admin-element').forEach(a => {
-                if (a.dataset.elementKey === elementKey) {
-                    if (isElementCompleted(inspection)) a.classList.add('completed'); else a.classList.remove('completed');
-                }
-            });
-            // Force reposition si nécessaire
-            // Re-render hotspots and admin elements to ensure visual state is consistent
+            // Force le rafraîchissement complet de l'affichage pour s'assurer que les bordures vertes/rouges 
+            // sont correctement mises à jour même si l'ID de l'élément a été modifié dans cette session
             addHotspots();
             renderAdminElements();
             scheduleReposition(100);
@@ -3693,22 +3676,10 @@
         // Rafraîchir le panneau de notation pour montrer les changements
         renderNotationPanel();
         
-        // Mettre à jour l'état visuel des hotspots et éléments admin
-        const elementKey = inspection.elementKey;
-        const planWrapper = document.getElementById('planWrapper');
-        if (planWrapper) {
-            planWrapper.querySelectorAll('.hotspot').forEach(h => {
-                if (h.dataset.elementKey === elementKey) {
-                    h.classList.add('completed');
-                }
-            });
-        }
-        
-        document.querySelectorAll('.admin-element').forEach(a => {
-            if (a.dataset.elementKey === elementKey) {
-                a.classList.add('completed');
-            }
-        });
+        // Force le rafraîchissement complet de l'affichage pour s'assurer que les bordures vertes apparaissent
+        // même si l'ID de l'élément a été modifié dans cette session
+        addHotspots();
+        renderAdminElements();
         
         // Recréer les hotspots et éléments admin pour assurer la cohérence visuelle
         addHotspots();
