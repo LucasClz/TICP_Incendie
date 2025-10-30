@@ -5335,39 +5335,29 @@
                         }
                     }
                     
-                    // 🔧 CRÉATION AUTOMATIQUE AGRESSIVE - Créer TOUS les éléments manquants
+                    // Gestion des éléments non trouvés - option de création automatique
                     if (importedInsp.type !== 'zone' && !elementExists) {
                         const elementDesc = `${importedInsp.type} ${importedInsp.elementData?.id || 'sans ID'}`;
                         
-                        console.log(`🔧 Création automatique FORCÉE de l'élément manquant: ${elementDesc}`);
-                        
-                        const collectionKey = importedInsp.type === 'extincteur' ? 'extincteurs' :
-                                            importedInsp.type === 'dm' ? 'dm' :
-                                            importedInsp.type === 'sortie' ? 'sorties' : null;
-                        
-                        if (collectionKey && importedInsp.elementData) {
-                            // Initialiser la collection si elle n'existe pas
-                            if (!targetFloor.elements) targetFloor.elements = {};
-                            if (!targetFloor.elements[collectionKey]) targetFloor.elements[collectionKey] = [];
+                        // Proposer de créer l'élément manquant automatiquement
+                        if (importedInsp.elementData && importedInsp.elementData.x !== undefined && importedInsp.elementData.y !== undefined) {
+                            console.log(`🔧 Création automatique de l'élément manquant: ${elementDesc}`);
                             
-                            // Définir des coordonnées par défaut si manquantes
-                            let elementX = importedInsp.elementData.x;
-                            let elementY = importedInsp.elementData.y;
+                            const collectionKey = importedInsp.type === 'extincteur' ? 'extincteurs' :
+                                                importedInsp.type === 'dm' ? 'dm' :
+                                                importedInsp.type === 'sortie' ? 'sorties' : null;
                             
-                            // Si pas de coordonnées, générer une position par défaut
-                            if (elementX === undefined || elementY === undefined || elementX === null || elementY === null) {
-                                const existingCount = targetFloor.elements[collectionKey].length;
-                                elementX = 0.1 + (existingCount % 8) * 0.1; // Répartir sur une grille
-                                elementY = 0.1 + Math.floor(existingCount / 8) * 0.15;
-                                console.log(`📍 Coordonnées générées automatiquement: (${Math.round(elementX*100)}%, ${Math.round(elementY*100)}%)`);
-                            }
-                            
-                            // Créer le nouvel élément avec toutes les données disponibles
-                            const newElement = {
-                                x: elementX,
-                                y: elementY,
-                                size: importedInsp.elementData.size || 0.02
-                            };
+                            if (collectionKey) {
+                                // Initialiser la collection si elle n'existe pas
+                                if (!targetFloor.elements) targetFloor.elements = {};
+                                if (!targetFloor.elements[collectionKey]) targetFloor.elements[collectionKey] = [];
+                                
+                                // Créer le nouvel élément
+                                const newElement = {
+                                    x: importedInsp.elementData.x,
+                                    y: importedInsp.elementData.y,
+                                    size: importedInsp.elementData.size || 0.02
+                                };
                                 
                                 // Ajouter les propriétés spécifiques selon le type
                                 if (importedInsp.type === 'extincteur') {
