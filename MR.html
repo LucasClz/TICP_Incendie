@@ -39,13 +39,13 @@
             background-color: var(--bg-primary);
             color: var(--text-primary);
             transition: background-color 0.3s, color 0.3s;
-            min-width: 1024px;
+            min-width: 320px; /* Support mobile jusqu'à 320px */
             overflow-x: auto;
         }
         
-        /* Assurer que la page s'affiche correctement à 100% */
+        /* Support mobile et tablette */
         html {
-            min-width: 1024px;
+            min-width: 320px;
             overflow-x: auto;
         }
         
@@ -508,8 +508,86 @@
             line-height: 1.2;
         }
         
-        /* Responsive pour le panneau encore plus compact sur petits écrans */
-        @media (max-width: 1400px) {
+        /* Responsive design pour mobile et tablette */
+        @media (max-width: 768px) {
+            /* Mobile: panneau pleine largeur en overlay */
+            #notationPanel {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 1001 !important;
+                background: var(--bg-primary) !important;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            #notationPanel.show {
+                transform: translateX(0);
+            }
+            
+            /* Réduire la taille du panneau gauche sur mobile */
+            .left-panel {
+                width: 60px !important;
+                min-width: 60px !important;
+            }
+            
+            .left-panel:not(.collapsed) {
+                width: 280px !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                z-index: 999 !important;
+                background: var(--bg-primary);
+                box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            }
+            
+            /* Overlay pour fermer le panneau latéral */
+            .mobile-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 998;
+                display: none;
+            }
+            
+            .mobile-overlay.show {
+                display: block;
+            }
+            
+            /* Adapter le contenu principal */
+            .main-content {
+                margin-left: 60px !important;
+                width: calc(100% - 60px) !important;
+            }
+            
+            /* Header responsive */
+            header {
+                padding: 0.75rem 1rem !important;
+            }
+            
+            header h1 {
+                font-size: 1.25rem !important;
+            }
+            
+            /* Modales pleine largeur sur mobile */
+            .modal-content {
+                max-width: 95vw !important;
+                max-height: 95vh !important;
+                margin: 1rem !important;
+                padding: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 1400px) and (min-width: 769px) {
+            /* Tablette: panneau plus compact */
             #notationPanel {
                 width: 220px !important;
             }
@@ -5021,13 +5099,42 @@
                             // Recherche par position (pour sorties et éléments sans ID)
                             if (!elementExists && importedInsp.elementData?.x !== undefined && importedInsp.elementData?.y !== undefined) {
                                 const tolerance = 0.05; // 5% de tolérance sur la position (augmenté pour plus de compatibilité)
-                                elementExists = collection.some(el => 
+                                
+                                // Trouver l'élément par position
+                                const elementByPosition = collection.find(el => 
                                     Math.abs(el.x - importedInsp.elementData.x) < tolerance &&
                                     Math.abs(el.y - importedInsp.elementData.y) < tolerance
                                 );
                                 
-                                // Debug: log pour voir les éléments recherchés
-                                if (!elementExists) {
+                                if (elementByPosition) {
+                                    elementExists = true;
+                                    
+                                    // Si l'élément a été trouvé par position mais avec un ID différent, 
+                                    // remplacer le nom de l'ancien élément par celui de l'import
+                                    if (importedInsp.elementData?.id && 
+                                        elementByPosition.id !== importedInsp.elementData.id) {
+                                        
+                                        console.log(`🔄 Mise à jour ID élément: ${elementByPosition.id} → ${importedInsp.elementData.id} (position: ${Math.round(elementByPosition.x*100)}%, ${Math.round(elementByPosition.y*100)}%)`);
+                                        
+                                        // Mettre à jour l'ID de l'élément local
+                                        elementByPosition.id = importedInsp.elementData.id;
+                                        
+                                        // Mettre à jour aussi les autres propriétés si nécessaire
+                                        if (importedInsp.elementData.type && importedInsp.type === 'extincteur') {
+                                            elementByPosition.type = importedInsp.elementData.type;
+                                        }
+                                        
+                                        // Sauvegarder les changements dans les zones
+                                        saveZones();
+                                        
+                                        // Mettre à jour l'affichage si on est sur cette zone
+                                        if (currentZone?.id === zone.id && currentFloor?.id === targetFloor.id) {
+                                            renderAdminElements();
+                                            renderElementsList();
+                                        }
+                                    }
+                                } else {
+                                    // Debug: log pour voir les éléments recherchés
                                     console.log(`Élément non trouvé par position: ${importedInsp.type} à (${importedInsp.elementData.x}, ${importedInsp.elementData.y})`, {
                                         collectionSize: collection.length,
                                         positions: collection.map(el => ({ x: el.x, y: el.y, id: el.id }))
@@ -5679,6 +5786,58 @@
                     document.removeEventListener('mouseup', handleMouseUp);
                 };
                 
+                // Support tactile pour mobile
+                const handleTouchStart = (e) => {
+                    isDragging = true;
+                    adminElement.style.cursor = 'grabbing';
+                    e.preventDefault();
+                    e.stopPropagation();
+                    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    document.addEventListener('touchend', handleTouchEnd);
+                };
+                
+                const handleTouchMove = (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    
+                    const touch = e.touches[0];
+                    const planImage = document.getElementById('adminPlanImage');
+                    if (!planImage || !planImage.complete || planImage.naturalHeight === 0) return;
+                    
+                    const imageRect = planImage.getBoundingClientRect();
+                    const imgWidth = planImage.offsetWidth;
+                    const imgHeight = planImage.offsetHeight;
+                    
+                    if (!imgWidth || !imgHeight) return;
+                    
+                    const relativeX = touch.clientX - imageRect.left;
+                    const relativeY = touch.clientY - imageRect.top;
+                    
+                    currentX = Math.max(0, Math.min(1, relativeX / imgWidth));
+                    currentY = Math.max(0, Math.min(1, relativeY / imgHeight));
+                    
+                    positionElement(adminElement, currentX, currentY, true);
+                };
+                
+                const handleTouchEnd = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    adminElement.style.cursor = 'move';
+                    
+                    element.x = currentX;
+                    element.y = currentY;
+                    adminElement.dataset.x = currentX;
+                    adminElement.dataset.y = currentY;
+                    
+                    saveZones();
+                    renderElementsList();
+                    scheduleReposition(50);
+                    
+                    document.removeEventListener('touchmove', handleTouchMove);
+                    document.removeEventListener('touchend', handleTouchEnd);
+                };
+
+                // Events souris (desktop)
                 adminElement.addEventListener('mousedown', (e) => {
                     if (e.button !== 0) return;
                     isDragging = true;
@@ -5688,6 +5847,9 @@
                     document.addEventListener('mousemove', handleMouseMove);
                     document.addEventListener('mouseup', handleMouseUp);
                 });
+                
+                // Events tactiles (mobile)
+                adminElement.addEventListener('touchstart', handleTouchStart, { passive: false });
                 
                 // Right-click: open the edit dialog for this element (no mouse resize)
                 adminElement.addEventListener('contextmenu', (e) => {
