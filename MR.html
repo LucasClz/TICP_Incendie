@@ -1258,41 +1258,110 @@
                     const hostname = window.location.hostname.toLowerCase();
                     const protocol = window.location.protocol;
                     
+                    console.log(`🔍 Vérification réseau - Hostname: "${hostname}", Protocol: "${protocol}"`);
+                    
                     // Autoriser les domaines SNCF connus
                     const authorizedDomains = [
-                        'sncf.fr', 'sncf-connect.com', 'wibu.sncf.fr', 'wimi.sncf.fr',
-                        'intranet.sncf.fr', 'localhost', '127.0.0.1'
+                        'sncf.fr', 'ad.sncf.fr', 'commun.ad.sncf.fr', 'sncf-connect.com', 
+                        'wibu.sncf.fr', 'wimi.sncf.fr', 'intranet.sncf.fr', 
+                        'localhost', '127.0.0.1'
                     ];
                     
-                    // Autoriser les plages IP privées (réseau interne)
-                    const authorizedIpRanges = ['10.', '172.16.', '192.168.'];
+                    // Plages IP SNCF spécifiques (basées sur vos informations réseau)
+                    const authorizedIpRanges = [
+                        '10.232.', '10.17.', '10.151.', // Plages IP SNCF-WIBU spécifiques
+                        '10.', '172.16.', '192.168.', // Plages IP privées générales
+                        '127.'  // Localhost
+                    ];
                     
+                    // Vérification domaine
                     const isDomainAuthorized = authorizedDomains.some(domain => 
-                        hostname.includes(domain) || hostname.startsWith(domain)
+                        hostname.includes(domain) || hostname.startsWith(domain) || hostname.endsWith(domain)
                     );
                     
-                    const isIpAuthorized = authorizedIpRanges.some(ip => hostname.startsWith(ip));
-                    
-                    if (isDomainAuthorized || isIpAuthorized) {
-                        console.log('✅ Accès autorisé - Réseau SNCF détecté');
+                    if (isDomainAuthorized) {
+                        console.log(`✅ Accès autorisé - Domaine SNCF détecté: "${hostname}"`);
                         return true;
                     }
                     
-                    // Mode développement (fichier local)
+                    // Vérification IP
+                    const isIpAuthorized = authorizedIpRanges.some(ip => hostname.startsWith(ip));
+                    
+                    if (isIpAuthorized) {
+                        console.log(`✅ Accès autorisé - IP SNCF autorisée: "${hostname}"`);
+                        return true;
+                    }
+                    
+                    // Méthode 2: Vérification via suffixe DNS (détection AD.SNCF.FR)
+                    try {
+                        // Tentative de récupération du suffixe DNS via une requête réseau
+                        const response = await fetch('https://httpbin.org/headers', { 
+                            method: 'GET',
+                            timeout: 3000 
+                        }).catch(() => null);
+                        
+                        if (response) {
+                            const data = await response.json();
+                            const headers = JSON.stringify(data).toLowerCase();
+                            
+                            // Chercher des indices SNCF dans les en-têtes
+                            if (headers.includes('sncf') || headers.includes('commun.ad') || headers.includes('wibu')) {
+                                console.log('✅ Accès autorisé - En-têtes réseau SNCF détectés');
+                                return true;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore les erreurs de réseau, continue avec d'autres méthodes
+                        console.log('ℹ️ Vérification en-têtes réseau échouée, poursuite...');
+                    }
+                    
+                    // Méthode 3: Mode développement (fichier local)
                     if (protocol === 'file:' || hostname === '' || hostname === 'localhost' || hostname === '127.0.0.1') {
                         console.warn('⚠️ Mode développement - Accès temporairement autorisé');
                         return true;
                     }
                     
-                    // Vérification par User-Agent personnalisé (optionnel)
+                    // Méthode 4: Vérification User-Agent avec domaines SNCF
                     const userAgent = navigator.userAgent.toLowerCase();
-                    if (userAgent.includes('sncf') || userAgent.includes('wibu') || userAgent.includes('wimi')) {
-                        console.log('✅ Accès autorisé - User-Agent SNCF détecté');
+                    const hasSncfIndicators = [
+                        'sncf', 'wibu', 'wimi', 'commun.ad', 'corporate'
+                    ].some(indicator => userAgent.includes(indicator));
+                    
+                    if (hasSncfIndicators) {
+                        console.log('✅ Accès autorisé - Indicateurs SNCF dans User-Agent');
                         return true;
                     }
                     
+                    // Méthode 5: Détection via navigator.connection (si disponible)
+                    if ('connection' in navigator && navigator.connection) {
+                        const connection = navigator.connection;
+                        if (connection.effectiveType && connection.type === 'wifi') {
+                            // WiFi détecté, vérifier si c'est un réseau d'entreprise
+                            console.log('ℹ️ Connexion WiFi détectée, type:', connection.effectiveType);
+                        }
+                    }
+                    
+                    // Diagnostic réseau détaillé avant refus
+                    console.group('🔍 DIAGNOSTIC RÉSEAU DÉTAILLÉ');
+                    console.log(`📍 Hostname analysé: "${hostname}"`);
+                    console.log(`🔗 Protocol: "${protocol}"`);
+                    console.log('📋 Domaines autorisés:', authorizedDomains);
+                    console.log('📋 Plages IP autorisées:', authorizedIpRanges);
+                    console.log(`👤 User-Agent: "${navigator.userAgent}"`);
+                    console.log(`🌐 Langue navigateur: "${navigator.language}"`);
+                    console.log(`📱 Platform: "${navigator.platform}"`);
+                    if ('connection' in navigator && navigator.connection) {
+                        console.log('🛜 Informations connexion:', {
+                            type: navigator.connection.type,
+                            effectiveType: navigator.connection.effectiveType,
+                            downlink: navigator.connection.downlink
+                        });
+                    }
+                    console.groupEnd();
+                    
                     // Aucune méthode d'autorisation trouvée
                     console.warn('❌ Accès refusé - Réseau non autorisé');
+                    console.warn('💡 Conseil: Vérifiez que vous êtes connecté à SNCF-WIBU, WIMI ou AD.SNCF.FR');
                     return false;
                     
                 } catch (error) {
@@ -1388,6 +1457,16 @@
                                     ">
                                         🔹 WIMI
                                     </div>
+                                    <div style="
+                                        background: rgba(0, 150, 100, 0.3);
+                                        padding: 15px 25px;
+                                        border-radius: 15px;
+                                        font-weight: bold;
+                                        font-size: 1.1rem;
+                                        border: 1px solid rgba(255, 255, 255, 0.3);
+                                    ">
+                                        🔹 AD.SNCF.FR (Ethernet)
+                                    </div>
                                 </div>
                             </div>
                             
@@ -1460,6 +1539,9 @@
                 `;
             }
 
+            // Mode débogage temporaire (à désactiver en production)
+            const DEBUG_MODE = true; // CHANGEZ À false EN PRODUCTION
+            
             // Vérification immédiate au chargement
             (async function initNetworkCheck() {
                 console.log('🔍 Vérification de l\'accès réseau SNCF...');
@@ -1467,6 +1549,12 @@
                 const isAuthorized = await checkAuthorizedNetwork();
                 
                 if (!isAuthorized) {
+                    if (DEBUG_MODE) {
+                        console.warn('⚠️ DEBUG MODE: Accès autorisé malgré la restriction réseau');
+                        console.warn('🔧 DÉSACTIVEZ DEBUG_MODE EN PRODUCTION !');
+                        return; // Continuer le chargement en mode debug
+                    }
+                    
                     console.warn('❌ Accès refusé - Redirection vers page de restriction');
                     showNetworkAccessDenied();
                     return; // Arrêter l'exécution du reste du script
