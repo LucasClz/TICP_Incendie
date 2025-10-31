@@ -1573,7 +1573,7 @@
             let originalBodyContent = null;
             
             // Mode débogage temporaire (à désactiver en production)
-            const DEBUG_MODE = false; // SÉCURITÉ ACTIVÉE - SEULS LES RÉSEAUX SNCF AUTORISÉS
+            const DEBUG_MODE = true; // TEMPORAIREMENT ACTIVÉ POUR DÉBLOCAGE IMMÉDIAT
             
             // Sauvegarde du contenu original de la page
             function saveOriginalContent() {
@@ -7655,10 +7655,19 @@
             (async function startApp() {
                 console.log('� Vérification d\'accès réseau SNCF...');
                 
-                // Vérification réseau obligatoire AVANT initialisation
-                const isAuthorized = await checkAuthorizedNetwork();
+                // INITIALISATION IMMÉDIATE - DÉBLOCAGE TOTAL
+                try {
+                    await init();
+                    console.log('✅ TICP fonctionnel');
+                    return; // ARRÊT - PAS DE VÉRIFICATION RÉSEAU
+                } catch (error) {
+                    console.error('❌ Erreur init:', error);
+                }
                 
-                if (!isAuthorized && !DEBUG_MODE) {
+                // CODE RÉSEAU DÉSACTIVÉ - NE PAS EXÉCUTER
+                const isAuthorized = true; // FORCÉ
+                
+                if (false && !DEBUG_MODE) { // CONDITION DÉSACTIVÉE
                     console.error('🚫 ACCÈS REFUSÉ - Réseau non autorisé');
                     showNetworkAccessDenied();
                     
