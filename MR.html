@@ -6924,7 +6924,7 @@
                     
                     // Vérification 1: Hostname du domaine SNCF (AD.SNCF.FR)
                     const hostname = window.location.hostname;
-                    if (hostname.includes('.sncf.') || hostname.includes('.ad.sncf.')) {
+                    if (hostname.includes('.sncf.') || hostname.includes('.ad.sncf.') || hostname.includes('.gpcloudservice.com')) {
                         console.log('✅ Domaine SNCF détecté:', hostname);
                         return true;
                     }
@@ -6941,6 +6941,20 @@
                         return true;
                     } catch (e) {
                         console.log('⚠️ Test connexion AD.SNCF.FR échoué:', e.message);
+                    }
+
+                    // Vérification 2bis: Test de connexion au VPN SNCF
+                    try {
+                        const vpnResponse = await fetch('https://sncf.gpcloudservice.com/status', { 
+                            method: 'HEAD', 
+                            mode: 'no-cors',
+                            cache: 'no-cache',
+                            signal: AbortSignal.timeout(3000)
+                        });
+                        console.log('✅ Connexion VPN SNCF réussie');
+                        return true;
+                    } catch (e) {
+                        console.log('⚠️ Test connexion VPN SNCF échoué:', e.message);
                     }
 
                     // Vérification 3: Détection WiFi SNCF-WIBU via NetworkInformation API
@@ -6973,10 +6987,14 @@
                     // Indicateurs d'environnement SNCF
                     const sncfEnvironment = 
                         userAgent.toLowerCase().includes('sncf') ||
+                        userAgent.toLowerCase().includes('gpcloudservice') ||
                         document.referrer.includes('sncf') ||
+                        document.referrer.includes('gpcloudservice') ||
                         (userAgent.includes('Windows') && 
                          (document.domain.includes('.sncf.') || 
+                          document.domain.includes('.gpcloudservice.') ||
                           window.location.href.includes('sncf') ||
+                          window.location.href.includes('gpcloudservice') ||
                           localStorage.getItem('sncf_network') === 'authorized'));
 
                     if (sncfEnvironment) {
@@ -6994,7 +7012,9 @@
                         const testUrls = [
                             'https://intranet.sncf.fr/test',
                             'https://wifi.sncf.fr/status',
-                            'https://portal.sncf.fr/check'
+                            'https://portal.sncf.fr/check',
+                            'https://sncf.gpcloudservice.com/health',
+                            'https://vpn.sncf.gpcloudservice.com/status'
                         ];
                         
                         for (const url of testUrls) {
@@ -7045,7 +7065,8 @@
                                 <strong style="color: #374151;">Réseaux autorisés :</strong><br>
                                 <span style="color: #059669;">✓ AD.SNCF.FR</span> (Ethernet)<br>
                                 <span style="color: #059669;">✓ SNCF-WIBU</span> (WiFi)<br>
-                                <span style="color: #059669;">✓ WIMI</span> (WiFi)
+                                <span style="color: #059669;">✓ WIMI</span> (WiFi)<br>
+                                <span style="color: #059669;">✓ sncf.gpcloudservice.com</span> (VPN)
                             </div>
                             <p style="color: #6b7280; font-size: 0.9rem; margin: 0;">
                                 Veuillez vous connecter à l'un de ces réseaux<br>
@@ -7083,7 +7104,7 @@
                     return;
                 }
                 
-                console.log('✅ Réseau SNCF autorisé (AD.SNCF.FR/SNCF-WIBU/WIMI) - Initialisation...');
+                console.log('✅ Réseau SNCF autorisé (AD.SNCF.FR/SNCF-WIBU/WIMI/VPN) - Initialisation...');
                 
                 try {
                     await init();
