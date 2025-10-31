@@ -1616,45 +1616,37 @@
                 }
             }
             
-            // Vérification réseau simplifiée - ne bloque plus l'application
+            // Vérification réseau en arrière-plan - 100% non bloquante
             async function performNetworkCheck() {
-                const wasAuthorized = isNetworkAuthorized;
-                
                 try {
-                    isNetworkAuthorized = await checkAuthorizedNetwork();
+                    // Cette fonction fait juste du logging, elle ne bloque jamais l'application
+                    const networkResult = await checkAuthorizedNetwork();
                     
-                    if (DEBUG_MODE) {
+                    if (DEBUG_MODE || networkResult) {
+                        console.log('✅ Statut réseau: Autorisé', DEBUG_MODE ? '(DEBUG MODE)' : '(réseau SNCF détecté)');
                         isNetworkAuthorized = true;
-                        console.log('🔧 DEBUG MODE: Accès toujours autorisé');
-                    }
-                    
-                    // Log du statut sans bloquer l'application
-                    if (isNetworkAuthorized) {
-                        console.log('✅ Réseau autorisé - Application fonctionnelle');
                     } else {
-                        console.warn('⚠️ Réseau non autorisé - Application en mode restreint (DEBUG_MODE:', DEBUG_MODE, ')');
+                        console.log('ℹ️ Statut réseau: Non autorisé (application reste fonctionnelle)');
+                        isNetworkAuthorized = false;
                     }
                     
                 } catch (error) {
-                    console.error('❌ Erreur vérification réseau:', error);
-                    // En cas d'erreur, autoriser l'accès pour éviter de bloquer l'app
-                    isNetworkAuthorized = true;
+                    console.log('ℹ️ Vérification réseau échouée:', error.message, '- Application reste fonctionnelle');
+                    isNetworkAuthorized = true; // Toujours autoriser en cas d'erreur
                 }
                 
                 return isNetworkAuthorized;
             }
             
-            // Vérification simple au chargement (non bloquante)
-            (async function initNetworkCheck() {
-                console.log('🔍 Vérification réseau SNCF (mode simplifié)...');
-                
+            // Vérification réseau simple et non bloquante
+            setTimeout(async () => {
+                console.log('🔍 Vérification réseau SNCF en arrière-plan...');
                 try {
-                    const authorized = await performNetworkCheck();
-                    console.log('📋 Statut réseau:', authorized ? 'Autorisé' : 'Non autorisé (DEBUG_MODE actif)');
+                    await performNetworkCheck();
                 } catch (error) {
-                    console.log('⚠️ Erreur vérification réseau:', error.message);
+                    console.log('ℹ️ Vérification réseau ignorée:', error.message);
                 }
-            })();
+            }, 2000); // Attendre 2 secondes après le chargement
 
             // ==============================================
             // CONFIGURATION EMAILJS
@@ -1900,13 +1892,7 @@
 
             // Initialize application
             async function init() {
-                // Vérification supplémentaire de sécurité réseau
-                const isNetworkAuthorized = await checkAuthorizedNetwork();
-                if (!isNetworkAuthorized) {
-                    console.error('🚫 Accès réseau non autorisé - Arrêt de l\'initialisation');
-                    showNetworkAccessDenied();
-                    return;
-                }
+                console.log('� Initialisation TICP en cours...');
                 
                 await loadData();
                 setupEventListeners();
@@ -1918,6 +1904,8 @@
                 
                 // Tenter de charger TICP.json si disponible (pour synchronisation)
                 await tryLoadTICPJson();
+                
+                console.log('✅ Application TICP initialisée avec succès');
                 
                 console.log('🚒 Application TICP initialisée avec succès sur réseau autorisé');
             }
