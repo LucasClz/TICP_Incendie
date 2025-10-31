@@ -6917,124 +6917,74 @@
 
             // (mouse-based resize removed; resizing is done only via the edit dialog)
 
-            // Vérification réseaux SNCF autorisés: AD.SNCF.FR + SNCF-WIBU + WIMI
+            // Vérification stricte: UNIQUEMENT domaine COMMUN.AD.SNCF.FR
             async function checkADSNCFNetwork() {
                 try {
-                    console.log('🔍 Vérification des réseaux SNCF autorisés...');
+                    console.log('🔍 Vérification connexion domaine COMMUN.AD.SNCF.FR...');
                     
-                    // Vérification 1: Hostname du domaine SNCF (AD.SNCF.FR)
-                    const hostname = window.location.hostname;
-                    if (hostname.includes('.sncf.') || hostname.includes('.ad.sncf.') || hostname.includes('.gpcloudservice.com')) {
-                        console.log('✅ Domaine SNCF détecté:', hostname);
-                        return true;
-                    }
-
-                    // Vérification 2: Test de connexion au domaine AD.SNCF.FR
+                    // Vérification 1: Test de connexion directe au domaine COMMUN.AD.SNCF.FR
                     try {
-                        const response = await fetch('https://ad.sncf.fr/favicon.ico', { 
+                        const response = await fetch('https://commun.ad.sncf.fr/favicon.ico', { 
                             method: 'HEAD', 
                             mode: 'no-cors',
                             cache: 'no-cache',
-                            signal: AbortSignal.timeout(3000)
+                            signal: AbortSignal.timeout(5000)
                         });
-                        console.log('✅ Connexion AD.SNCF.FR réussie');
+                        console.log('✅ Connexion COMMUN.AD.SNCF.FR réussie');
                         return true;
                     } catch (e) {
-                        console.log('⚠️ Test connexion AD.SNCF.FR échoué:', e.message);
+                        console.log('⚠️ Test connexion COMMUN.AD.SNCF.FR échoué:', e.message);
                     }
 
-                    // Vérification 2bis: Test de connexion au VPN SNCF
-                    try {
-                        const vpnResponse = await fetch('https://sncf.gpcloudservice.com/status', { 
-                            method: 'HEAD', 
-                            mode: 'no-cors',
-                            cache: 'no-cache',
-                            signal: AbortSignal.timeout(3000)
-                        });
-                        console.log('✅ Connexion VPN SNCF réussie');
+                    // Vérification 2: Hostname contenant commun.ad.sncf.fr
+                    const hostname = window.location.hostname.toLowerCase();
+                    if (hostname.includes('commun.ad.sncf.fr')) {
+                        console.log('✅ Domaine COMMUN.AD.SNCF.FR détecté dans hostname:', hostname);
                         return true;
-                    } catch (e) {
-                        console.log('⚠️ Test connexion VPN SNCF échoué:', e.message);
                     }
 
-                    // Vérification 3: Détection WiFi SNCF-WIBU via NetworkInformation API
-                    if ('connection' in navigator) {
-                        const connection = navigator.connection;
-                        if (connection && connection.type === 'wifi') {
-                            // Indicateurs de réseau SNCF-WIBU ou WIMI
-                            const networkIndicators = [
-                                'sncf-wibu', 'SNCF-WIBU', 'sncf_wibu', 'SNCF_WIBU',
-                                'wimi', 'WIMI', 'Wi-Mi', 'wi-mi'
-                            ];
-                            
-                            // Vérifier via les APIs disponibles
-                            try {
-                                const netInfo = await navigator.permissions.query({name: 'geolocation'});
-                                if (netInfo.state === 'granted') {
-                                    console.log('✅ WiFi SNCF détecté (géolocalisation autorisée)');
-                                    return true;
-                                }
-                            } catch (e) {
-                                console.log('Info: API géolocalisation non disponible');
-                            }
-                        }
-                    }
-
-                    // Vérification 4: Détection environnement SNCF via User-Agent et contexte
+                    // Vérification 3: Environnement Windows avec domaine COMMUN.AD.SNCF.FR
                     const userAgent = navigator.userAgent;
-                    const platform = navigator.platform;
-                    
-                    // Indicateurs d'environnement SNCF
-                    const sncfEnvironment = 
-                        userAgent.toLowerCase().includes('sncf') ||
-                        userAgent.toLowerCase().includes('gpcloudservice') ||
-                        document.referrer.includes('sncf') ||
-                        document.referrer.includes('gpcloudservice') ||
-                        (userAgent.includes('Windows') && 
-                         (document.domain.includes('.sncf.') || 
-                          document.domain.includes('.gpcloudservice.') ||
-                          window.location.href.includes('sncf') ||
-                          window.location.href.includes('gpcloudservice') ||
-                          localStorage.getItem('sncf_network') === 'authorized'));
-
-                    if (sncfEnvironment) {
-                        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                        if (timezone === 'Europe/Paris' || timezone === 'Europe/Brussels') {
-                            console.log('✅ Environnement SNCF détecté');
-                            localStorage.setItem('sncf_network', 'authorized');
+                    if (userAgent.includes('Windows')) {
+                        // Vérifier les traces du domaine COMMUN.AD.SNCF.FR
+                        const domain = document.domain.toLowerCase();
+                        const referrer = document.referrer.toLowerCase();
+                        
+                        if (domain.includes('commun.ad.sncf.fr') || 
+                            referrer.includes('commun.ad.sncf.fr') ||
+                            window.location.href.toLowerCase().includes('commun.ad.sncf.fr')) {
+                            console.log('✅ Environnement COMMUN.AD.SNCF.FR détecté');
                             return true;
                         }
                     }
 
-                    // Vérification 5: Test spécifique pour WiFi SNCF-WIBU/WIMI
+                    // Vérification 4: Test de résolution DNS vers COMMUN.AD.SNCF.FR
                     try {
-                        // Simuler une requête qui ne fonctionne que sur les réseaux SNCF
-                        const testUrls = [
-                            'https://intranet.sncf.fr/test',
-                            'https://wifi.sncf.fr/status',
-                            'https://portal.sncf.fr/check',
-                            'https://sncf.gpcloudservice.com/health',
-                            'https://vpn.sncf.gpcloudservice.com/status'
+                        // Tentative de connexion vers des services internes du domaine
+                        const internalUrls = [
+                            'https://commun.ad.sncf.fr/test',
+                            'https://intranet.commun.ad.sncf.fr/status',
+                            'https://portal.commun.ad.sncf.fr/health'
                         ];
                         
-                        for (const url of testUrls) {
+                        for (const url of internalUrls) {
                             try {
                                 await fetch(url, { 
                                     method: 'HEAD', 
                                     mode: 'no-cors',
-                                    signal: AbortSignal.timeout(2000)
+                                    signal: AbortSignal.timeout(3000)
                                 });
-                                console.log('✅ Réseau SNCF WiFi détecté via:', url);
+                                console.log('✅ Domaine COMMUN.AD.SNCF.FR accessible via:', url);
                                 return true;
                             } catch (e) {
                                 // Continue with next URL
                             }
                         }
                     } catch (e) {
-                        console.log('Info: Tests WiFi SNCF non concluants');
+                        console.log('Info: Tests domaine COMMUN.AD.SNCF.FR non concluants');
                     }
 
-                    console.log('❌ Aucun réseau SNCF autorisé détecté');
+                    console.log('❌ Domaine COMMUN.AD.SNCF.FR non accessible');
                     return false;
                     
                 } catch (error) {
@@ -7058,19 +7008,17 @@
                             </h1>
                             <p style="color: #374151; margin: 0 0 2rem 0; line-height: 1.5;">
                                 Cette application est réservée aux utilisateurs<br>
-                                connectés aux réseaux SNCF autorisés
+                                connectés au <strong>domaine COMMUN.AD.SNCF.FR</strong>
                             </p>
-                            <div style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; 
-                                        margin: 1rem 0; text-align: left; font-size: 0.9rem;">
-                                <strong style="color: #374151;">Réseaux autorisés :</strong><br>
-                                <span style="color: #059669;">✓ AD.SNCF.FR</span> (Ethernet)<br>
-                                <span style="color: #059669;">✓ SNCF-WIBU</span> (WiFi)<br>
-                                <span style="color: #059669;">✓ WIMI</span> (WiFi)<br>
-                                <span style="color: #059669;">✓ sncf.gpcloudservice.com</span> (VPN)
+                            <div style="background: #fef3c7; padding: 1rem; border-radius: 0.5rem; 
+                                        margin: 1rem 0; text-align: center; font-size: 0.9rem; 
+                                        border-left: 4px solid #f59e0b;">
+                                <strong style="color: #92400e;">🔒 Accès Restreint</strong><br>
+                                <span style="color: #059669;">✓ COMMUN.AD.SNCF.FR</span> uniquement
                             </div>
                             <p style="color: #6b7280; font-size: 0.9rem; margin: 0;">
-                                Veuillez vous connecter à l'un de ces réseaux<br>
-                                et actualiser cette page
+                                Veuillez vous assurer d'être connecté au domaine<br>
+                                <strong>COMMUN.AD.SNCF.FR</strong> et actualiser cette page
                             </p>
                             <button onclick="location.reload()" 
                                     style="margin-top: 2rem; background: #dc2626; color: white; 
@@ -7085,7 +7033,7 @@
 
             // Initialisation sécurisée avec vérification réseau
             (async function secureInit() {
-                console.log('🔒 Vérification accès réseau AD.SNCF.FR...');
+                console.log('🔒 Vérification accès domaine COMMUN.AD.SNCF.FR...');
                 
                 const isAuthorized = await checkADSNCFNetwork();
                 
@@ -7104,7 +7052,7 @@
                     return;
                 }
                 
-                console.log('✅ Réseau SNCF autorisé (AD.SNCF.FR/SNCF-WIBU/WIMI/VPN) - Initialisation...');
+                console.log('✅ Domaine COMMUN.AD.SNCF.FR autorisé - Initialisation...');
                 
                 try {
                     await init();
@@ -7113,7 +7061,7 @@
                     // Surveillance continue du réseau pendant l'utilisation
                     setInterval(async () => {
                         if (!(await checkADSNCFNetwork())) {
-                            console.warn('⚠️ Connexion réseau perdue - Rechargement requis');
+                            console.warn('⚠️ Connexion domaine COMMUN.AD.SNCF.FR perdue - Rechargement requis');
                             showAccessDenied();
                         }
                     }, 60000); // Vérifier toutes les minutes
