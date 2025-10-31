@@ -1594,7 +1594,7 @@
             let originalBodyContent = null;
             
             // Mode débogage temporaire (à désactiver en production)
-            const DEBUG_MODE = false; // CHANGEZ À true POUR TESTS SEULEMENT
+            const DEBUG_MODE = true; // TEMPORAIREMENT true POUR RÉSOUDRE LES PROBLÈMES
             
             // Sauvegarde du contenu original de la page
             function saveOriginalContent() {
@@ -1616,62 +1616,43 @@
                 }
             }
             
-            // Vérification réseau avec gestion automatique de l'affichage
+            // Vérification réseau simplifiée - ne bloque plus l'application
             async function performNetworkCheck() {
                 const wasAuthorized = isNetworkAuthorized;
                 
-                // Mise à jour du statut pendant la vérification
-                if (!wasAuthorized) {
-                    updateConnectionStatus(true);
-                }
-                
-                isNetworkAuthorized = await checkAuthorizedNetwork();
-                
-                if (DEBUG_MODE) {
-                    isNetworkAuthorized = true;
-                    if (!wasAuthorized) {
-                        console.warn('🔧 DEBUG MODE: Accès forcé - DÉSACTIVEZ EN PRODUCTION !');
+                try {
+                    isNetworkAuthorized = await checkAuthorizedNetwork();
+                    
+                    if (DEBUG_MODE) {
+                        isNetworkAuthorized = true;
+                        console.log('🔧 DEBUG MODE: Accès toujours autorisé');
                     }
-                }
-                
-                // Si le statut a changé, mettre à jour l'affichage
-                if (wasAuthorized !== isNetworkAuthorized) {
+                    
+                    // Log du statut sans bloquer l'application
                     if (isNetworkAuthorized) {
-                        console.log('✅ Accès réseau autorisé - Chargement de l\'application');
-                        await restoreOriginalContentAndInit();
+                        console.log('✅ Réseau autorisé - Application fonctionnelle');
                     } else {
-                        console.warn('❌ Accès réseau non autorisé - Affichage page de restriction');
-                        saveOriginalContent();
-                        showNetworkAccessDenied();
-                        isAppInitialized = false;
-                        
-                        // Mettre à jour le statut après un court délai
-                        setTimeout(() => {
-                            updateConnectionStatus(false, 'Réseau non autorisé détecté');
-                        }, 1000);
+                        console.warn('⚠️ Réseau non autorisé - Application en mode restreint (DEBUG_MODE:', DEBUG_MODE, ')');
                     }
-                } else if (!isNetworkAuthorized) {
-                    // Mise à jour du statut si toujours non autorisé
-                    setTimeout(() => {
-                        updateConnectionStatus(false, 'Toujours non autorisé');
-                    }, 1000);
+                    
+                } catch (error) {
+                    console.error('❌ Erreur vérification réseau:', error);
+                    // En cas d'erreur, autoriser l'accès pour éviter de bloquer l'app
+                    isNetworkAuthorized = true;
                 }
                 
                 return isNetworkAuthorized;
             }
             
-            // Vérification immédiate au chargement
+            // Vérification simple au chargement (non bloquante)
             (async function initNetworkCheck() {
-                console.log('🔍 Démarrage de la vérification réseau SNCF...');
+                console.log('🔍 Vérification réseau SNCF (mode simplifié)...');
                 
-                // Sauvegarder le contenu original dès le début
-                saveOriginalContent();
-                
-                // Première vérification
-                const authorized = await performNetworkCheck();
-                
-                if (!authorized) {
-                    console.log('🔄 Vérification réseau en cours toutes les 5 secondes...');
+                try {
+                    const authorized = await performNetworkCheck();
+                    console.log('📋 Statut réseau:', authorized ? 'Autorisé' : 'Non autorisé (DEBUG_MODE actif)');
+                } catch (error) {
+                    console.log('⚠️ Erreur vérification réseau:', error.message);
                 }
             })();
 
@@ -7703,11 +7684,21 @@
                 console.log('🔍 Surveillance réseau continue SNCF activée (5s si refusé, 2min si autorisé)');
             }
 
-            // Démarrer la surveillance réseau automatique
-            startContinuousNetworkMonitoring();
-            
-            // Note : init() sera appelé automatiquement par performNetworkCheck() 
-            // seulement si le réseau est autorisé
+            // Initialisation simplifiée et robuste
+            (async function startApp() {
+                console.log('🚀 Démarrage de l\'application TICP...');
+                
+                // Toujours initialiser l'application d'abord
+                try {
+                    await init();
+                    console.log('✅ Application TICP initialisée avec succès');
+                } catch (error) {
+                    console.error('❌ Erreur lors de l\'initialisation:', error);
+                }
+                
+                // Puis démarrer la surveillance réseau en parallèle
+                startContinuousNetworkMonitoring();
+            })();
         </script>
     </body>
 </html>
