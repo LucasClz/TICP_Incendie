@@ -8,6 +8,8 @@
     <!-- Version 1.2 - Stockage étendu : 500MB avec IndexedDB, 50MB localStorage (28/10/2025) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- EmailJS pour l'envoi d'emails avec pièces jointes -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
         /* Mode sombre */
         :root {
@@ -1245,6 +1247,263 @@
         <!-- Modals will be inserted here -->
 
         <script>
+            // ==============================================
+            // CONTRÔLE D'ACCÈS RÉSEAU SNCF
+            // ==============================================
+            
+            // Vérification de la connexion réseau autorisée
+            async function checkAuthorizedNetwork() {
+                try {
+                    // Méthode 1: Vérification par hostname/domaine
+                    const hostname = window.location.hostname.toLowerCase();
+                    const protocol = window.location.protocol;
+                    
+                    // Autoriser les domaines SNCF connus
+                    const authorizedDomains = [
+                        'sncf.fr', 'sncf-connect.com', 'wibu.sncf.fr', 'wimi.sncf.fr',
+                        'intranet.sncf.fr', 'localhost', '127.0.0.1'
+                    ];
+                    
+                    // Autoriser les plages IP privées (réseau interne)
+                    const authorizedIpRanges = ['10.', '172.16.', '192.168.'];
+                    
+                    const isDomainAuthorized = authorizedDomains.some(domain => 
+                        hostname.includes(domain) || hostname.startsWith(domain)
+                    );
+                    
+                    const isIpAuthorized = authorizedIpRanges.some(ip => hostname.startsWith(ip));
+                    
+                    if (isDomainAuthorized || isIpAuthorized) {
+                        console.log('✅ Accès autorisé - Réseau SNCF détecté');
+                        return true;
+                    }
+                    
+                    // Mode développement (fichier local)
+                    if (protocol === 'file:' || hostname === '' || hostname === 'localhost' || hostname === '127.0.0.1') {
+                        console.warn('⚠️ Mode développement - Accès temporairement autorisé');
+                        return true;
+                    }
+                    
+                    // Vérification par User-Agent personnalisé (optionnel)
+                    const userAgent = navigator.userAgent.toLowerCase();
+                    if (userAgent.includes('sncf') || userAgent.includes('wibu') || userAgent.includes('wimi')) {
+                        console.log('✅ Accès autorisé - User-Agent SNCF détecté');
+                        return true;
+                    }
+                    
+                    // Aucune méthode d'autorisation trouvée
+                    console.warn('❌ Accès refusé - Réseau non autorisé');
+                    return false;
+                    
+                } catch (error) {
+                    console.error('Erreur lors de la vérification réseau:', error);
+                    // En cas d'erreur, refuser l'accès par sécurité
+                    return false;
+                }
+            }
+
+            function showNetworkAccessDenied() {
+                document.body.innerHTML = `
+                    <div style="
+                        display: flex; 
+                        flex-direction: column; 
+                        justify-content: center; 
+                        align-items: center; 
+                        height: 100vh; 
+                        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        color: white;
+                        text-align: center;
+                        padding: 20px;
+                        margin: 0;
+                    ">
+                        <div style="
+                            background: rgba(255, 255, 255, 0.1);
+                            backdrop-filter: blur(15px);
+                            border-radius: 25px;
+                            padding: 50px 40px;
+                            max-width: 600px;
+                            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                            border: 2px solid rgba(255, 255, 255, 0.2);
+                            animation: fadeIn 0.8s ease-in-out;
+                        ">
+                            <div style="font-size: 5rem; margin-bottom: 30px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.5));">🔒</div>
+                            
+                            <h1 style="
+                                font-size: 2.5rem; 
+                                margin-bottom: 25px; 
+                                font-weight: 700;
+                                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                            ">
+                                Accès Restreint
+                            </h1>
+                            
+                            <p style="
+                                font-size: 1.2rem; 
+                                line-height: 1.7; 
+                                margin-bottom: 30px;
+                                opacity: 0.9;
+                            ">
+                                Cette application <strong>TICP</strong> est réservée<br>
+                                aux réseaux WiFi autorisés SNCF.
+                            </p>
+                            
+                            <div style="
+                                background: linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+                                border-radius: 20px;
+                                padding: 25px;
+                                margin: 25px 0;
+                                border: 1px solid rgba(255, 255, 255, 0.2);
+                            ">
+                                <h3 style="
+                                    margin-top: 0; 
+                                    color: #ffd700; 
+                                    font-size: 1.3rem;
+                                    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+                                ">📶 Réseaux WiFi autorisés</h3>
+                                <div style="
+                                    display: flex; 
+                                    justify-content: center; 
+                                    gap: 20px; 
+                                    margin: 20px 0;
+                                    flex-wrap: wrap;
+                                ">
+                                    <div style="
+                                        background: rgba(0, 100, 200, 0.3);
+                                        padding: 15px 25px;
+                                        border-radius: 15px;
+                                        font-weight: bold;
+                                        font-size: 1.1rem;
+                                        border: 1px solid rgba(255, 255, 255, 0.3);
+                                    ">
+                                        🔹 SNCF-WIBU
+                                    </div>
+                                    <div style="
+                                        background: rgba(0, 100, 200, 0.3);
+                                        padding: 15px 25px;
+                                        border-radius: 15px;
+                                        font-weight: bold;
+                                        font-size: 1.1rem;
+                                        border: 1px solid rgba(255, 255, 255, 0.3);
+                                    ">
+                                        🔹 WIMI
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="
+                                background: rgba(255, 193, 7, 0.2);
+                                border: 2px solid rgba(255, 193, 7, 0.4);
+                                padding: 20px;
+                                border-radius: 15px;
+                                margin: 25px 0;
+                            ">
+                                <p style="
+                                    margin: 0; 
+                                    color: #ffd700;
+                                    font-weight: 600;
+                                    font-size: 1rem;
+                                ">
+                                    <strong>⚠️ Instructions :</strong><br>
+                                    1. Connectez-vous à l'un des réseaux WiFi autorisés<br>
+                                    2. Rechargez cette page<br>
+                                    3. L'accès sera automatiquement accordé
+                                </p>
+                            </div>
+                            
+                            <button onclick="location.reload()" style="
+                                background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+                                border: none;
+                                color: white;
+                                padding: 15px 30px;
+                                border-radius: 30px;
+                                font-size: 1.1rem;
+                                font-weight: bold;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                                box-shadow: 0 8px 16px rgba(79, 172, 254, 0.3);
+                                text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+                            " onmouseover="
+                                this.style.transform='translateY(-2px) scale(1.05)';
+                                this.style.boxShadow='0 12px 24px rgba(79, 172, 254, 0.4)';
+                            " onmouseout="
+                                this.style.transform='translateY(0) scale(1)';
+                                this.style.boxShadow='0 8px 16px rgba(79, 172, 254, 0.3)';
+                            ">
+                                🔄 Vérifier la connexion
+                            </button>
+                            
+                            <div style="
+                                margin-top: 40px;
+                                padding-top: 25px;
+                                border-top: 1px solid rgba(255, 255, 255, 0.2);
+                                opacity: 0.8;
+                            ">
+                                <p style="
+                                    font-size: 0.9rem; 
+                                    margin: 0;
+                                    font-weight: 500;
+                                ">
+                                    <strong>TICP</strong> - Technique d'Inspection Contrôle Prévention<br>
+                                    <span style="opacity: 0.7;">SNCF Connect & Tech - Sécurité Incendie</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <style>
+                            @keyframes fadeIn {
+                                from { opacity: 0; transform: translateY(30px) scale(0.9); }
+                                to { opacity: 1; transform: translateY(0) scale(1); }
+                            }
+                        </style>
+                    </div>
+                `;
+            }
+
+            // Vérification immédiate au chargement
+            (async function initNetworkCheck() {
+                console.log('🔍 Vérification de l\'accès réseau SNCF...');
+                
+                const isAuthorized = await checkAuthorizedNetwork();
+                
+                if (!isAuthorized) {
+                    console.warn('❌ Accès refusé - Redirection vers page de restriction');
+                    showNetworkAccessDenied();
+                    return; // Arrêter l'exécution du reste du script
+                }
+                
+                console.log('✅ Accès autorisé - Chargement de l\'application TICP');
+            })();
+
+            // ==============================================
+            // CONFIGURATION EMAILJS
+            // ==============================================
+            
+            // EmailJS Configuration
+            // IMPORTANT: Remplacez ces valeurs par vos propres clés EmailJS
+            // 1. Créez un compte sur https://www.emailjs.com/
+            // 2. Configurez un service (Gmail, Outlook, etc.)
+            // 3. Créez un template avec les variables : {{to_email}}, {{subject}}, {{message}}, {{attachment_name}}, {{attachment_content}}
+            // 4. Récupérez vos clés dans le dashboard EmailJS
+            const EMAILJS_CONFIG = {
+                serviceId: 'service_abc1234', // REMPLACEZ par votre Service ID depuis EmailJS
+                templateId: 'template_xyz5678', // REMPLACEZ par votre Template ID depuis EmailJS  
+                publicKey: 'user_def9012', // REMPLACEZ par votre Public Key depuis EmailJS
+                recipientEmail: 'votre.nom@sncf.fr' // REMPLACEZ par votre email SNCF de réception
+            };
+
+            // Initialize EmailJS
+            (function() {
+                try {
+                    if (typeof emailjs !== 'undefined') {
+                        emailjs.init(EMAILJS_CONFIG.publicKey);
+                        console.log('EmailJS initialized successfully');
+                    }
+                } catch (error) {
+                    console.warn('EmailJS initialization failed:', error);
+                }
+            })();
+
             // Application State
             let currentCampaign = '2025Q4';
             let currentZone = null;
@@ -1460,6 +1719,14 @@
 
             // Initialize application
             async function init() {
+                // Vérification supplémentaire de sécurité réseau
+                const isNetworkAuthorized = await checkAuthorizedNetwork();
+                if (!isNetworkAuthorized) {
+                    console.error('🚫 Accès réseau non autorisé - Arrêt de l\'initialisation');
+                    showNetworkAccessDenied();
+                    return;
+                }
+                
                 await loadData();
                 setupEventListeners();
                 renderZoneList();
@@ -1470,6 +1737,8 @@
                 
                 // Tenter de charger TICP.json si disponible (pour synchronisation)
                 await tryLoadTICPJson();
+                
+                console.log('🚒 Application TICP initialisée avec succès sur réseau autorisé');
             }
             
             // Mode sombre
@@ -4497,11 +4766,35 @@
             };
             
             const data = JSON.stringify(exportData, null, 2);
-            downloadFile(data, `zone_complete_${currentZone.id}.json`, 'application/json');
-            
-            // Message de confirmation
+            const filename = `zone_complete_${currentZone.id}_${new Date().toISOString().split('T')[0]}.json`;
             const photosCount = zoneInspections.reduce((total, i) => total + (i.photos ? i.photos.length : 0), 0);
-            alert(`Zone exportée avec succès !\n• ${zoneInspections.length} inspections\n• ${photosCount} photos incluses`);
+            
+            // Fonction pour télécharger seulement
+            const downloadOnly = () => {
+                downloadFile(data, filename, 'application/json');
+                alert(`Zone exportée avec succès !\n• ${zoneInspections.length} inspections\n• ${photosCount} photos incluses\nFichier : ${filename}`);
+            };
+            
+            // Fonction pour envoyer par email ET télécharger
+            const sendAndDownload = async () => {
+                try {
+                    // Téléchargement local d'abord
+                    downloadFile(data, filename, 'application/json');
+                    
+                    // Puis envoi par email
+                    const subject = `Export Zone TICP - ${currentZone.name} (${zoneInspections.length} inspections, ${photosCount} photos)`;
+                    await sendEmailWithAttachment(filename, data, 'application/json', subject);
+                    
+                    alert(`✅ Zone exportée et envoyée par email !\n• Zone : ${currentZone.name}\n• ${zoneInspections.length} inspections\n• ${photosCount} photos incluses\n• Email envoyé à ${EMAILJS_CONFIG.recipientEmail}\n• Fichier téléchargé : ${filename}`);
+                    
+                } catch (error) {
+                    console.error('Erreur envoi email:', error);
+                    alert(`⚠️ Zone exportée mais erreur email :\n${error.message}\n\nFichier téléchargé : ${filename}\n• ${zoneInspections.length} inspections\n• ${photosCount} photos incluses`);
+                }
+            };
+            
+            // Afficher le modal de choix
+            showEmailSendingModal(filename, sendAndDownload, downloadOnly);
             
         } catch (error) {
             console.error('Erreur lors de l\'export:', error);
@@ -4911,6 +5204,100 @@
         reader.readAsText(file);
     }
 
+    // Fonctions EmailJS pour l'envoi de fichiers par email
+    async function sendEmailWithAttachment(fileName, fileContent, fileType, subject) {
+        try {
+            if (!EMAILJS_CONFIG.serviceId || EMAILJS_CONFIG.serviceId === 'YOUR_SERVICE_ID') {
+                throw new Error('EmailJS non configuré. Veuillez configurer vos clés EmailJS dans EMAILJS_CONFIG.');
+            }
+
+            // Convertir le contenu en base64 pour l'attachement
+            const base64Content = btoa(unescape(encodeURIComponent(fileContent)));
+            
+            const emailParams = {
+                to_email: EMAILJS_CONFIG.recipientEmail,
+                subject: subject || `Export TICP - ${fileName}`,
+                message: `Veuillez trouver en pièce jointe le fichier d'export TICP : ${fileName}\n\nDate d'export : ${new Date().toLocaleString('fr-FR')}\nTaille du fichier : ${Math.round(fileContent.length / 1024)} KB`,
+                attachment_name: fileName,
+                attachment_content: base64Content,
+                file_type: fileType || 'application/json'
+            };
+
+            const result = await emailjs.send(
+                EMAILJS_CONFIG.serviceId,
+                EMAILJS_CONFIG.templateId,
+                emailParams
+            );
+
+            console.log('Email envoyé avec succès:', result);
+            return true;
+
+        } catch (error) {
+            console.error('Erreur envoi email:', error);
+            throw error;
+        }
+    }
+
+    function showEmailSendingModal(fileName, onConfirm, onCancel) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">📧 Envoi par Email</h2>
+                    <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                        <div class="flex items-center">
+                            <div class="text-blue-600 mr-3">📎</div>
+                            <div>
+                                <p class="font-medium text-blue-900">Fichier à envoyer :</p>
+                                <p class="text-blue-700">${fileName}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="text-gray-600 mr-3">📮</div>
+                            <div>
+                                <p class="font-medium text-gray-900">Destinataire :</p>
+                                <p class="text-gray-700">${EMAILJS_CONFIG.recipientEmail}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${EMAILJS_CONFIG.serviceId === 'YOUR_SERVICE_ID' ? `
+                        <div class="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
+                            <div class="flex items-center">
+                                <div class="text-yellow-600 mr-3">⚠️</div>
+                                <div>
+                                    <p class="font-medium text-yellow-900">Configuration requise</p>
+                                    <p class="text-yellow-700 text-sm">Veuillez configurer EmailJS dans le code (EMAILJS_CONFIG)</p>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="flex space-x-3 pt-4">
+                        <button onclick="this.closest('.modal').remove(); (${onCancel.toString()})()" 
+                                class="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                            📥 Télécharger Seulement
+                        </button>
+                        <button onclick="this.closest('.modal').remove(); (${onConfirm.toString()})()" 
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
+                                       ${EMAILJS_CONFIG.serviceId === 'YOUR_SERVICE_ID' ? 'opacity-50 cursor-not-allowed' : ''}">
+                            📧 Envoyer par Email
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
     function exportLibrary() {
         // Filtre FIXE : uniquement MR
         const zonesToExport = zones.filter(zone => {
@@ -4928,9 +5315,34 @@
         };
         const data = JSON.stringify(exportData, null, 2);
         const filename = `TICP_zones_library_MR_${new Date().toISOString().split('T')[0]}.json`;
-        downloadFile(data, filename, 'application/json');
         
-        alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s) (catégorie: MR)\nFichier : ${filename}`);
+        // Fonction pour télécharger seulement
+        const downloadOnly = () => {
+            downloadFile(data, filename, 'application/json');
+            alert(`Librairie exportée avec succès : ${zonesToExport.length} zone(s) (catégorie: MR)\nFichier : ${filename}`);
+        };
+        
+        // Fonction pour envoyer par email ET télécharger
+        const sendAndDownload = async () => {
+            try {
+                // Téléchargement local d'abord
+                downloadFile(data, filename, 'application/json');
+                
+                // Puis envoi par email
+                const subject = `Export Librairie TICP - ${zonesToExport.length} zones MR`;
+                await sendEmailWithAttachment(filename, data, 'application/json', subject);
+                
+                alert(`✅ Librairie exportée et envoyée par email !\n• ${zonesToExport.length} zone(s) exportée(s)\n• Email envoyé à ${EMAILJS_CONFIG.recipientEmail}\n• Fichier téléchargé : ${filename}`);
+                
+            } catch (error) {
+                // En cas d'erreur email, on propose quand même le téléchargement
+                console.error('Erreur envoi email:', error);
+                alert(`⚠️ Librairie exportée mais erreur email :\n${error.message}\n\nFichier téléchargé : ${filename}`);
+            }
+        };
+        
+        // Afficher le modal de choix
+        showEmailSendingModal(filename, sendAndDownload, downloadOnly);
     }
 
     function exportCurrentZone() {
@@ -7048,8 +7460,36 @@
 
             // (mouse-based resize removed; resizing is done only via the edit dialog)
 
+            // Surveillance périodique de la connexion réseau
+            function startNetworkMonitoring() {
+                // Vérifier la connexion toutes les 5 minutes
+                setInterval(async () => {
+                    const isAuthorized = await checkAuthorizedNetwork();
+                    if (!isAuthorized) {
+                        console.warn('🚫 Connexion réseau non autorisée détectée - Blocage de l\'application');
+                        showNetworkAccessDenied();
+                    }
+                }, 5 * 60 * 1000); // 5 minutes
+                
+                // Vérifier lors du changement de focus de la page
+                document.addEventListener('visibilitychange', async () => {
+                    if (!document.hidden) {
+                        const isAuthorized = await checkAuthorizedNetwork();
+                        if (!isAuthorized) {
+                            console.warn('🚫 Vérification au retour de focus - Accès refusé');
+                            showNetworkAccessDenied();
+                        }
+                    }
+                });
+                
+                console.log('🔍 Surveillance réseau SNCF activée (vérification toutes les 5 minutes)');
+            }
+
             // Initialize the application
-            init();
+            init().then(() => {
+                // Démarrer la surveillance réseau après l'initialisation réussie
+                startNetworkMonitoring();
+            });
         </script>
     </body>
 </html>
