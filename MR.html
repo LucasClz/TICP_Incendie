@@ -1371,6 +1371,43 @@
                 }
             }
 
+            // Mise à jour du statut de connexion sur la page de restriction
+            function updateConnectionStatus(isChecking = false, message = '') {
+                const statusDiv = document.getElementById('connectionStatus');
+                if (statusDiv) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    
+                    if (isChecking) {
+                        statusDiv.innerHTML = `
+                            <div style="
+                                width: 20px;
+                                height: 20px;
+                                border: 2px solid #3b82f6;
+                                border-top: 2px solid transparent;
+                                border-radius: 50%;
+                                animation: spin 1s linear infinite;
+                            "></div>
+                            <span style="color: #93c5fd; font-weight: 500;">
+                                Vérification en cours... (${timestamp})
+                            </span>
+                        `;
+                    } else {
+                        statusDiv.innerHTML = `
+                            <div style="
+                                width: 20px;
+                                height: 20px;
+                                background: #ef4444;
+                                border-radius: 50%;
+                                animation: pulse 2s infinite;
+                            "></div>
+                            <span style="color: #fca5a5; font-weight: 500;">
+                                ${message || 'Réseau non autorisé'} - Prochaine vérification dans 5s
+                            </span>
+                        `;
+                    }
+                }
+            }
+
             function showNetworkAccessDenied() {
                 document.body.innerHTML = `
                     <div style="
@@ -1485,32 +1522,34 @@
                                 ">
                                     <strong>⚠️ Instructions :</strong><br>
                                     1. Connectez-vous à l'un des réseaux WiFi autorisés<br>
-                                    2. Rechargez cette page<br>
-                                    3. L'accès sera automatiquement accordé
+                                    2. L'accès sera automatiquement accordé<br>
+                                    3. Aucune action supplémentaire requise
                                 </p>
                             </div>
                             
-                            <button onclick="location.reload()" style="
-                                background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
-                                border: none;
-                                color: white;
-                                padding: 15px 30px;
-                                border-radius: 30px;
-                                font-size: 1.1rem;
-                                font-weight: bold;
-                                cursor: pointer;
-                                transition: all 0.3s ease;
-                                box-shadow: 0 8px 16px rgba(79, 172, 254, 0.3);
-                                text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-                            " onmouseover="
-                                this.style.transform='translateY(-2px) scale(1.05)';
-                                this.style.boxShadow='0 12px 24px rgba(79, 172, 254, 0.4)';
-                            " onmouseout="
-                                this.style.transform='translateY(0) scale(1)';
-                                this.style.boxShadow='0 8px 16px rgba(79, 172, 254, 0.3)';
+                            <div id="connectionStatus" style="
+                                background: rgba(59, 130, 246, 0.2);
+                                border: 1px solid rgba(59, 130, 246, 0.4);
+                                padding: 15px 20px;
+                                border-radius: 20px;
+                                margin: 20px 0;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 10px;
                             ">
-                                🔄 Vérifier la connexion
-                            </button>
+                                <div style="
+                                    width: 20px;
+                                    height: 20px;
+                                    border: 2px solid #3b82f6;
+                                    border-top: 2px solid transparent;
+                                    border-radius: 50%;
+                                    animation: spin 1s linear infinite;
+                                "></div>
+                                <span style="color: #93c5fd; font-weight: 500;">
+                                    Vérification automatique de la connexion...
+                                </span>
+                            </div>
                             
                             <div style="
                                 margin-top: 40px;
@@ -1534,33 +1573,106 @@
                                 from { opacity: 0; transform: translateY(30px) scale(0.9); }
                                 to { opacity: 1; transform: translateY(0) scale(1); }
                             }
+                            
+                            @keyframes spin {
+                                0% { transform: rotate(0deg); }
+                                100% { transform: rotate(360deg); }
+                            }
+                            
+                            @keyframes pulse {
+                                0%, 100% { opacity: 1; }
+                                50% { opacity: 0.5; }
+                            }
                         </style>
                     </div>
                 `;
             }
 
+            // Variables globales pour la gestion d'état
+            let isNetworkAuthorized = false;
+            let isAppInitialized = false;
+            let originalBodyContent = null;
+            
             // Mode débogage temporaire (à désactiver en production)
-            const DEBUG_MODE = true; // CHANGEZ À false EN PRODUCTION
+            const DEBUG_MODE = false; // CHANGEZ À true POUR TESTS SEULEMENT
+            
+            // Sauvegarde du contenu original de la page
+            function saveOriginalContent() {
+                if (!originalBodyContent) {
+                    originalBodyContent = document.body.innerHTML;
+                }
+            }
+            
+            // Restauration du contenu original et initialisation de l'app
+            async function restoreOriginalContentAndInit() {
+                if (originalBodyContent && !isAppInitialized) {
+                    document.body.innerHTML = originalBodyContent;
+                    isAppInitialized = true;
+                    
+                    // Réinitialiser l'application après restauration du contenu
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Attendre que le DOM soit prêt
+                    await init();
+                    console.log('✅ Application TICP restaurée et initialisée');
+                }
+            }
+            
+            // Vérification réseau avec gestion automatique de l'affichage
+            async function performNetworkCheck() {
+                const wasAuthorized = isNetworkAuthorized;
+                
+                // Mise à jour du statut pendant la vérification
+                if (!wasAuthorized) {
+                    updateConnectionStatus(true);
+                }
+                
+                isNetworkAuthorized = await checkAuthorizedNetwork();
+                
+                if (DEBUG_MODE) {
+                    isNetworkAuthorized = true;
+                    if (!wasAuthorized) {
+                        console.warn('🔧 DEBUG MODE: Accès forcé - DÉSACTIVEZ EN PRODUCTION !');
+                    }
+                }
+                
+                // Si le statut a changé, mettre à jour l'affichage
+                if (wasAuthorized !== isNetworkAuthorized) {
+                    if (isNetworkAuthorized) {
+                        console.log('✅ Accès réseau autorisé - Chargement de l\'application');
+                        await restoreOriginalContentAndInit();
+                    } else {
+                        console.warn('❌ Accès réseau non autorisé - Affichage page de restriction');
+                        saveOriginalContent();
+                        showNetworkAccessDenied();
+                        isAppInitialized = false;
+                        
+                        // Mettre à jour le statut après un court délai
+                        setTimeout(() => {
+                            updateConnectionStatus(false, 'Réseau non autorisé détecté');
+                        }, 1000);
+                    }
+                } else if (!isNetworkAuthorized) {
+                    // Mise à jour du statut si toujours non autorisé
+                    setTimeout(() => {
+                        updateConnectionStatus(false, 'Toujours non autorisé');
+                    }, 1000);
+                }
+                
+                return isNetworkAuthorized;
+            }
             
             // Vérification immédiate au chargement
             (async function initNetworkCheck() {
-                console.log('🔍 Vérification de l\'accès réseau SNCF...');
+                console.log('🔍 Démarrage de la vérification réseau SNCF...');
                 
-                const isAuthorized = await checkAuthorizedNetwork();
+                // Sauvegarder le contenu original dès le début
+                saveOriginalContent();
                 
-                if (!isAuthorized) {
-                    if (DEBUG_MODE) {
-                        console.warn('⚠️ DEBUG MODE: Accès autorisé malgré la restriction réseau');
-                        console.warn('🔧 DÉSACTIVEZ DEBUG_MODE EN PRODUCTION !');
-                        return; // Continuer le chargement en mode debug
-                    }
-                    
-                    console.warn('❌ Accès refusé - Redirection vers page de restriction');
-                    showNetworkAccessDenied();
-                    return; // Arrêter l'exécution du reste du script
+                // Première vérification
+                const authorized = await performNetworkCheck();
+                
+                if (!authorized) {
+                    console.log('🔄 Vérification réseau en cours toutes les 5 secondes...');
                 }
-                
-                console.log('✅ Accès autorisé - Chargement de l\'application TICP');
             })();
 
             // ==============================================
@@ -7548,36 +7660,54 @@
 
             // (mouse-based resize removed; resizing is done only via the edit dialog)
 
-            // Surveillance périodique de la connexion réseau
-            function startNetworkMonitoring() {
-                // Vérifier la connexion toutes les 5 minutes
-                setInterval(async () => {
-                    const isAuthorized = await checkAuthorizedNetwork();
-                    if (!isAuthorized) {
-                        console.warn('🚫 Connexion réseau non autorisée détectée - Blocage de l\'application');
-                        showNetworkAccessDenied();
-                    }
-                }, 5 * 60 * 1000); // 5 minutes
+            // Surveillance continue et automatique de la connexion réseau
+            function startContinuousNetworkMonitoring() {
+                // Vérification fréquente toutes les 5 secondes quand accès refusé
+                // Puis toutes les 2 minutes quand accès autorisé
+                const continuousCheck = async () => {
+                    await performNetworkCheck();
+                    
+                    // Interval adaptatif : plus fréquent si accès refusé
+                    const checkInterval = isNetworkAuthorized ? 2 * 60 * 1000 : 5 * 1000; // 2 min vs 5 sec
+                    setTimeout(continuousCheck, checkInterval);
+                };
+                
+                // Démarrer la surveillance continue
+                setTimeout(continuousCheck, 5000); // Premier check dans 5 secondes
                 
                 // Vérifier lors du changement de focus de la page
                 document.addEventListener('visibilitychange', async () => {
                     if (!document.hidden) {
-                        const isAuthorized = await checkAuthorizedNetwork();
-                        if (!isAuthorized) {
-                            console.warn('🚫 Vérification au retour de focus - Accès refusé');
-                            showNetworkAccessDenied();
-                        }
+                        console.log('🔍 Vérification réseau au retour de focus...');
+                        await performNetworkCheck();
                     }
                 });
                 
-                console.log('🔍 Surveillance réseau SNCF activée (vérification toutes les 5 minutes)');
+                // Vérifier lors du changement de connexion réseau (si supporté)
+                if ('connection' in navigator && navigator.connection) {
+                    navigator.connection.addEventListener('change', async () => {
+                        console.log('� Changement de connexion détecté - Vérification...');
+                        await performNetworkCheck();
+                    });
+                }
+                
+                // Vérifier lors du redimensionnement de fenêtre (peut indiquer un changement d'environnement)
+                window.addEventListener('resize', async () => {
+                    // Attendre 2 secondes pour éviter les vérifications multiples
+                    clearTimeout(window.resizeCheckTimeout);
+                    window.resizeCheckTimeout = setTimeout(async () => {
+                        await performNetworkCheck();
+                    }, 2000);
+                });
+                
+                console.log('🔍 Surveillance réseau continue SNCF activée (5s si refusé, 2min si autorisé)');
             }
 
-            // Initialize the application
-            init().then(() => {
-                // Démarrer la surveillance réseau après l'initialisation réussie
-                startNetworkMonitoring();
-            });
+            // Démarrer la surveillance réseau automatique
+            startContinuousNetworkMonitoring();
+            
+            // Note : init() sera appelé automatiquement par performNetworkCheck() 
+            // seulement si le réseau est autorisé
         </script>
     </body>
 </html>
