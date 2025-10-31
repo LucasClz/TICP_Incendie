@@ -905,6 +905,33 @@
             box-shadow: 0 0 6px rgba(22,163,74,0.6);
         }
 
+        /* Zones sélectionnables - amélioration UX */
+        .zone-selectable {
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .zone-selectable:hover {
+            background-color: #f3f4f6 !important;
+            border-color: #9ca3af !important;
+            transform: translateX(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .zone-selectable:active {
+            transform: translateX(1px);
+            background-color: #e5e7eb !important;
+        }
+        
+        .zone-selectable.bg-blue-50:hover {
+            background-color: #dbeafe !important;
+            border-color: #3b82f6 !important;
+        }
+        
+        .zone-checkbox {
+            pointer-events: auto;
+        }
+
         /* Resize-by-mouse removed: resizing now only via the element edit dialog */
         .admin-element.resizing { transition: none; opacity: 0.95; }
         
@@ -4567,12 +4594,15 @@
             const isSelected = selectedZoneIds.has(zone.id);
             
             return `
-            <div class="flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50 ${isSelected ? 'bg-blue-50 border-blue-300' : ''}">
+            <div class="zone-item flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50 ${isSelected ? 'bg-blue-50 border-blue-300' : ''} 
+                     ${isMultiSelectMode ? 'cursor-pointer zone-selectable' : ''}"
+                 ${isMultiSelectMode ? `onclick="toggleZoneSelectionFromArea('${zone.id}')"` : ''}>
                 ${isMultiSelectMode ? `
                     <input type="checkbox" 
                            onchange="toggleZoneSelection('${zone.id}')" 
+                           onclick="event.stopPropagation();"
                            ${isSelected ? 'checked' : ''}
-                           class="mr-3">
+                           class="mr-3 zone-checkbox">
                 ` : ''}
                 <div class="flex-1">
                     <div class="font-medium">${zone.name} ${displayCat ? `<span class=\"text-xs ml-2 px-1 py-0.5 bg-gray-100 rounded\">${displayCat}</span>` : ''}</div>
@@ -6908,6 +6938,11 @@
                     selectedZoneIds.add(zoneId);
                 }
                 renderAdminZoneList();
+            }
+
+            // Fonction pour sélectionner une zone en cliquant sur toute sa zone (pas seulement la checkbox)
+            function toggleZoneSelectionFromArea(zoneId) {
+                toggleZoneSelection(zoneId);
             }
 
             function selectAllZones() {
