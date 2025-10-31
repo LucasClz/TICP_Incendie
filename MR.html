@@ -4449,12 +4449,37 @@
         }
     }
 
-    // Export current zone
+    // Export current zone with inspections and photos
     function exportCurrentZone() {
         if (!currentZone) return;
         
-        const data = JSON.stringify(currentZone, null, 2);
-        downloadFile(data, `zone_${currentZone.id}.json`, 'application/json');
+        try {
+            // Récupérer toutes les inspections de la zone courante
+            const zoneInspections = inspections.filter(i => i.zoneId === currentZone.id);
+            
+            // Créer l'objet d'export complet
+            const exportData = {
+                zone: currentZone,
+                inspections: zoneInspections,
+                exportInfo: {
+                    exportDate: new Date().toISOString(),
+                    totalInspections: zoneInspections.length,
+                    inspectionsWithPhotos: zoneInspections.filter(i => i.photos && i.photos.length > 0).length,
+                    version: "1.0"
+                }
+            };
+            
+            const data = JSON.stringify(exportData, null, 2);
+            downloadFile(data, `zone_complete_${currentZone.id}.json`, 'application/json');
+            
+            // Message de confirmation
+            const photosCount = zoneInspections.reduce((total, i) => total + (i.photos ? i.photos.length : 0), 0);
+            alert(`Zone exportée avec succès !\n• ${zoneInspections.length} inspections\n• ${photosCount} photos incluses`);
+            
+        } catch (error) {
+            console.error('Erreur lors de l\'export:', error);
+            alert('Erreur lors de l\'export de la zone: ' + error.message);
+        }
     }
 
     // Import inspections
@@ -4488,6 +4513,10 @@
         `;
     }
 
+    // Variables pour la gestion de sélection multiple
+    let selectedZoneIds = new Set();
+    let isMultiSelectMode = false;
+
     function renderAdminZoneList() {
         const container = document.getElementById('adminZoneList');
         if (!container) return;
@@ -4502,21 +4531,63 @@
         // Tri par nom
         filteredZones.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
-        container.innerHTML = filteredZones.map(zone => {
+        // Header avec contrôles de sélection multiple
+        const headerHtml = `
+            <div class="mb-4 p-3 bg-gray-50 rounded border">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="toggleMultiSelectMode()" 
+                                class="px-3 py-1 ${isMultiSelectMode ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded text-sm">
+                            ${isMultiSelectMode ? '❌ Annuler Sélection' : '☑️ Sélection Multiple'}
+                        </button>
+                        ${isMultiSelectMode ? `
+                            <button onclick="selectAllZones()" 
+                                    class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                                ✓ Tout Sélectionner
+                            </button>
+                            <button onclick="deselectAllZones()" 
+                                    class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+                                ✗ Tout Désélectionner
+                            </button>
+                        ` : ''}
+                    </div>
+                    ${isMultiSelectMode && selectedZoneIds.size > 0 ? `
+                        <button onclick="deleteSelectedZones()" 
+                                class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-medium">
+                            🗑️ Supprimer Sélectionnées (${selectedZoneIds.size})
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        const zonesHtml = filteredZones.map(zone => {
             const cat = zone.category || '';
             const displayCat = cat.startsWith('Administratif') ? 'Administratif' : cat;
+            const isSelected = selectedZoneIds.has(zone.id);
+            
             return `
-            <div class="flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50">
+            <div class="flex justify-between items-center p-2 border border-gray-200 rounded hover:bg-gray-50 ${isSelected ? 'bg-blue-50 border-blue-300' : ''}">
+                ${isMultiSelectMode ? `
+                    <input type="checkbox" 
+                           onchange="toggleZoneSelection('${zone.id}')" 
+                           ${isSelected ? 'checked' : ''}
+                           class="mr-3">
+                ` : ''}
                 <div class="flex-1">
                     <div class="font-medium">${zone.name} ${displayCat ? `<span class=\"text-xs ml-2 px-1 py-0.5 bg-gray-100 rounded\">${displayCat}</span>` : ''}</div>
                     <div class="text-sm text-gray-500">${zone.id}</div>
                 </div>
-                <button onclick="editZone('${zone.id}')" 
-                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                    Éditer
-                </button>
+                ${!isMultiSelectMode ? `
+                    <button onclick="editZone('${zone.id}')" 
+                            class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                        Éditer
+                    </button>
+                ` : ''}
             </div>
         `}).join('');
+
+        container.innerHTML = headerHtml + zonesHtml;
     }
 
     function createNewZone() {
@@ -6819,6 +6890,88 @@
                 
                 alert(`Zone "${currentZone.name}" supprimée avec succès.`);
                 currentZone = null;
+            }
+
+            // Fonctions de gestion de sélection multiple des zones
+            function toggleMultiSelectMode() {
+                isMultiSelectMode = !isMultiSelectMode;
+                if (!isMultiSelectMode) {
+                    selectedZoneIds.clear();
+                }
+                renderAdminZoneList();
+            }
+
+            function toggleZoneSelection(zoneId) {
+                if (selectedZoneIds.has(zoneId)) {
+                    selectedZoneIds.delete(zoneId);
+                } else {
+                    selectedZoneIds.add(zoneId);
+                }
+                renderAdminZoneList();
+            }
+
+            function selectAllZones() {
+                const filteredZones = zones.filter(zone => {
+                    const cat = zone.category || '';
+                    const normalized = cat.startsWith('Administratif') ? 'Administratif' : cat;
+                    return normalized === 'MR';
+                });
+                filteredZones.forEach(zone => selectedZoneIds.add(zone.id));
+                renderAdminZoneList();
+            }
+
+            function deselectAllZones() {
+                selectedZoneIds.clear();
+                renderAdminZoneList();
+            }
+
+            function deleteSelectedZones() {
+                if (selectedZoneIds.size === 0) {
+                    alert('Aucune zone sélectionnée.');
+                    return;
+                }
+
+                const selectedZones = zones.filter(z => selectedZoneIds.has(z.id));
+                const zoneNames = selectedZones.map(z => z.name).join(', ');
+                
+                if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement les ${selectedZoneIds.size} zones sélectionnées ?\n\nZones: ${zoneNames}\n\nCette action supprimera également toutes les inspections associées.`)) {
+                    return;
+                }
+
+                let deletedCount = 0;
+                let deletedInspections = 0;
+
+                // Supprimer les zones sélectionnées
+                zones = zones.filter(z => {
+                    if (selectedZoneIds.has(z.id)) {
+                        deletedCount++;
+                        return false;
+                    }
+                    return true;
+                });
+
+                // Supprimer toutes les inspections liées aux zones supprimées
+                inspections = inspections.filter(i => {
+                    if (selectedZoneIds.has(i.zoneId)) {
+                        deletedInspections++;
+                        return false;
+                    }
+                    return true;
+                });
+
+                // Réinitialiser la sélection et le mode
+                selectedZoneIds.clear();
+                isMultiSelectMode = false;
+                currentZone = null;
+
+                // Sauvegarder et mettre à jour l'interface
+                saveZones();
+                saveInspections();
+                renderAdminZoneList();
+                renderAdminContent();
+                updateKPIs();
+
+                alert(`Suppression terminée avec succès !\n• ${deletedCount} zones supprimées\n• ${deletedInspections} inspections supprimées`);
             }
 
             // Remove photo function
